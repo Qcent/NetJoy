@@ -1,3 +1,6 @@
+# VStudio Directories
+*.vs
+
 # Prerequisites
 *.d
 
