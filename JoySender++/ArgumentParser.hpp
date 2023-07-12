@@ -20,7 +20,7 @@ Arguments parse_arguments(int argc, char* argv[]) {
         ("n,host", "IP address of host/server", cxxopts::value<std::string>()->default_value(""))
         ("p,port", "Port to run on", cxxopts::value<int>()->default_value("5000"))
         ("f,fps", "How many times to attempt to communicate with server per second", cxxopts::value<int>()->default_value("30"))
-        ("m,mode", "Operational Mode: 1: SDLmaps, 2: ds4 passthrough", cxxopts::value<int>()->default_value("1"))
+        ("m,mode", "Operational Mode: 1: Xbox360 Emulation, 2: DS4 Emulation", cxxopts::value<int>()->default_value("1"))
         ("l,latency", "Show latency output", cxxopts::value<bool>()->implicit_value("true"))
         ("a,auto", "Auto select first joystick", cxxopts::value<bool>()->implicit_value("true"))
         ("h,help", "Display this help message");

@@ -1,6 +1,7 @@
 //{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
-// Used by JoySender+.rc
+// Used by JoySender++.rc
+//
 
 // Next default values for new objects
 // 
