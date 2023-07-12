@@ -25,6 +25,8 @@ THE SOFTWARE.
 #include "HidManager.h"
 
 #define DS4_REPORT_NETWORK_DATA_SIZE 61
+#define DS4_BT_OUTPUT_REPORT_SIZE 78
+#define DS4_USB_OUTPUT_REPORT_SIZE 32
 constexpr byte DS4_VIA_USB = 1;
 constexpr byte DS4_VIA_BT = 3;
 
@@ -84,7 +86,7 @@ template<int N> struct BTAudio {
 
 };
 
-/*struct USBSetStateData {
+struct USBSetStateData {
     uint8_t EnableRumbleUpdate : 1;
     uint8_t EnableLedUpdate : 1;
     uint8_t EnableLedBlink : 1;
@@ -122,7 +124,7 @@ template<int N> struct BTAudio {
         // Initialize the fields with default values
         EnableRumbleUpdate = 1;
         EnableLedUpdate = 1;
-        EnableLedBlink = 0;
+        EnableLedBlink = 1;
         EnableExtWrite = 0;
         EnableVolumeLeftUpdate = 0;
         EnableVolumeRightUpdate = 0;
@@ -137,9 +139,9 @@ template<int N> struct BTAudio {
         Empty1 = 0;
         RumbleRight = 0; // weak
         RumbleLeft = 0; // strong
-        LedRed = 4;
-        LedGreen = 32;
-        LedBlue = 105;
+        LedRed = 150;
+        LedGreen = 0;
+        LedBlue = 0;
         LedFlashOnPeriod = 0;
         LedFlashOffPeriod = 0;
         ExtDataSend[7] = {}; // sent to I2C EXT port, stored in 8x8 byte block
@@ -150,60 +152,6 @@ template<int N> struct BTAudio {
         UNK_AUDIO1 = 0; // clamped to 1-64 inclusive, appears to be set to 5 for audio
         UNK_AUDIO2 = 0; // unknown, appears to be set to 1 for audio
         Pad[7] = {};
-    }
-};*/
-struct USBSetStateData {
-    uint8_t EnableRumbleUpdate : 1;
-    uint8_t EnableLedUpdate : 1;
-    uint8_t EnableLedBlink : 1;
-    uint8_t EnableExtWrite : 1;
-    uint8_t EnableVolumeLeftUpdate : 1;
-    uint8_t EnableVolumeRightUpdate : 1;
-    uint8_t EnableVolumeMicUpdate : 1;
-    uint8_t EnableVolumeSpeakerUpdate : 1;
-    uint8_t UNK_RESET1 : 1; // unknown reset, both set high by Remote Play
-    uint8_t UNK_RESET2 : 1; // unknown reset, both set high by Remote Play
-    uint8_t UNK1 : 1;
-    uint8_t UNK2 : 1;
-    uint8_t UNK3 : 1;
-    uint8_t UNKPad : 3;
-    uint8_t Empty1;
-    uint8_t RumbleRight; // weak
-    uint8_t RumbleLeft; // strong
-    uint8_t LedRed;
-    uint8_t LedGreen;
-    uint8_t LedBlue;
-    uint8_t LedFlashOnPeriod;
-    uint8_t LedFlashOffPeriod;
-    uint8_t Blank[5] = {}; // filler to padd out 16 bytes
-
-    // Constructor to initialize the fields
-    USBSetStateData()
-    {
-        // Initialize the fields with default values
-        EnableRumbleUpdate = 1;
-        EnableLedUpdate = 1;
-        EnableLedBlink = 0;
-        EnableExtWrite = 0;
-        EnableVolumeLeftUpdate = 1;
-        EnableVolumeRightUpdate = 1;
-        EnableVolumeMicUpdate = 1;
-        EnableVolumeSpeakerUpdate = 1;
-        UNK_RESET1 = 0; // unknown reset, both set high by Remote Play
-        UNK_RESET2 = 0; // unknown reset, both set high by Remote Play
-        UNK1 = 0;
-        UNK2 = 0;
-        UNK3 = 0;
-        UNKPad = 0;
-        Empty1 = 0;
-        RumbleRight = 0; // weak
-        RumbleLeft = 0; // strong
-        LedRed = 4;
-        LedGreen = 32;
-        LedBlue = 105;
-        LedFlashOnPeriod = 0;
-        LedFlashOffPeriod = 0;
-        Blank[5] = {};
     }
 };
 
@@ -334,7 +282,7 @@ struct ReportOut11 {
 };
 
 // Create a buffer to store reports in
-const DWORD ds4_InBuffSize = 1024; // 1024 is smallest value that will receive DS4 report using ReadFileInputReport()
+const DWORD ds4_InBuffSize = 1024; // 1024 is smallest value that will receive DS4 report using ReadFileInputReport() ??? i just used 64 in USB mode
 BYTE ds4_InReportBuf[ds4_InBuffSize];
 
 // Create an output buffer for sending ReportOut11/ReportOut05 structures
@@ -472,7 +420,7 @@ void SetDS4LightBar(UINT8 r, UINT8 g, UINT8 b) {
     }
 }
 
-void SetDS4RumbleValue(UINT8 l, UINT8 r) {
+void SetDS4RumbleValue(UINT8 r, UINT8 l) {
     if (ds4DataOffset == DS4_VIA_BT) {
         ds4StateBT->RumbleLeft = l;
         ds4StateBT->RumbleRight = r;
@@ -487,14 +435,14 @@ bool SendDS4Update() {
     if (ds4DataOffset == DS4_VIA_BT) {
         // Update the state of the report at buffer index 3
         memcpy(ds4_OutReportBuf + ds4DataOffset, ds4StateBT, sizeof(BTSetStateData));
-        if (DS4manager.WriteOutputReport(ds4_OutReportBuf, sizeof(ReportOut11))) {
+        if (DS4manager.WriteOutputReport(ds4_OutReportBuf, DS4_BT_OUTPUT_REPORT_SIZE)) {
             return 1;
         }
     }
     else if (ds4DataOffset == DS4_VIA_USB) {
         // Update the state of the report at buffer index 1
-        memcpy(ds4_OutReportBuf + ds4DataOffset, ds4StateUSB, sizeof(USBSetStateData));
-        if (DS4manager.WriteOutputReport(ds4_OutReportBuf, sizeof(ReportOut05))) {
+        memcpy(ds4_OutReportBuf, &ds4OutReport05, sizeof(ds4OutReport05));
+        if (DS4manager.WriteFileOutputReport(ds4_OutReportBuf, DS4_USB_OUTPUT_REPORT_SIZE)) {
             return 1;
         }
     }

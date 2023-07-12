@@ -314,6 +314,14 @@ int joySender(Arguments& args) {
         InitDS4FeedbackBuffer();
 
         // Set new LightBar color with update to confirm rumble/lightbar support
+        switch (ds4DataOffset) {
+        case(DS4_VIA_BT):
+            SetDS4LightBar(105, 4, 32); // hot pink
+            break;
+        case(DS4_VIA_USB):
+            SetDS4LightBar(180, 188, 5); // citrus yellow-green
+        }
+
         allGood = SendDS4Update();       
 
         g_outputText = "DS4 "; 
@@ -325,6 +333,19 @@ int joySender(Arguments& args) {
         g_outputText += "\r\n";
 
         reportSize = DS4_REPORT_NETWORK_DATA_SIZE;
+
+        if (allGood) {
+            // jiggle it
+            SetDS4RumbleValue(12, 200);
+            SendDS4Update();
+            Sleep(110);
+            SetDS4RumbleValue(165, 12);
+            SendDS4Update();
+            // stop the rumble
+            SetDS4RumbleValue(0, 0);
+            Sleep(130);
+            SendDS4Update();
+        }
     }
     else {
         g_outputText = "SDL Mode Activated\r\n";
