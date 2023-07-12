@@ -4,12 +4,11 @@ JoySender++ is a console application that enables you to send joystick data over
 ## Usage
 
 To use JoySender++, follow these steps:
+- Run the JoySender++ executable without any command-line parameters.
+- JoySender++ will guide you through the initial joystick mapping process. Follow the on-screen instructions to assign buttons and axes to your joystick.
+Once mapped, JoySender++ will start transmitting joystick data to the specified host/server.
 
-    Run the JoySender++ executable without any command-line parameters.
-    JoySender++ will guide you through the initial joystick mapping process. Follow the on-screen instructions to assign buttons and axes to your joystick.
-    Once mapped, JoySender++ will start transmitting joystick data to the specified host/server.
-
-Command-Line Parameters
+### With Command-Line Parameters
 
 ```
 JoySender++ [OPTIONS]
