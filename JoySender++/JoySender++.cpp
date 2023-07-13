@@ -534,12 +534,11 @@ int joySender(Arguments& args) {
                     repositionConsoleCursor(2);
                 }
 #endif
-                if (args.mode == 2 && ds4DataOffset == DS4_VIA_BT){ // USB reports not working and sending bad commands seems to cause issues                 
+                if (args.mode == 2){
                     SetDS4RumbleValue(byte(buffer[0]), byte(buffer[1]));
-                    //SetDS4LightBar(byte(buffer[2]), byte(buffer[3]), byte(buffer[4])); // just testing this here for now
                     allGood = SendDS4Update();
                     if (!allGood) {
-                        // USB always errors
+                        // USB always errors // not anymore right?
                         outputLastError();
                         displayBytes(ds4_OutReportBuf, 16);
                     }
