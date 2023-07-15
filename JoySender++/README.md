@@ -72,6 +72,8 @@ This allows you to map the various buttons and controls on your joystick to the 
 
 - It is important to note that excessively noisy or glitchy analog sticks on your joystick can potentially cause issues during the mapping process.
 
+- Pressing `Esc` will skip the current input. Allowing you to not set a mapping for an input.
+
 - Once you have successfully mapped all the desired inputs for your joystick, JoySender++ will be able to emulate your joystick inputs as an Xbox360 controller on a machine running JoyReceiver++. 
 
 - To remap your selected joystick inputs, simply press Shift+M within the JoySender++ application. This will initiate the remapping process and allow you to modify or update the mapping configuration.
