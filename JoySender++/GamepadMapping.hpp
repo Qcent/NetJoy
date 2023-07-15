@@ -245,6 +245,19 @@ public:
         }
     }
 
+    static std::string getButtonTypeString(ButtonType buttonType) {
+        switch (buttonType) {
+        case ButtonType::HAT: return "DPAD";
+        case ButtonType::STICK: return "STICK";
+        case ButtonType::THUMB: return "THUMB";
+        case ButtonType::TRIGGER: return "TRIGGER";
+        case ButtonType::BUTTON: return "BUTTON";
+        case ButtonType::SHOULDER: return "SHOULDER";
+        case ButtonType::UNSET: return "UNSET";
+        default: return "UNKNOWN";
+        }
+    }
+
     std::string displayButtonMaps() {
         std::string output;
         for (const auto& buttonMap : buttonMaps) {
@@ -270,19 +283,7 @@ public:
     }
 
 private:
-    std::string getButtonTypeString(ButtonType buttonType) const {
-        switch (buttonType) {
-        case ButtonType::HAT: return "DPAD";
-        case ButtonType::STICK: return "STICK";
-        case ButtonType::THUMB: return "THUMB";
-        case ButtonType::TRIGGER: return "TRIGGER";
-        case ButtonType::BUTTON: return "BUTTON";
-        case ButtonType::SHOULDER: return "SHOULDER";
-        case ButtonType::UNSET: return "UNSET";
-        default: return "UNKNOWN";
-        }
-    }
-
+    
     std::vector<ButtonName> generateButtonList(ButtonType buttonType) const {
 
             auto compareByName = [this](ButtonName id1, ButtonName id2) {
@@ -552,7 +553,7 @@ SDLButtonMapping::ButtonMapInput get_sdljoystick_input(const SDLJoystickData& jo
 
 void wait_for_no_sdljoystick_input(SDLJoystickData& joystick) {
     bool awaiting_silence = true;
-    while (awaiting_silence) {
+    while (awaiting_silence && !APP_KILLED) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             // Handle events if necessary
@@ -564,7 +565,7 @@ void wait_for_no_sdljoystick_input(SDLJoystickData& joystick) {
         
         // Iterate over all joystick axes and record their value
         for (int i = 0; i < SDL_JoystickNumAxes(joystick._ptr); i++) {
-            int read_val = SDL_JoystickGetAxis(joystick._ptr, i); // 32767.0f;
+            int read_val = SDL_JoystickGetAxis(joystick._ptr, i); 
             axis_value += (abs(read_val-joystick.avgBaseline[i]) > 6000) ? abs(read_val) : 0;
         }
 
@@ -583,6 +584,36 @@ void wait_for_no_sdljoystick_input(SDLJoystickData& joystick) {
             awaiting_silence = false;
         }
     }
+}
+
+bool there_is_sdljoystick_input(SDLJoystickData& joystick) {
+
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            // Handle events if necessary
+        }
+
+        // Iterate over all joystick axes
+        for (int i = 0; i < SDL_JoystickNumAxes(joystick._ptr); i++) {
+            int read_val = SDL_JoystickGetAxis(joystick._ptr, i);
+            if (abs(read_val - joystick.avgBaseline[i]) > 10000)
+                return true;
+        }
+
+        // Iterate over all joystick buttons
+        for (int i = 0; i < SDL_JoystickNumButtons(joystick._ptr); i++) {
+            if (SDL_JoystickGetButton(joystick._ptr, i))
+                return true;
+        }
+
+        // Iterate over DPad hats
+        for (int i = 0; i < SDL_JoystickNumHats(joystick._ptr); i++) {
+            if (SDL_JoystickGetHat(joystick._ptr, i))
+                return true;
+        }
+
+        // If no values are detected return false       
+        return false;
 }
 
 void setSDLMapping(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonName>& inputList) {
@@ -608,18 +639,23 @@ void setSDLMapping(SDLJoystickData& joystick, std::vector<SDLButtonMapping::Butt
         std::string inputName = SDLButtonMapping::getButtonNameString(inputID);
         SDLButtonMapping::ButtonType inputType = get_input_type(inputName);
 
-        // Prompt the user for input
-        g_outputText += input_verb(inputType) + " " + format_input_name(inputName) + " ...\r\n";
-        displayOutputText();
+        
 
         // Receive updates from the device and map inputs
         SDLButtonMapping::ButtonMapInput received_input;
         bool settingInput = true;
         while (settingInput && !APP_KILLED) {
-            // Wait for no input to be detected
-            wait_for_no_sdljoystick_input(joystick);
 
-            g_outputText += "Go!\r\n";
+            // Wait for no input to be detected
+            if (there_is_sdljoystick_input(joystick)) { 
+                std::cout << "  <<  Input Detected, Please Release To Continue >> ";
+                while (there_is_sdljoystick_input(joystick) && !APP_KILLED) {
+                    Sleep(20);
+                }
+            }
+            
+            // Prompt the user for input
+            g_outputText = input_verb(inputType) + " " + format_input_name(inputName) + " ...\r\n";
             displayOutputText();
 
             // Receive an input signature
@@ -637,10 +673,15 @@ void setSDLMapping(SDLJoystickData& joystick, std::vector<SDLButtonMapping::Butt
                 settingInput = false;
             }
             else {
-                g_outputText = " << That button has already been used!>> \r\n";
-                // Prompt the user for input
-                g_outputText += input_verb(inputType) + " " + format_input_name(inputName) + " ...\r\n";
-                displayOutputText();
+                std::cout << " << That input ( " <<
+                    SDLButtonMapping::getButtonTypeString(received_input.input_type) <<
+                    ' ' << std::to_string(received_input.index) <<
+                    ' ' << std::to_string(received_input.value) <<
+                    " ) has already been assigned!>> \r\n";
+
+                while (there_is_sdljoystick_input(joystick) && !APP_KILLED) {
+                    Sleep(20);
+                }
             }
         }
 
@@ -650,9 +691,9 @@ void setSDLMapping(SDLJoystickData& joystick, std::vector<SDLButtonMapping::Butt
         if (received_input.input_type == SDLButtonMapping::ButtonType::UNSET) {
             g_outputText = "<< Input " + format_input_name(inputName) + " has been skipped! >>\r\n\r\n";
         }
-        else {
+        /*else {
             g_outputText = joystick.mapping.displayInput(inputID) + "\r\n\r\n";
-        }
+        }*/
 
     }
     g_outputText += "<< All Done! >>\r\n\r\n";
