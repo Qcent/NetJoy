@@ -262,7 +262,7 @@ public:
         switch (buttonType) {
         case ButtonType::HAT: {
             std::ostringstream oss;
-            oss <<std::showbase << std::internal << std::setfill('0') << std::setw(4) << std::hex << value;
+            oss << ' ' << std::showbase << std::internal << std::setfill('0') << std::setw(4) << std::hex << value;
             return oss.str();
         }
 
@@ -270,11 +270,8 @@ public:
             if (value > 0) return "+";
             return "-";
         }
-
-        defaut:
-                              return " ";
-
         }
+        return "";
     }
 
     std::string displayButtonMaps() {
@@ -695,9 +692,8 @@ void setSDLMapping(SDLJoystickData& joystick, std::vector<SDLButtonMapping::Butt
                 std::cout << " << That input ( " <<
                     SDLButtonMapping::getButtonTypeString(received_input.input_type) <<
                     ' ' << std::to_string(received_input.index) <<
-                    //' ' << std::to_string(received_input.value) <<
-                    ' ' << SDLButtonMapping::getInputValueString(received_input.input_type, received_input.value) <<
-                    " ) has already been assigned!>> \r\n";
+                    SDLButtonMapping::getInputValueString(received_input.input_type, received_input.value) <<
+                    " ) has already been assigned! >> \r\n";
 
                 while (there_is_sdljoystick_input(joystick) && !APP_KILLED) {
                     Sleep(20);
