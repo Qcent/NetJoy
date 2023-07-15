@@ -61,8 +61,8 @@ IDI_ICON1               ICON                    "icon5.ico"
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 0,1,1,4
- PRODUCTVERSION 0,1,1,4
+ FILEVERSION 0,1,1,5
+ PRODUCTVERSION 0,1,1,5
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -79,12 +79,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Quinnco. Enterprises"
             VALUE "FileDescription", "JoySender++"
-            VALUE "FileVersion", "0.1.1.4"
+            VALUE "FileVersion", "0.1.1.5"
             VALUE "InternalName", "JoySender++"
             VALUE "LegalCopyright", "Copyright (C) 2023 Quinnco. Enterprises"
             VALUE "OriginalFilename", "JoySender++.exe"
             VALUE "ProductName", "JoySender++"
-            VALUE "ProductVersion", "0.1.1.4"
+            VALUE "ProductVersion", "0.1.1.5"
         END
     END
     BLOCK "VarFileInfo"
