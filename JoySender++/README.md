@@ -1,8 +1,10 @@
 # JoySender++
 JoySender++ is a console application that enables you to send joystick data over TCP/IP to a host/server. It simplifies the process of remote joystick control, allowing you to enjoy gaming experiences on a different machine within a local network or even over the internet. \
-**Mode 1:**
-JoySender++ uses user created button mapping to emulate an Xbox360 controller on host machine running JoyReceiver++.
-**Mode 2:**
+It runs in two modes: \
+
+**Mode 1:** \
+JoySender++ uses user created button mapping to emulate an Xbox360 controller on host machine running JoyReceiver++. \
+**Mode 2:** \
 JoySender++ reads input reports from a DS4 controller and sends them to a host machine running JoyReceiver++.
 
 ## Table of Contents
