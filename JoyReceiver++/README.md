@@ -1,14 +1,29 @@
 # JoyReceiver++
 JoyReceiver++ is a console application that receives and emulates joystick data over TCP/IP. It allows you to seamlessly control a joystick connected to a remote machine, providing an immersive gaming experience.
 
+
+## Table of Contents
+- [Requirements](#requirements)
+- [Usage](#usage)
+- [With Command-Line Parameters](#with-command-line-parameters)
+- [Examples](#examples)
+- [Contact](#contact)
+
+## Requirements
+
+Before using JoyReceiver++, make sure you have installed the ViGEm Bus Driver:
+
+- ViGEm Bus Driver: JoyReceiver++ requires the ViGEm Bus driver to enable joystick emulation. Ensure you have the ViGEm Bus driver installed on your system before using JoyReceiver++. You can download and install the ViGEm Bus driver from the official ViGEm GitHub repository or website.
+        [ViGEmBus Driver](https://github.com/ViGEm/ViGEmBus)
+
 ## Usage
 
-To use JoyReceiver++, follow these steps:
-- Run the JoyReceiver++ executable without any command-line parameters.
-- JoyReceiver++ will start listening for incoming joystick data on the default port (5000) and emulate the received input using the ViGEM driver.
+To use JoyReceiver++:
+- Simply run the JoyReceiver++ executable.
+- JoyReceiver++ will start listening for incoming joystick data on the default port (5000).
+- Once a connection is received, gamepad emulation will begin using the ViGEm driver.
 
 ### With Command-Line Parameters
-
 JoyReceiver++ provides command-line parameters for advanced settings and customization. Here are the available options:
 
     -p, --port <PORT>: Sets the port number to run JoyReceiver++ on for communication with the client/sender.
@@ -21,9 +36,10 @@ By default, JoyReceiver++ uses port 5000 for communication. If you wish to use a
 JoyReceiver++ [OPTIONS]
 ```
 
+## Examples
 **Example Usage:**
 
-To run JoySender++ with default settings, simply execute the following command:
+To run JoyReceiver++ with default settings, simply execute the following command:
 
 ```
 JoyReceiver++
@@ -36,6 +52,7 @@ JoyReceiver++ -p 8080 -l
 ```
 
 **Note:** You can safely quit the program at any time by pressing `Ctrl + C` in the console window.
+
 
 ## License
 MIT Licence
