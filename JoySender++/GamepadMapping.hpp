@@ -258,6 +258,25 @@ public:
         }
     }
 
+    static std::string getInputValueString(ButtonType buttonType, int value) {
+        switch (buttonType) {
+        case ButtonType::HAT: {
+            std::ostringstream oss;
+            oss <<std::showbase << std::internal << std::setfill('0') << std::setw(4) << std::hex << value;
+            return oss.str();
+        }
+
+        case ButtonType::STICK: {
+            if (value > 0) return "+";
+            return "-";
+        }
+
+        defaut:
+                              return " ";
+
+        }
+    }
+
     std::string displayButtonMaps() {
         std::string output;
         for (const auto& buttonMap : buttonMaps) {
@@ -676,7 +695,8 @@ void setSDLMapping(SDLJoystickData& joystick, std::vector<SDLButtonMapping::Butt
                 std::cout << " << That input ( " <<
                     SDLButtonMapping::getButtonTypeString(received_input.input_type) <<
                     ' ' << std::to_string(received_input.index) <<
-                    ' ' << std::to_string(received_input.value) <<
+                    //' ' << std::to_string(received_input.value) <<
+                    ' ' << SDLButtonMapping::getInputValueString(received_input.input_type, received_input.value) <<
                     " ) has already been assigned!>> \r\n";
 
                 while (there_is_sdljoystick_input(joystick) && !APP_KILLED) {
@@ -1089,14 +1109,15 @@ void OpenSelectJoystickDialog(std::unordered_map<std::string, int>& joystickList
 
 }
 
-void ConnectToJoystick(int joyIndex, SDLJoystickData& joystick) {
+int ConnectToJoystick(int joyIndex, SDLJoystickData& joystick) {
     // Open the specified joystick
     joystick._ptr = SDL_JoystickOpen(joyIndex);
     if (joystick._ptr == nullptr)
     {
         std::cout << "Failed to open joystick: " << SDL_GetError() << std::endl;
-        SDL_Quit();
+        return 0;
     }
+    return 1;
 }
 
 void BuildJoystickInputData(SDLJoystickData& joystick) {

@@ -271,11 +271,20 @@ int joySender(Arguments& args) {
     case 1: {   // SDL MODE
         if (!args.select) {
             showConsoleCursor();
-            ConsoleSelectJoystickDialog(getJoystickList().size(), activeGamepad);
+           allGood = ConsoleSelectJoystickDialog(getJoystickList().size(), activeGamepad);
+           if (!allGood) {
+               std::cout << " Unable to connect to that device !! " << std::endl;
+               return -1;
+           }
             hideConsoleCursor();
         }
-        else
-            ConnectToJoystick(0, activeGamepad);
+        else {
+            allGood = ConnectToJoystick(0, activeGamepad);
+            if (!allGood) {
+                std::cout << " Unable to connect to a device !! " << std::endl;
+                return -1;
+            }
+        }
     }
           break;
     case 2: {   // DS4 MODE
