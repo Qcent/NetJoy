@@ -41,9 +41,13 @@ std::wstring g_toWide(std::string& str);
 std::string getHostAddress();
 // Function that takes string representing a float and fixes it's decimal places to numDigits
 std::string formatDecimalString(const std::string& str, UINT8 numDigits);
+// Function captures all input from the keyboard to clear buffer
+void swallowInput();
 // Function waits for no keyboard presses to be detected before returning
 void wait_for_no_keyboard_input();
 // Function determines if app if the active window
 bool IsAppActiveWindow();
+// Function determines if rumble values need to be updated
+bool updateRumble(const char motor, BYTE val);
 // Main Loop Function 
 int joySender(Arguments& args);

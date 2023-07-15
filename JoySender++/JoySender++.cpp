@@ -113,12 +113,12 @@ std::string getHostAddress() {
         std::smatch match;
         return std::regex_match(ipAddress, match, pattern);
     };
-
+    swallowInput();
     std::string host_address;
     showConsoleCursor();
     while (!APP_KILLED && host_address.empty()) {
             std::cout << "Please enter the host IP address (or nothing for localhost): ";
-            std::cin.ignore(80, '\n'); // Flush the input stream
+            //std::cin.ignore(80, '\n'); // Flush the input stream
             std::getline(std::cin, host_address);
 
         if (host_address.empty()) {
