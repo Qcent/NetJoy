@@ -46,11 +46,11 @@ To get right at it download the win32 binaries:
 To get started with customizing Project NetJoy, follow these steps:
 
 - Download the Repository: Begin by downloading the project repository to your local machine. You can do this by clicking on the "Download" button or by cloning the repository using Git.
- Project NetJoy is built using Visual Studio 2019 Community Edition.  Download Link: Visual Studio 2019 Community Edition
- -JoySender++ and JoyReceiver++: NetJoy is comprised of two sister applications: JoySender++ and JoyReceiver++. Each application has its own separate folder and solution file.
-- Open the Solution Files - Navigate to the JoySender++ / JoyReceiver++ folders and open the corresponding solution file (.sln) in Visual Studio.
+ Project NetJoy is built using Visual Studio 2019 Community Edition.  Download Link: [Visual Studio 2019 Community Edition](https://visualstudio.microsoft.com/vs/community/)
+- JoySender++ and JoyReceiver++: NetJoy is comprised of two sister applications: JoySender++ and JoyReceiver++. Each application has its own separate folder and solution file.
+- Open the Solution Files: Navigate to the JoySender++ / JoyReceiver++ folders and open the corresponding solution file (.sln) in Visual Studio.
 - Change the code / rewrite the code.
-- Build the Project - JoySender++: In Visual Studio, build the solution by selecting the appropriate build configuration (JoyReciever++ is Release Only) and clicking on the build button. This will compile the   project and generate the necessary executable files.
+- Build the Projects : In Visual Studio, build the solution by selecting the appropriate build configuration (JoyReciever++ is Release Only) and clicking on the build button. This will compile the project and generate the necessary executable files.
     
 ## Usage
 Both JoySender++ and JoyReceiver++ are console applications that can be run without any command-line parameters in most situations. They provide a straightforward and intuitive way to enable remote joystick control and enhance gaming experiences. However, for advanced settings and customization, command-line parameters are available.
