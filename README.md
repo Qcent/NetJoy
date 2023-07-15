@@ -18,8 +18,8 @@ Enjoy streamlined remote joystick control with Project NetJoy. Emulate, customiz
 #### JoySender++: Xbox 360 Emulation and DS4 Passthrough
 - JoySender++ is a versatile application within Project NetJoy. It offers two modes of operation to suit different needs. In Xbox 360 emulation mode, you can connect any Windows-recognized joystick and seamlessly emulate it as an Xbox 360 controller on the host machine. This mode ensures compatibility with a wide range of games and applications specifically designed for Xbox 360 controllers.
 JoySender++ also provides DS4 passthrough mode. When a DualShock 4 (DS4) controller is connected, you can switch to this mode and emulate a DS4 controller on the host machine. DS4 passthrough mode allows DS4 controller users to fully utilize their controller's capabilities on the remote machine, providing a smooth and immersive gaming experience.
-#### JoyReceiver++: Seamless Input Emulation via ViGEM Driver
-- JoyReceiver++ works in conjunction with JoySender++ on the host machine. It receives the selected mode and joystick inputs transmitted by JoySender++. Based on the mode and input received, JoyReceiver++ emulates the corresponding input on the host machine using the ViGEM driver. This integration ensures seamless and accurate input emulation, enabling smooth gameplay and application interaction.
+#### JoyReceiver++: Seamless Input Emulation via ViGEm Driver
+- JoyReceiver++ works in conjunction with JoySender++ on the host machine. It receives the selected mode and joystick inputs transmitted by JoySender++. Based on the mode and input received, JoyReceiver++ emulates the corresponding input on the host machine using the ViGEm driver. This integration ensures seamless and accurate input emulation, enabling smooth gameplay and application interaction.
 
 #### Customizable Control Mapping
   Project NetJoy offers flexibility in control mapping. You can map any joystick input to any Xbox 360 input, allowing you to create personalized control schemes that suit your preferences and playstyle. Whether you require specific layouts or remapped inputs for optimal gameplay, Project NetJoy provides the versatility to accommodate your needs.
@@ -32,8 +32,8 @@ Before installing and using Project NetJoy, make sure you meet the following req
 
 - Operating System: Project NetJoy is compatible with Windows operating systems.
 
-- ViGEM Bus Driver: JoyReceiver++ requires the ViGEM Bus driver to enable joystick emulation. Ensure you have the ViGEM Bus driver installed on your system before using JoyReceiver++. You can download and install the ViGEM Bus driver from the official ViGEm GitHub repository or website.
-        [ViGEM Bus Driver](https://github.com/ViGEm/ViGEmBus)
+- ViGEm Bus Driver: JoyReceiver++ requires the ViGEm Bus driver to enable joystick emulation. Ensure you have the ViGEm Bus driver installed on your system before using JoyReceiver++. You can download and install the ViGEm Bus driver from the official ViGEm GitHub repository or website.
+        [ViGEmBus Driver](https://github.com/ViGEm/ViGEmBus)
 
 - SDL.dll: JoySender++ requires the SDL.dll library file to function properly. This library is provided and should be placed in the same folder as the JoySender++ executable. 
 
@@ -57,9 +57,9 @@ Both JoySender++ and JoyReceiver++ are console applications that can be run with
 
 To get started, follow these steps:
 - JoySender++: JoySender++ allows you to send joystick data over TCP/IP to a host/server. It can be executed without any command-line parameters to use the default settings. Simply run the JoySender++ executable, and it will guide you through the initial joystick mapping process. Once mapped, JoySender++ will start transmitting joystick data to the specified host/server.
-        For advanced settings and customization, you can utilize command-line parameters. Refer to the JoySender++ README file for detailed instructions on how to use the available options.
-- JoyReceiver++: JoyReceiver++ operates on the host/server machine and receives the joystick data transmitted by JoySender++. Like JoySender++, it can also be run without any command-line parameters for basic functionality. Run the JoyReceiver++ executable, and it will start emulating the received joystick input using the ViGEM driver.
-        If you wish to explore advanced settings and additional features, consult the JoyReceiver++ README file for instructions on utilizing command-line parameters.
+        For advanced settings and customization, you can utilize command-line parameters. Refer to the JoySender++ [README](https://github.com/Qcent/NetJoy/blob/main/JoySender++/README.md) file for detailed instructions on how to use the available options.
+- JoyReceiver++: JoyReceiver++ operates on the host/server machine and receives the joystick data transmitted by JoySender++. Like JoySender++, it can also be run without any command-line parameters for basic functionality. Run the JoyReceiver++ executable, and it will start emulating the received joystick input using the ViGEm driver.
+        If you wish to explore advanced settings and additional features, consult the JoyReceiver++ [README](https://github.com/Qcent/NetJoy/blob/main/JoyReceiver++/README.md) file for instructions on utilizing command-line parameters.
 
     Refer to the [JoySender++ README](https://github.com/Qcent/NetJoy/blob/main/JoySender++/README.md) file for detailed instructions. \
     Refer to the [JoyReceiver++ README](https://github.com/Qcent/NetJoy/blob/main/JoyReceiver++/README.md) file for detailed instructions.
