@@ -1180,6 +1180,6 @@ int RemapInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonN
 }
 
 int SDLRumble(SDLJoystickData& joystick, Uint8 leftMotor, Uint8 rightMotor, Uint32 duration_ms = 200) {
-    return SDL_JoystickRumble(joystick._ptr, leftMotor*128, rightMotor*128, duration_ms);
+    return SDL_JoystickRumble(joystick._ptr, leftMotor*128 + 127*(leftMotor > 0), rightMotor*128 + 127*(rightMotor > 0), duration_ms);
 }
 //***************************************
