@@ -31,17 +31,19 @@ THE SOFTWARE.
 #include <vector>
 #include <SDL/SDL.h>
 
+#define AXIS_INPUT_THRESHOLD 16000  // set high to prevent false positives on noisy input during mapping
+#define AXIS_INPUT_DEADZONE 3000    // like threshold but used for main loop joystick reading
 
 class SDLButtonMapping {
 public:
     enum class ButtonType {
+        UNSET,
         HAT,
         STICK,
         THUMB,
         TRIGGER,
         SHOULDER,
-        BUTTON,
-        UNSET
+        BUTTON 
     };
 
     enum class ButtonName {
@@ -541,7 +543,7 @@ SDLButtonMapping::ButtonMapInput get_sdljoystick_input(const SDLJoystickData& jo
         // Iterate over all joystick axes
         for (int i = 0; i < joystick.num_axes; i++) {
             int axis_value = SDL_JoystickGetAxis(joystick._ptr, i); // / 32767.0f;
-            if (std::abs(axis_value - joystick.avgBaseline[i]) > 16000) {
+            if (std::abs(axis_value - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) {
                 input.set(SDLButtonMapping::ButtonType::STICK, i, axis_value < 0 ? -1 : 1);
                 return input;
             }
@@ -582,7 +584,7 @@ void wait_for_no_sdljoystick_input(SDLJoystickData& joystick) {
         // Iterate over all joystick axes and record their value
         for (int i = 0; i < joystick.num_axes; i++) {
             int read_val = SDL_JoystickGetAxis(joystick._ptr, i); 
-            axis_value += (abs(read_val-joystick.avgBaseline[i]) > 6000) ? abs(read_val) : 0;
+            axis_value += (abs(read_val-joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) ? abs(read_val) : 0;
         }
 
         // Iterate over all joystick buttons and record their value
@@ -612,7 +614,7 @@ bool there_is_sdljoystick_input(SDLJoystickData& joystick) {
         // Iterate over all joystick axes
         for (int i = 0; i < joystick.num_axes; i++) {
             int read_val = SDL_JoystickGetAxis(joystick._ptr, i);
-            if (abs(read_val - joystick.avgBaseline[i]) > 10000)
+            if (abs(read_val - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD)
                 return true;
         }
 
@@ -853,11 +855,11 @@ void get_xbox_report_from_SDLmap(SDLJoystickData& joystick, std::vector<SDLButto
             }
                                         break;
             case bName::LEFT_TRIGGER: {
-                xboxReport.bLeftTrigger = 255 * isPressed;
+                xboxReport.bLeftTrigger = UINT8_MAX * isPressed;
             }
                                     break;
             case bName::RIGHT_TRIGGER: {
-                xboxReport.bRightTrigger = 255 * isPressed;
+                xboxReport.bRightTrigger = UINT8_MAX * isPressed;
             }
                                      break;
             default: {
@@ -938,7 +940,7 @@ void get_xbox_report_from_SDLmap(SDLJoystickData& joystick, std::vector<SDLButto
                 }
                                          break;
                 default: {
-                    if (absVal > 6000 && sameSign)
+                    if (absVal > AXIS_INPUT_DEADZONE && sameSign)
                         //Return corresponding XBOX_BUTTON value based on input ID
                         xboxReport.wButtons += toXUSB[inputID];
                 }
@@ -992,11 +994,11 @@ void get_xbox_report_from_SDLmap(SDLJoystickData& joystick, std::vector<SDLButto
             }
                                           break;
             case bName::LEFT_TRIGGER: {
-                xboxReport.bLeftTrigger = buttonValue * 255;
+                xboxReport.bLeftTrigger = buttonValue * UINT8_MAX;
             }
                                     break;
             case bName::RIGHT_TRIGGER: {
-                xboxReport.bRightTrigger = buttonValue * 255;
+                xboxReport.bRightTrigger = buttonValue * UINT8_MAX;
             }
                                      break;
             default: {
