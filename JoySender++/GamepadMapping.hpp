@@ -876,71 +876,61 @@ void get_xbox_report_from_SDLmap(SDLJoystickData& joystick, std::vector<SDLButto
             int inputValue = SDL_JoystickGetAxis(joystick._ptr, button[inputID].index);
             bool sameSign = haveSameSign(inputValue, button[inputID].value);
             int absVal = max((abs(inputValue) - 1), 0);
-            if (absVal) {
+            if (absVal && sameSign) {
                 // Assign value to the proper XBOX report field
                 switch (inputID) {
                 case bName::LEFT_STICK_LEFT: {
-                    if (sameSign)
-                        // left stick left is negative value
-                        xboxReport.sThumbLX = -absVal;
+                    // left stick left is negative value
+                    xboxReport.sThumbLX = -absVal;
                 }
                                            break;
                 case bName::LEFT_STICK_RIGHT: {
-                    if (sameSign)
-                        // left stick right is positive value
-                        xboxReport.sThumbLX = absVal;
+                    // left stick right is positive value
+                    xboxReport.sThumbLX = absVal;
                 }
                                             break;
                 case bName::LEFT_STICK_UP: {
-                    if (sameSign)
-                        // left stick up is positive value
-                        xboxReport.sThumbLY = absVal;
+                    // left stick up is positive value
+                    xboxReport.sThumbLY = absVal;
                 }
                                          break;
                 case bName::LEFT_STICK_DOWN: {
-                    if (sameSign)
-                        // left stick down is negative value
-                        xboxReport.sThumbLY = -absVal;
+                    // left stick down is negative value
+                    xboxReport.sThumbLY = -absVal;
                 }
                                            break;
                 case bName::RIGHT_STICK_LEFT: {
-                    if (sameSign)
-                        // right stick left is negative value
-                        xboxReport.sThumbRX = -absVal;
+                    // right stick left is negative value
+                    xboxReport.sThumbRX = -absVal;
                 }
                                             break;
                 case bName::RIGHT_STICK_RIGHT: {
-                    if (sameSign)
-                        // right stick right is positive value
-                        xboxReport.sThumbRX = absVal;
+                    // right stick right is positive value
+                    xboxReport.sThumbRX = absVal;
                 }
                                              break;
                 case bName::RIGHT_STICK_UP: {
-                    if (sameSign)
-                        // right stick up is positive value
-                        xboxReport.sThumbRY = absVal;
+                    // right stick up is positive value
+                    xboxReport.sThumbRY = absVal;
                 }
                                           break;
                 case bName::RIGHT_STICK_DOWN: {
-                    if (sameSign)
-                        // right stick down is negative value
-                        xboxReport.sThumbRY = -absVal;
+                    // right stick down is negative value
+                    xboxReport.sThumbRY = -absVal;
                 }
                                             break;
                 case bName::LEFT_TRIGGER: {
-                    if (sameSign)
-                        // left trigger is positive byte value
-                        xboxReport.bLeftTrigger = ShortToByte(absVal);
+                    // left trigger is positive byte value
+                    xboxReport.bLeftTrigger = ShortToByte(absVal);
                 }
                                         break;
                 case bName::RIGHT_TRIGGER: {
-                    if (sameSign)
-                        // right trigger is positive byte value
-                        xboxReport.bRightTrigger = ShortToByte(absVal);
+                    // right trigger is positive byte value
+                    xboxReport.bRightTrigger = ShortToByte(absVal);
                 }
                                          break;
                 default: {
-                    if (absVal > AXIS_INPUT_DEADZONE && sameSign)
+                    if (absVal > AXIS_INPUT_DEADZONE)
                         //Return corresponding XBOX_BUTTON value based on input ID
                         xboxReport.wButtons += toXUSB[inputID];
                 }
