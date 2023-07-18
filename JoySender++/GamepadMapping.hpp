@@ -1057,7 +1057,9 @@ int ConsoleSelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick) {
 
        // Prompt the user to select a joystick
        int selectedJoystickIndex;
-       std::cout << "Select a joystick (enter the index): ";
+       std::cout << "Select a joystick (1";
+       if (numJoysticks > 1) std::cout << "-" << numJoysticks;
+       std::cout << "): ";
        std::cin >> selectedJoystickIndex;
        --selectedJoystickIndex;
 
