@@ -588,7 +588,7 @@ void wait_for_no_sdljoystick_input(SDLJoystickData& joystick) {
         }
 
         // Iterate over all joystick buttons and record their value
-        for (int i = 0; i < joystick..num_buttons; i++) {
+        for (int i = 0; i < joystick.num_buttons; i++) {
             button_value += SDL_JoystickGetButton(joystick._ptr, i);
         }
 
@@ -666,9 +666,16 @@ void setSDLMapping(SDLJoystickData& joystick, std::vector<SDLButtonMapping::Butt
 
             // Wait for no input to be detected
             if (there_is_sdljoystick_input(joystick)) { 
-                std::cout << "  <<  Input Detected, Please Release To Continue >> ";
+                std::cout << " <<  Input Detected, Please Release To Continue >> ";
                 while (there_is_sdljoystick_input(joystick) && !APP_KILLED) {
                     Sleep(20);
+                    received_input = get_sdljoystick_input(joystick);
+                    
+                    std::cout << "Name: " + inputName + ", Input Type: " + SDLButtonMapping::getButtonTypeString(received_input.input_type) +
+                        ", Index: " + std::to_string(received_input.index) +
+                        ", Value: " + std::to_string(received_input.value);
+
+                    repositionConsoleCursor();
                 }
             }
             
