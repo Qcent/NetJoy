@@ -668,7 +668,7 @@ void setSDLMapping(SDLJoystickData& joystick, std::vector<SDLButtonMapping::Butt
             if (there_is_sdljoystick_input(joystick)) { 
                 std::cout << " <<  Input Detected, Please Release To Continue >> ";
                 while (there_is_sdljoystick_input(joystick) && !APP_KILLED) {
-                    Sleep(20);
+                    
                     received_input = get_sdljoystick_input(joystick);
                     
                     std::cout << "Name: " + inputName + ", Input Type: " + SDLButtonMapping::getButtonTypeString(received_input.input_type) +
@@ -676,6 +676,7 @@ void setSDLMapping(SDLJoystickData& joystick, std::vector<SDLButtonMapping::Butt
                         ", Value: " + std::to_string(received_input.value);
 
                     repositionConsoleCursor();
+                    Sleep(20);
                 }
             }
             
