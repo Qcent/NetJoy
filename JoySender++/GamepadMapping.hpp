@@ -31,17 +31,19 @@ THE SOFTWARE.
 #include <vector>
 #include <SDL/SDL.h>
 
+#define AXIS_INPUT_THRESHOLD 16000  // set high to prevent false positives on noisy input during mapping
+#define AXIS_INPUT_DEADZONE 3000    // like threshold but used for main loop joystick reading
 
 class SDLButtonMapping {
 public:
     enum class ButtonType {
+        UNSET,
         HAT,
         STICK,
         THUMB,
         TRIGGER,
         SHOULDER,
-        BUTTON,
-        UNSET
+        BUTTON 
     };
 
     enum class ButtonName {
@@ -541,7 +543,7 @@ SDLButtonMapping::ButtonMapInput get_sdljoystick_input(const SDLJoystickData& jo
         // Iterate over all joystick axes
         for (int i = 0; i < joystick.num_axes; i++) {
             int axis_value = SDL_JoystickGetAxis(joystick._ptr, i); // / 32767.0f;
-            if (std::abs(axis_value - joystick.avgBaseline[i]) > 16000) {
+            if (std::abs(axis_value - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) {
                 input.set(SDLButtonMapping::ButtonType::STICK, i, axis_value < 0 ? -1 : 1);
                 return input;
             }
@@ -580,18 +582,18 @@ void wait_for_no_sdljoystick_input(SDLJoystickData& joystick) {
         int hat_value = 0;
         
         // Iterate over all joystick axes and record their value
-        for (int i = 0; i < SDL_JoystickNumAxes(joystick._ptr); i++) {
+        for (int i = 0; i < joystick.num_axes; i++) {
             int read_val = SDL_JoystickGetAxis(joystick._ptr, i); 
-            axis_value += (abs(read_val-joystick.avgBaseline[i]) > 6000) ? abs(read_val) : 0;
+            axis_value += (abs(read_val-joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) ? abs(read_val) : 0;
         }
 
         // Iterate over all joystick buttons and record their value
-        for (int i = 0; i < SDL_JoystickNumButtons(joystick._ptr); i++) {
+        for (int i = 0; i < joystick.num_buttons; i++) {
             button_value += SDL_JoystickGetButton(joystick._ptr, i);
         }
 
         // Iterate over DPad hats and record their value
-        for (int i = 0; i < SDL_JoystickNumHats(joystick._ptr); i++) {
+        for (int i = 0; i < joystick.num_hats; i++) {
             hat_value += SDL_JoystickGetHat(joystick._ptr, i);
         }
 
@@ -610,20 +612,20 @@ bool there_is_sdljoystick_input(SDLJoystickData& joystick) {
         }
 
         // Iterate over all joystick axes
-        for (int i = 0; i < SDL_JoystickNumAxes(joystick._ptr); i++) {
+        for (int i = 0; i < joystick.num_axes; i++) {
             int read_val = SDL_JoystickGetAxis(joystick._ptr, i);
-            if (abs(read_val - joystick.avgBaseline[i]) > 10000)
+            if (abs(read_val - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD)
                 return true;
         }
 
         // Iterate over all joystick buttons
-        for (int i = 0; i < SDL_JoystickNumButtons(joystick._ptr); i++) {
+        for (int i = 0; i < joystick.num_buttons; i++) {
             if (SDL_JoystickGetButton(joystick._ptr, i))
                 return true;
         }
 
         // Iterate over DPad hats
-        for (int i = 0; i < SDL_JoystickNumHats(joystick._ptr); i++) {
+        for (int i = 0; i < joystick.num_hats; i++) {
             if (SDL_JoystickGetHat(joystick._ptr, i))
                 return true;
         }
@@ -664,8 +666,16 @@ void setSDLMapping(SDLJoystickData& joystick, std::vector<SDLButtonMapping::Butt
 
             // Wait for no input to be detected
             if (there_is_sdljoystick_input(joystick)) { 
-                std::cout << "  <<  Input Detected, Please Release To Continue >> ";
+                std::cout << " <<  Input Detected, Please Release To Continue >> ";
                 while (there_is_sdljoystick_input(joystick) && !APP_KILLED) {
+                    
+                    received_input = get_sdljoystick_input(joystick);
+                    
+                    std::cout << "Name: " + inputName + ", Input Type: " + SDLButtonMapping::getButtonTypeString(received_input.input_type) +
+                        ", Index: " + std::to_string(received_input.index) +
+                        ", Value: " + std::to_string(received_input.value);
+
+                    repositionConsoleCursor();
                     Sleep(20);
                 }
             }
@@ -853,11 +863,11 @@ void get_xbox_report_from_SDLmap(SDLJoystickData& joystick, std::vector<SDLButto
             }
                                         break;
             case bName::LEFT_TRIGGER: {
-                xboxReport.bLeftTrigger = 255 * isPressed;
+                xboxReport.bLeftTrigger = UINT8_MAX * isPressed;
             }
                                     break;
             case bName::RIGHT_TRIGGER: {
-                xboxReport.bRightTrigger = 255 * isPressed;
+                xboxReport.bRightTrigger = UINT8_MAX * isPressed;
             }
                                      break;
             default: {
@@ -874,71 +884,61 @@ void get_xbox_report_from_SDLmap(SDLJoystickData& joystick, std::vector<SDLButto
             int inputValue = SDL_JoystickGetAxis(joystick._ptr, button[inputID].index);
             bool sameSign = haveSameSign(inputValue, button[inputID].value);
             int absVal = max((abs(inputValue) - 1), 0);
-            if (absVal) {
+            if (absVal && sameSign) {
                 // Assign value to the proper XBOX report field
                 switch (inputID) {
                 case bName::LEFT_STICK_LEFT: {
-                    if (sameSign)
-                        // left stick left is negative value
-                        xboxReport.sThumbLX = -absVal;
+                    // left stick left is negative value
+                    xboxReport.sThumbLX = -absVal;
                 }
                                            break;
                 case bName::LEFT_STICK_RIGHT: {
-                    if (sameSign)
-                        // left stick right is positive value
-                        xboxReport.sThumbLX = absVal;
+                    // left stick right is positive value
+                    xboxReport.sThumbLX = absVal;
                 }
                                             break;
                 case bName::LEFT_STICK_UP: {
-                    if (sameSign)
-                        // left stick up is positive value
-                        xboxReport.sThumbLY = absVal;
+                    // left stick up is positive value
+                    xboxReport.sThumbLY = absVal;
                 }
                                          break;
                 case bName::LEFT_STICK_DOWN: {
-                    if (sameSign)
-                        // left stick down is negative value
-                        xboxReport.sThumbLY = -absVal;
+                    // left stick down is negative value
+                    xboxReport.sThumbLY = -absVal;
                 }
                                            break;
                 case bName::RIGHT_STICK_LEFT: {
-                    if (sameSign)
-                        // right stick left is negative value
-                        xboxReport.sThumbRX = -absVal;
+                    // right stick left is negative value
+                    xboxReport.sThumbRX = -absVal;
                 }
                                             break;
                 case bName::RIGHT_STICK_RIGHT: {
-                    if (sameSign)
-                        // right stick right is positive value
-                        xboxReport.sThumbRX = absVal;
+                    // right stick right is positive value
+                    xboxReport.sThumbRX = absVal;
                 }
                                              break;
                 case bName::RIGHT_STICK_UP: {
-                    if (sameSign)
-                        // right stick up is positive value
-                        xboxReport.sThumbRY = absVal;
+                    // right stick up is positive value
+                    xboxReport.sThumbRY = absVal;
                 }
                                           break;
                 case bName::RIGHT_STICK_DOWN: {
-                    if (sameSign)
-                        // right stick down is negative value
-                        xboxReport.sThumbRY = -absVal;
+                    // right stick down is negative value
+                    xboxReport.sThumbRY = -absVal;
                 }
                                             break;
                 case bName::LEFT_TRIGGER: {
-                    if (sameSign)
-                        // left trigger is positive byte value
-                        xboxReport.bLeftTrigger = ShortToByte(absVal);
+                    // left trigger is positive byte value
+                    xboxReport.bLeftTrigger = ShortToByte(absVal);
                 }
                                         break;
                 case bName::RIGHT_TRIGGER: {
-                    if (sameSign)
-                        // right trigger is positive byte value
-                        xboxReport.bRightTrigger = ShortToByte(absVal);
+                    // right trigger is positive byte value
+                    xboxReport.bRightTrigger = ShortToByte(absVal);
                 }
                                          break;
                 default: {
-                    if (absVal > 6000 && sameSign)
+                    if (absVal > AXIS_INPUT_DEADZONE)
                         //Return corresponding XBOX_BUTTON value based on input ID
                         xboxReport.wButtons += toXUSB[inputID];
                 }
@@ -992,11 +992,11 @@ void get_xbox_report_from_SDLmap(SDLJoystickData& joystick, std::vector<SDLButto
             }
                                           break;
             case bName::LEFT_TRIGGER: {
-                xboxReport.bLeftTrigger = buttonValue * 255;
+                xboxReport.bLeftTrigger = buttonValue * UINT8_MAX;
             }
                                     break;
             case bName::RIGHT_TRIGGER: {
-                xboxReport.bRightTrigger = buttonValue * 255;
+                xboxReport.bRightTrigger = buttonValue * UINT8_MAX;
             }
                                      break;
             default: {
@@ -1065,7 +1065,9 @@ int ConsoleSelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick) {
 
        // Prompt the user to select a joystick
        int selectedJoystickIndex;
-       std::cout << "Select a joystick (enter the index): ";
+       std::cout << "Select a joystick (1";
+       if (numJoysticks > 1) std::cout << "-" << numJoysticks;
+       std::cout << "): ";
        std::cin >> selectedJoystickIndex;
        --selectedJoystickIndex;
 
@@ -1180,6 +1182,6 @@ int RemapInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonN
 }
 
 int SDLRumble(SDLJoystickData& joystick, Uint8 leftMotor, Uint8 rightMotor, Uint32 duration_ms = 200) {
-    return SDL_JoystickRumble(joystick._ptr, leftMotor*128, rightMotor*128, duration_ms);
+    return SDL_JoystickRumble(joystick._ptr, leftMotor*128 + 127*(leftMotor > 0), rightMotor*128 + 127*(rightMotor > 0), duration_ms);
 }
 //***************************************

@@ -510,6 +510,13 @@ int joySender(Arguments& args) {
             }
             else {
                 allGood = client.send_data(reinterpret_cast<const char*>(&xbox_report), reportSize);
+#if 0
+                // for troubleshooting xbox reports
+                if (fps_counter.get_frame_count() % 5 == 0) {
+                    displayBytes(reinterpret_cast<BYTE*>(&xbox_report), reportSize);
+                    repositionConsoleCursor(-1);
+                }
+#endif  
             }
             //  Error ?
             if (allGood < 1) {
