@@ -289,7 +289,7 @@ BYTE ds4_InReportBuf[ds4_InBuffSize];
 const DWORD ds4_outBuffSize = sizeof(ReportOut11);
 BYTE ds4_OutReportBuf[ds4_outBuffSize];
 
-// Holds the position of the relevent input data in HID report depending on USB/BT connection
+// Holds the position of the relevant input data in HID report depending on USB/BT connection
 size_t ds4DataOffset = 0;
 
 HidDeviceManager DS4manager;

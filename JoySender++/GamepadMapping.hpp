@@ -31,6 +31,7 @@ THE SOFTWARE.
 #include <vector>
 #include <SDL/SDL.h>
 
+
 #define AXIS_INPUT_THRESHOLD 16000  // set high to prevent false positives on noisy input during mapping
 #define AXIS_INPUT_DEADZONE 3000    // like threshold but used for main loop joystick reading
 
@@ -675,14 +676,14 @@ void setSDLMapping(SDLJoystickData& joystick, std::vector<SDLButtonMapping::Butt
                         ", Index: " + std::to_string(received_input.index) +
                         ", Value: " + std::to_string(received_input.value);
 
-                    repositionConsoleCursor();
+                    //repositionConsoleCursor();
                     Sleep(20);
                 }
             }
             
             // Prompt the user for input
             g_outputText = input_verb(inputType) + " " + format_input_name(inputName) + " ...\r\n";
-            displayOutputText();
+            //displayOutputText();
 
             // Receive an input signature
             received_input = get_sdljoystick_input(joystick);
@@ -723,7 +724,7 @@ void setSDLMapping(SDLJoystickData& joystick, std::vector<SDLButtonMapping::Butt
 
     }
     g_outputText += "<< All Done! >>\r\n\r\n";
-    displayOutputText();
+    //displayOutputText();
 
     return;
 }
@@ -1144,7 +1145,7 @@ void OpenOrCreateMapping(SDLJoystickData& joystick, std::string& mapName) {
 
         // Visual notification to user
         g_outputText = "No Button Map Exists for:  " + joystick.name + "\r\n\r\n\t Press Any Button To Continue\r\n\r\n";
-        displayOutputText();
+        //displayOutputText();
 
         // Wait for an input/button press
         get_sdljoystick_input(joystick);
@@ -1167,7 +1168,7 @@ int RemapInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonN
     // Visual notification to user
    // appendWindowTitle(g_hWnd, "Remap Buttons!"));
     g_outputText = "Remapping Inputs For:  " + joystick.name + "\r\n\r\n\t Press Any Button To Continue\r\n\r\n";
-    displayOutputText();
+    //displayOutputText();
 
     // Wait for an input/button press
     get_sdljoystick_input(joystick);
@@ -1185,3 +1186,4 @@ int SDLRumble(SDLJoystickData& joystick, Uint8 leftMotor, Uint8 rightMotor, Uint
     return SDL_JoystickRumble(joystick._ptr, leftMotor*128 + 127*(leftMotor > 0), rightMotor*128 + 127*(rightMotor > 0), duration_ms);
 }
 //***************************************
+

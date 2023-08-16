@@ -23,8 +23,7 @@ THE SOFTWARE.
 */
 
 #include "JoySender++.h"
-#include "GamepadMapping.hpp"
-#include "DS4Manager.hpp"
+
 
 // Function safely return environment variables
 std::string g_getenv(const char* variableName) {
@@ -39,63 +38,7 @@ std::string g_getenv(const char* variableName) {
     return value;
 }
 // Some Console Output, ANSI helper functions
-void enableANSI()
-{
-    HANDLE consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
 
-    DWORD consoleMode;
-    GetConsoleMode(consoleHandle, &consoleMode);
-
-    // Enable ANSI escape sequences support
-    consoleMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-
-    SetConsoleMode(consoleHandle, consoleMode);
-}
-void hideConsoleCursor() {
-    HANDLE consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
-    CONSOLE_CURSOR_INFO cursorInfo;
-    GetConsoleCursorInfo(consoleHandle, &cursorInfo);
-    cursorInfo.bVisible = FALSE;
-    SetConsoleCursorInfo(consoleHandle, &cursorInfo);
-}
-void showConsoleCursor() {
-    HANDLE consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
-    CONSOLE_CURSOR_INFO cursorInfo;
-    GetConsoleCursorInfo(consoleHandle, &cursorInfo);
-    cursorInfo.bVisible = TRUE;
-    SetConsoleCursorInfo(consoleHandle, &cursorInfo);
-}
-void clearConsoleScreen()
-{
-    std::cout << "\033[2J\033[H";
-}
-void repositionConsoleCursor(int lines, int offset) {
-    if (lines < 0) // Move the cursor up by the specified number of lines
-        std::cout << "\033[" << abs(lines) << "F";
-    else if(lines > 0) // Move the cursor down by the specified number of lines
-        std::cout << "\033[" << lines << "E";
-    // Move the cursor to the specified offset from the start of the line
-    std::cout << "\033[" << offset << "G";
-}
-void clearConsoleLine() {
-    std::cout << "\033[K";
-}
-// For FPS and Latency Output
-void overwriteFPS(const std::string& text) {
-    // Move the cursor to the beginning of the last line
-std::cout << "\033[F";
-// Write the new text
-std::cout << text + "  " << std::endl;
-}
-void overwriteLatency(const std::string& text) {
-    repositionConsoleCursor(-1, 27);
-    std::cout << text << std::endl;
-}
-// Function to display g_outputText to console
-void displayOutputText() {
-    clearConsoleScreen();
-    std::cout << g_outputText;
-}
 // Function to detect if keyboard key is pressed
 bool getKeyState(int KEYCODE) {
     return GetAsyncKeyState(KEYCODE) & 0x8000;
@@ -172,11 +115,18 @@ void wait_for_no_keyboard_input() {
     while (input) {
         input = false;
         // Check if any key is currently being pressed
-        for (int i = 48; i < 90; i++) {
+        // 31 - 111 are ascii codes 0-9, aA-zZ, and numpad
+        for (int i = 31; i < 112; i++) {
             if (GetAsyncKeyState(i) & 0x8000) {
                 input = true;
             }
         }
+
+        // some extra keys i want to check for
+        if (getKeyState(VK_OEM_PERIOD) || getKeyState(VK_DECIMAL) || getKeyState(VK_BACK)) {
+            input = true;
+        }
+
     }
     swallowInput();
 }
@@ -249,7 +199,7 @@ int joySender(Arguments& args) {
         // output fps to caller
         if (count >= report_frequency) {
             fps_counter.reset();
-            return "FPS: " + formatDecimalString(std::to_string(fps), 2);
+            return formatDecimalString(std::to_string(fps), 2);
         }
         return std::string();
     };
@@ -265,51 +215,76 @@ int joySender(Arguments& args) {
 };
 
 
+    //
+    // Set Up for first tUI screen
+    //
+        // Get the console input handle to enable mouse input
+    g_hConsoleInput = GetStdHandle(STD_INPUT_HANDLE);
+    g_mode = args.mode;
+    DWORD mode;
+    GetConsoleMode(g_hConsoleInput, &mode);                     // Disable Quick Edit Mode
+    SetConsoleMode(g_hConsoleInput, mode | ENABLE_MOUSE_INPUT & ~ENABLE_QUICK_EDIT_MODE);
+
+        // Set the console to UTF-8 mode
+    _setmode(_fileno(stdout), _O_U8TEXT);
+
+    hideConsoleCursor();
+
+    g_screen.SetBackdrop(JoySendMain_Backdrop);
+    output1.SetPosition(15, 5, 50, 1, ALIGN_LEFT);
+    output1.SetColor(WHITE|BLACK AS_BG);
+    errorOut.SetPosition(consoleWidth/2, 4, 50, 0, ALIGN_CENTER);
+    fpsMsg.SetPosition(52, 2, 7, 1, ALIGN_LEFT);
+    quitButton.setCallback(&exitAppCallback);
+    quitButton.SetPosition(10, 17);
+    
     //###########################################################################
     //# User or auto select gamepad 
     switch (args.mode) {
     case 1: {   // SDL MODE
         if (!args.select) {
-            showConsoleCursor();
-           allGood = ConsoleSelectJoystickDialog(getJoystickList().size(), activeGamepad);
+           allGood = tUISelectJoystickDialog(getJoystickList().size(), activeGamepad, g_screen);
            if (!allGood) {
-               std::cout << " Unable to connect to that device !! " << std::endl;
+               setErrorMsg(L"Failed to open joystick.", 25);
+               errorOut.Draw();
+
+               SDL_Quit();
                return -1;
            }
-            hideConsoleCursor();
         }
         else {
             allGood = ConnectToJoystick(0, activeGamepad);
             if (!allGood) {
-                std::cout << " Unable to connect to a device !! " << std::endl;
+                setErrorMsg(L" Unable to connect to a device !! ", 35);
+                errorOut.Draw();
+
+                SDL_Quit();
                 return -1;
             }
         }
     }
           break;
     case 2: {   // DS4 MODE
-        showConsoleCursor();
-        allGood = ConnectToDS4Controller();
+        allGood = tUIConnectToDS4Controller(g_screen);
         if (!allGood) {
-            std::cout << " Unable to connect to a DS4 device !! " << std::endl;
+            setErrorMsg(L" Unable to connect to a DS4 device !! ", 39);
+            errorOut.Draw();
             return -1;
         }
-        hideConsoleCursor();
     }
           break;
     default:
-        std::cout << " ERROR:: Unsupported Mode !! " << std::endl;
+        setErrorMsg(L" ERROR:: Unsupported Mode !! ", 30);
+        errorOut.Draw();
         return -1;
     }
     
+    // refresh g_screen
+    g_screen.DrawBackdrop();
     
     //###########################################################################
     // Init Settings for Operating Mode
-    if (args.mode == 3) {
-        g_outputText = "HID Mode Activated\r\n";
-            //buttons = HIDButtonMapping()
-    }
-    else if (args.mode == 2) {  
+    if (args.mode == 2) {  
         
         // Get a report from the device to determine what type of connection it has
         GetDS4Report();
@@ -319,7 +294,7 @@ int joySender(Arguments& args) {
 
         bool extReport = ActivateDS4ExtendedReports();
 
-        // Set up feedback buffer with correct headders for connection mode
+        // Set up feedback buffer with correct headers for connection mode
         InitDS4FeedbackBuffer();
 
         // Set new LightBar color with update to confirm rumble/lightbar support
@@ -339,7 +314,9 @@ int joySender(Arguments& args) {
         if (ds4DataOffset == DS4_VIA_BT) { g_outputText += "| Wireless |"; }
         else if (ds4DataOffset == DS4_VIA_USB) { g_outputText += "| USB |"; }
         if (allGood) g_outputText += " Rumble On | ";
-        g_outputText += "\r\n";
+        
+        setCursorPosition(5, 9);
+        std::wcout << g_toWide(g_outputText);
 
         reportSize = DS4_REPORT_NETWORK_DATA_SIZE;
 
@@ -357,35 +334,32 @@ int joySender(Arguments& args) {
         }
     }
     else {
-        g_outputText = "SDL Mode Activated\r\n";
+        //g_outputText = "SDL Mode Activated\r\n";
         BuildJoystickInputData(activeGamepad);
         // Convert joystick name to hex  
         mapName = encodeStringToHex(activeGamepad.name);
         reportSize = sizeof(xbox_report);
     }
-    displayOutputText();
+
     //###########################################################################
-    //# If not in DS4 Passthrough mode look for Saved Mapping or create one
+    //# If not in DS4 pass through mode look for Saved Mapping or create one
     if (args.mode != 2) {
         //# Look for an existing map for selected device
         OpenOrCreateMapping(activeGamepad, mapName);
         // Create a list of set joystick inputs
         activeInputs = activeGamepad.mapping.getSetButtonNames();
     }
-    if (args.mode == 3) {
-        /// hid_input_lists = get_hidmap_input_lists(buttons, input_list)
-        ///     report_size = len(gamepad.read(64))
-    }
 
     //###########################################################################
     //# Main Loop keeps client running
     //# asks for new host if connection fails 3 times
     while (!APP_KILLED) {
-        fps_counter.reset();
-
-        // Aquire host address for connection attempt
+        //fps_counter.reset();
+        printCurrentController(activeGamepad); // not yet
+        
+        // Acquire host address for connection attempt
         if (args.host.empty()) {
-            args.host = getHostAddress();
+            args.host = tUIGetHostAddress();
         }
         TCPConnection client(args.host, args.port);
         client.set_silence(true);
@@ -394,18 +368,35 @@ int joySender(Arguments& args) {
         // *******************
         // Attempt timing and mode setting handshake
         if (allGood > 0) {
-            g_outputText += "<< Connected To : " + args.host + " >>  "; //  \r\n";
-            displayOutputText();
-            std::cout << std::endl;
 
+            g_screen.ClearButtons();
+            if(mode == 2)
+                g_screen.SetBackdrop(DS4_Backdrop);
+            else
+                g_screen.SetBackdrop(XBOX_Backdrop);
 
+            LoadButtons(g_screen, mode);
+            button_Guide_highlight.setCallback(testCallback); // will switch colors
+
+            g_screen.AddButton(&quitButton);
+            //quitButton.setCallback(&exitAppCallback); // will quit app
+
+            wcsncpy_s(connectionPointer, 25, g_converter.from_bytes(args.host + " >>    ").c_str(), _TRUNCATE);
+            connectionMsg.SetText(connectionPointer);
+            connectionMsg.SetPosition(21, 1, 25, 1, ALIGN_LEFT);
+
+            g_screen.DrawBackdrop();
+            g_screen.DrawButtons();
+            
+            connectionMsg.Draw();
+            
+          
             // Send timing and mode data
             std::string txSettings = std::to_string(args.fps) + ":" + std::to_string(args.mode);
             allGood = client.send_data(txSettings.c_str(), static_cast<int>(txSettings.length()));
-            if (allGood < 1) {
-                //std::cout << "<< Connection Failed >> \r\n";
-                g_outputText += "<< Connection Failed >> \r\n";
-                displayOutputText();
+            if (allGood < 1) {              
+                setErrorMsg(g_converter.from_bytes("<< Connection To: " + args.host + " Failed >>").c_str(), 46);
+
                 client.~TCPConnection();
                 break;
             }
@@ -415,20 +406,18 @@ int joySender(Arguments& args) {
                 inConnection = true;
             }
             else{
-                //std::cout << "<< Connection Failed >> \r\n";
-                g_outputText += "<< Connection Failed >> \r\n";
-                displayOutputText();
+                setErrorMsg(g_converter.from_bytes("<< Connection To: " + args.host + " Lost >>").c_str(), 44);
+                
                 client.~TCPConnection();
                 break;
             }
 
-            // Set Lines for FPS and Latency output
-            std::cout << std::endl << std::endl;
         }
 
 
         // ******************
         // Connection loop
+        fps_counter.reset();
         while (inConnection){
             // Shift + R will Reset program allowing joystick reconnection / selection
             // Shift + M will reMap all buttons on an SDL device
@@ -436,9 +425,7 @@ int joySender(Arguments& args) {
             // Shift + G will re output g_outputText
             if (getKeyState(VK_SHIFT)) {
                 if (getKeyState('G')) {
-                    displayOutputText();
-                    // Set Lines for FPS and Latency output
-                    std::cout << std::endl << std::endl;
+                    // maybe change colors or something
                 }
                 if (getKeyState('R') || getKeyState('M') || getKeyState('Q')) {
                     if (IsAppActiveWindow()) {
@@ -453,13 +440,8 @@ int joySender(Arguments& args) {
 
             //###################################
             //# Read from Input
-            if(args.mode == 3) {
-                //# Read the next HID report
-                //# input_report = gamepad.read(report_size)
-                //# set the XBOX REPORT from HID input_report
-                //get_xbox_report_from_hidmap(gamepad, report_size, buttons, hid_input_lists, xbox_report)
-            }
-            else if (args.mode == 2) {
+
+            if (args.mode == 2) {
                 //# Read the next HID report for DS4 Passthrough
                 allGood = GetDS4Report();
                 // *hid_report will point to most recent data
@@ -469,8 +451,9 @@ int joySender(Arguments& args) {
                 repositionConsoleCursor(-4);
 #endif
                 if (!allGood) {
-                    g_outputText += "<< Device Disconnected >> \r\n";
-                    displayOutputText();
+                    //g_outputText += "<< Device Disconnected >> \r\n";
+                    //displayOutputText();
+                    setErrorMsg(g_converter.from_bytes("<< Device Disconnected >>").c_str(), 26);
                     client.~TCPConnection();
                     inConnection = false;
                 }
@@ -483,15 +466,15 @@ int joySender(Arguments& args) {
             // ###################################
             //# let's calculate some timing
             fpsOutput = do_fps_counting();
-            if (args.latency) {
-                if (!fpsOutput.empty()) {
-                    overwriteFPS(fpsOutput + " fps  ");
-                }
-                latencyOutput = do_latency_timing(latency_report_freq);
-                if (latencyOutput) {
-                    overwriteLatency("Latency: " + formatDecimalString(std::to_string((latencyOutput*1000) - fpsAdjustment), 5) + " ms  ");
-                }
+
+            if (!fpsOutput.empty()) {
+                updateFPS(g_converter.from_bytes(fpsOutput+"   ").c_str(), 8);
             }
+            //latencyOutput = do_latency_timing(latency_report_freq);
+            //if (latencyOutput) {
+                //overwriteLatency("Latency: " + formatDecimalString(std::to_string((latencyOutput*1000) - fpsAdjustment), 5) + " ms  ");
+            //}
+            
             // ###################################
                 
             //####################################
@@ -521,8 +504,8 @@ int joySender(Arguments& args) {
             //  Error ?
             if (allGood < 1) {
                 //std::cout << "<< Connection Lost >> \r\n";
-                g_outputText += "<< Connection Lost >> \r\n";
-                displayOutputText();
+                setErrorMsg(g_converter.from_bytes("<< Connection To: " + args.host + " Failed >>").c_str(), 46);
+                //displayOutputText();
                 client.~TCPConnection();
                 inConnection = false;
                 break;
@@ -533,8 +516,8 @@ int joySender(Arguments& args) {
             allGood = client.receive_data(buffer, buffer_size);                
             if (allGood < 1) {
                 //std::cout << "<< Connection Lost >> \r\n";
-                g_outputText += "<< Connection Lost >> \r\n";
-                displayOutputText();
+                setErrorMsg(g_converter.from_bytes("<< Connection To: " + args.host + " Lost >>").c_str(), 44);
+                //displayOutputText();
                 client.~TCPConnection();
                 inConnection = false;
                 break;
@@ -543,11 +526,11 @@ int joySender(Arguments& args) {
             //##################################
             // **  Process Rumble Feedback data
             if (updateRumble('L', byte(buffer[0])) || updateRumble('R', byte(buffer[1]))) {
-#if 1
+#if 0
                 if (args.latency) {
-                    repositionConsoleCursor(-2);
-                    std::cout << "Feedback: " << std::to_string(byte(buffer[0])) << " : " << std::to_string(byte(buffer[1])) << "     ";
-                    repositionConsoleCursor(2);
+                    //repositionConsoleCursor(-2);
+                    //std::cout << "Feedback: " << std::to_string(byte(buffer[0])) << " : " << std::to_string(byte(buffer[1])) << "     ";
+                    //repositionConsoleCursor(2);
                 }
 #endif
                 if (args.mode == 2){
@@ -555,8 +538,8 @@ int joySender(Arguments& args) {
                     allGood = SendDS4Update();
                     if (!allGood) {
                         // USB always errors // not anymore right?
-                        outputLastError();
-                        displayBytes(ds4_OutReportBuf, 16);
+                       // outputLastError();
+                       // displayBytes(ds4_OutReportBuf, 16);
                     }
                 }
                 else if (args.mode == 1) {
@@ -575,7 +558,7 @@ int joySender(Arguments& args) {
         // Connection ended    \\
 
 
-        // Catch key presses that could have terminiated connection
+        // Catch key presses that could have terminated connection
         //# Shift + R  Resets program allowing joystick reconnection / selection, holding a number will change op mode
         if (getKeyState('R')) {
             g_outputText += "<< Restarted >>\r\n";
@@ -604,8 +587,8 @@ int joySender(Arguments& args) {
         }
         //# Shift + Q  will Quit
         if (getKeyState('Q') || APP_KILLED) {
-            g_outputText += "<< Exiting >>\r\n";
-            displayOutputText();
+            //g_outputText += "<< Exiting >>\r\n";
+            //displayOutputText();
             return 0;
         }
         
@@ -617,6 +600,13 @@ int joySender(Arguments& args) {
             args.host = "";
             failed_connections = 0;
         }
+        g_screen.ClearButtons();
+        g_screen.SetBackdrop(JoySendMain_Backdrop);
+        g_screen.AddButton(&quitButton);
+        errorOut.SetPosition(consoleWidth / 2, 7, 50, 0, ALIGN_CENTER);
+        g_screen.ReDraw();
+        printCurrentController(activeGamepad);
+        errorOut.Draw();
 
         //Clear any keyboard input
         swallowInput();
@@ -635,7 +625,6 @@ int main(int argc, char **argv)
     int err = InitJoystickInput();
     if (err) return -1;
 
-    enableANSI();
     hideConsoleCursor();
 
     int RUN = 1;
@@ -652,9 +641,9 @@ int main(int argc, char **argv)
     // Cleanup and quit
     swallowInput();
     SDL_Quit();
+    setCursorPosition(0, CONSOLE_HEIGHT);
     showConsoleCursor();
-    Sleep(7);
-    std::cout << "all cleaned up! (:" << std::endl;
+
     return 1;
 }
 
@@ -662,6 +651,7 @@ void signalHandler(int signal) {
     if (signal == SIGINT) {
         APP_KILLED = 1;
         Sleep(5);
-        std::cout << "Keyboard interrupt received. Exiting gracefully." << std::endl;
+        setCursorPosition(0, CONSOLE_HEIGHT - 2);
+        std::wcout << "Keyboard interrupt received. Exiting gracefully." << std::endl;
     }
 }
