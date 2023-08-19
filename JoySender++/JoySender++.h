@@ -199,7 +199,7 @@ void printCurrentController(SDLJoystickData& activeGamepad) {
         if (ds4DataOffset == DS4_VIA_BT) { g_outputText += "| Wireless |"; }
         else if (ds4DataOffset == DS4_VIA_USB) { g_outputText += "| USB |"; }
     }
-    setCursorPosition(5, 9);
+    setCursorPosition(9, 5);
     std::wcout << g_toWide(g_outputText);
 
     if (g_mode == 1)
@@ -214,41 +214,60 @@ void printCurrentController(SDLJoystickData& activeGamepad) {
 // loops until the user presses enter
 int waitForEnterPress() {
     while (!APP_KILLED) {
-        if (checkKey(VK_RETURN, IS_RELEASED))
+        if (checkKey(VK_RETURN, IS_PRESSED))
             return 1;
-        if (checkKey(VK_BACK, IS_RELEASED))
+        if (checkKey(VK_BACK, IS_PRESSED))
             return 0;
         Sleep(15);
     }
-    return -1;
+    return 0;
+}
+
+// loops until the user presses enter
+int waitForEnterPress_runScreen(textUI& screen) {
+    while (!APP_KILLED) {
+        if (checkKey(VK_RETURN, IS_PRESSED))
+            return 1;
+        if (checkKey(VK_BACK, IS_PRESSED))
+            return 0;
+        if (checkKey(0x51, IS_PRESSED)) // Q for Quit
+            APP_KILLED = true;
+        screenLoop(screen);
+        Sleep(15);
+    }
+    return 0;
 }
 
 // accepts keyboard input for ip addresses
 char IpInputLoop() {
-    if (checkKey(0x30, IS_RELEASED) || checkKey(VK_NUMPAD0, IS_RELEASED))
+    if (checkKey(0x30, IS_PRESSED) || checkKey(VK_NUMPAD0, IS_PRESSED))
         return '0';
-    else if (checkKey(0x31, IS_RELEASED) || checkKey(VK_NUMPAD1, IS_RELEASED))
+    else if (checkKey(0x31, IS_PRESSED) || checkKey(VK_NUMPAD1, IS_PRESSED))
         return '1';
-    else if (checkKey(0x32, IS_RELEASED) || checkKey(VK_NUMPAD2, IS_RELEASED))
+    else if (checkKey(0x32, IS_PRESSED) || checkKey(VK_NUMPAD2, IS_PRESSED))
         return '2';
-    else if (checkKey(0x33, IS_RELEASED) || checkKey(VK_NUMPAD3, IS_RELEASED))
+    else if (checkKey(0x33, IS_PRESSED) || checkKey(VK_NUMPAD3, IS_PRESSED))
         return '3';
-    else if (checkKey(0x34, IS_RELEASED) || checkKey(VK_NUMPAD4, IS_RELEASED))
+    else if (checkKey(0x34, IS_PRESSED) || checkKey(VK_NUMPAD4, IS_PRESSED))
         return '4';
-    else if (checkKey(0x35, IS_RELEASED) || checkKey(VK_NUMPAD5, IS_RELEASED))
+    else if (checkKey(0x35, IS_PRESSED) || checkKey(VK_NUMPAD5, IS_PRESSED))
         return '5';
-    else if (checkKey(0x36, IS_RELEASED) || checkKey(VK_NUMPAD6, IS_RELEASED))
+    else if (checkKey(0x36, IS_PRESSED) || checkKey(VK_NUMPAD6, IS_PRESSED))
         return '6';
-    else if (checkKey(0x37, IS_RELEASED) || checkKey(VK_NUMPAD7, IS_RELEASED))
+    else if (checkKey(0x37, IS_PRESSED) || checkKey(VK_NUMPAD7, IS_PRESSED))
         return '7';
-    else if (checkKey(0x38, IS_RELEASED) || checkKey(VK_NUMPAD8, IS_RELEASED))
+    else if (checkKey(0x38, IS_PRESSED) || checkKey(VK_NUMPAD8, IS_PRESSED))
         return '8';
-    else if (checkKey(0x39, IS_RELEASED) || checkKey(VK_NUMPAD9, IS_RELEASED))
+    else if (checkKey(0x39, IS_PRESSED) || checkKey(VK_NUMPAD9, IS_PRESSED))
         return '9';
-    else if (checkKey(VK_BACK, IS_RELEASED))
+    else if (checkKey(VK_BACK, IS_PRESSED))
         return 'B';
-    else if (checkKey(VK_OEM_PERIOD, IS_RELEASED) || checkKey(VK_DECIMAL, IS_RELEASED))
+    else if (checkKey(VK_DELETE, IS_PRESSED))
+        return 'D';
+    else if (checkKey(VK_TAB, IS_PRESSED))
         return 'N';
+    else if (checkKey(VK_OEM_PERIOD, IS_PRESSED) || checkKey(VK_DECIMAL, IS_PRESSED))
+        return '.';
 
     return 'X';
 }
@@ -527,14 +546,10 @@ bool tUIConnectToDS4Controller(textUI& screen) {
     return false;
 }
 
-std::string tUIGetHostAddress() {
-    // Lambda function for IP address validation
-    auto validIPAddress = [](const std::string& ipAddress) {
-        std::regex pattern(R"(^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$)");
-        std::smatch match;
-        return std::regex_match(ipAddress, match, pattern);
-    };
-    swallowInput();
+std::string tUIGetHostAddress(textUI& screen) {
+    int octNum = 0;
+    bool validIP = 0;
+    bool firstDot = 0;
     std::string host_address;
 
     COORD octPos[4] = {
@@ -544,12 +559,53 @@ std::string tUIGetHostAddress() {
         {41, 10}
     };
 
-    textBox octets[4] = {
-        textBox(29, 10, 3, 1, ALIGN_CENTER, L"0", DEFAULT_TEXT),
-        textBox(33, 10, 3, 1, ALIGN_CENTER, L"0", DEFAULT_TEXT),
-        textBox(37, 10, 3, 1, ALIGN_CENTER, L"0", DEFAULT_TEXT),
-        textBox(41, 10, 3, 1, ALIGN_CENTER, L"0", DEFAULT_TEXT)
+    textInput octet[4] = {  //int x, int y, int w, int maxLength
+        textInput(29, 10, 3, 3, ALIGN_CENTER),
+        textInput(33, 10, 3, 3, ALIGN_CENTER),
+        textInput(37, 10, 3, 3, ALIGN_CENTER),
+        textInput(41, 10, 3, 3, ALIGN_CENTER)
     };
+
+    // Lambda function for IP address validation
+    auto validIPAddress = [](const std::string& ipAddress) {
+        std::regex pattern(R"(^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[1-9][0-9]?)$)");
+        std::smatch match;
+        return std::regex_match(ipAddress, match, pattern);
+    };
+    // Lambda for building host address
+    auto buildAndTestIpAddress = [&]() {
+        // Construct the IP address string
+        std::wstring ipAddress = octet[0].getText();
+        for (int i = 1; i < 4; ++i) {
+            ipAddress += L"." + std::wstring(octet[i].getText());
+        }
+        host_address = g_converter.to_bytes(ipAddress);
+
+        if (validIPAddress(host_address)) {
+            errorOut.SetColor(BRIGHT_GREEN);
+            setErrorMsg(L"Valid IP !", 38);
+            errorOut.Clear();
+            errorOut.Draw();
+            output1.Draw();
+            errorOut.SetColor(RED);
+            setCursorPosition(octPos[octNum]);
+            return 1;
+        }
+        else
+        {
+            errorOut.Clear();
+            output1.Clear();
+        }
+        return 0;
+    };
+
+    for (int i = 0; i < 4; ++i) {
+        octet[i].insert(L'0');
+        octet[i].cursorToBegin();
+        screen.AddInput(&octet[i]);
+    }
+
+    screen.AddButton(&quitButton);
 
     setCursorPosition(12, 8);
     std::wcout << L"Enter IP Address Of Host:";
@@ -557,113 +613,128 @@ std::string tUIGetHostAddress() {
     setCursorPosition(31, 10);
     std::wcout << L".   .   .";
 
-    octets[0].Draw();
-    octets[1].Draw();
-    octets[2].Draw();
-    octets[3].Draw();
-
-    errorOut.SetPosition(consoleWidth / 2, 9, 50, 0, ALIGN_CENTER);
+    errorOut.SetPosition(consoleWidth / 2, 9, 25, 1, ALIGN_CENTER);
     output1.SetText(L"Press Enter to Connect");
-    output1.SetPosition(consoleWidth / 2, 13, 23, 0, ALIGN_CENTER);
-
+    output1.SetPosition(consoleWidth / 2, 13, 23, 1, ALIGN_CENTER);
+    
+    screen.DrawInputs();
+       
     setCursorPosition(29, 10);
     showConsoleCursor();
 
-    while (!APP_KILLED && host_address.empty()) {
-        std::wstring wideOctet[4];
+    //int octCount = 0;
+    while (!APP_KILLED && octNum < 4) {
+        if (checkKey(0x51, IS_PRESSED)) // Q for Quit
+            APP_KILLED = true;
 
-        int octNum = 0;
-        int octCount = 0;
-        while (!APP_KILLED || octNum < 4) {
-            char num = IpInputLoop();
-            // B: backspace, N: next octet, X: nothing
-            if (num == 'B') {
-                // char 0 of octet & octNum > 0
-                if (!octCount && octNum) {
-                    octNum--;
-                    octCount = 3;
-                }
-                if (octCount) {
-                    wideOctet[octNum].pop_back();
-                    octCount--;
-                }
-                octets[octNum].SetText(L"   ");
-                octets[octNum].Draw();
-                octets[octNum].SetText(wideOctet[octNum].c_str());
-                octets[octNum].Draw();
-
-                if (octCount < 0) {
-                    octCount = 0;
-                    octNum = max(0, octNum - 1);
-                    setCursorPosition(octPos[octNum]);
-                }
+        screenLoop(screen);
+        for (int i = 0; i < 4; ++i) {
+            if (octet[i].Status() & ACTIVE_INPUT) {
+                validIP = buildAndTestIpAddress();
+                octNum = i;
             }
-            else if (num != 'N' && num != 'X') {
-                wideOctet[octNum] += num;
-                octCount++;
-                octets[octNum].SetText(wideOctet[octNum].c_str());
-                octets[octNum].Draw();
-            }
-
-            if (num == 'N' || octCount > 2) {
-                if (!octCount)
-                    wideOctet[octNum] = '0';
-                octCount = 0;
-                octNum++;
-                setCursorPosition(octPos[octNum]);
-            }
-
-            if (octNum == 4) {
-                // almost done
-                // Construct the IP address string
-                std::wstring ipAddress = wideOctet[0];
-                for (int i = 1; i < 4; ++i) {
-                    ipAddress += L'.' + wideOctet[i];
-                }
-                host_address = g_converter.to_bytes(ipAddress);
-
-                if (host_address.empty()) {
-                    host_address = "127.0.0.1";
-                }
-
-                if (!validIPAddress(host_address)) {
-                    setErrorMsg(L"Invalid IP address.", 20);
-                    errorOut.Draw();
-                    setCursorPosition(octPos[octNum]);
-                    
-                    octNum--;
-                    //wideOctet[octNum].pop_back();
-                    octCount = 3;
-                    
-                }
-                else {
-                    errorOut.SetColor(BRIGHT_GREEN);
-                    setErrorMsg(L"Valid IP !", 38);
-                    errorOut.Draw();
-                    output1.Draw();
-                    errorOut.SetColor(RED);
-                    setCursorPosition(octPos[octNum]);
-                }
-
-                if (!waitForEnterPress()) {
-                    //host_address = "";
-                    octNum--;
-                    wideOctet[octNum].pop_back();
-                    octCount = 2;
-                    octets[octNum].SetText(wideOctet[octNum].c_str());
-                    octets[octNum].Draw();
-                }
-
-            }
-
-            //wait_for_no_keyboard_input(); //checkKey() will not auto repeat this not needed
-
-            if (num == 'X')
-                Sleep(15);
+                
         }
 
+        char num = IpInputLoop();
+        // B: backspace, D: delete, N: next octet, .: dot, X: nothing
+        if (num == '.') {
+            if (!octet[octNum].getCursorPosition() && !firstDot) {
+                firstDot = 1;
+            }
+            else {
+                num = 'N';
+            }
+        }
+        else if (num == 'B') {
+            if (octet[octNum].getCursorPosition() == 0) {
+                if (!octet[octNum].getLength()) {
+                    octet[octNum].insert(L'0');
+                    octet[octNum].Draw();
+                }
+                octNum = max(0, octNum - 1);
+                setCursorPosition(octPos[octNum]);
+            }
+            
+            octet[octNum].Clear();
+            octet[octNum].back();
+            octet[octNum].Draw();         
 
+            validIP = buildAndTestIpAddress();
+        }
+        else if (num == 'D') {
+            if (octet[octNum].getCursorPosition() == 0) {
+                /*if (!octet[octNum].getLength()) {
+                    octet[octNum].insert(L'0');
+                    octet[octNum].Draw();
+                }*/
+                //octNum = max(0, octNum - 1);
+                //setCursorPosition(octPos[octNum]);
+            }
+
+            octet[octNum].Clear();
+            octet[octNum].del();
+            octet[octNum].Draw();
+
+            validIP = buildAndTestIpAddress();
+        }
+        else if (num != 'N' && num != 'X') {
+            octet[octNum].overwrite(num);
+            octet[octNum].Draw();
+
+            validIP = buildAndTestIpAddress();
+        }
+        if (num == 'N' || octet[octNum].getCursorPosition() > 2) {
+            if (!octet[octNum].getLength()) {
+                octet[octNum].insert(L'0');
+                octet[octNum].Draw();
+            }
+                    
+            firstDot = 0;
+            octNum++;
+            octet[octNum].cursorToBegin();
+            setCursorPosition(octPos[octNum]);
+        }
+                
+        if (validIP) {
+            if (checkKey(VK_RETURN, IS_PRESSED)) {
+                hideConsoleCursor();
+                screen.ClearInputs();
+                screen.ClearButtons();
+                return host_address;
+            }
+        }
+        else if (octNum == 4) {
+
+            if (!buildAndTestIpAddress()) {
+                setErrorMsg(L"Invalid IP Address.", 20);
+                errorOut.Draw();
+                setCursorPosition(octPos[octNum]);
+                    
+                octNum--;
+            }           
+
+            if (octNum < 4) {    
+                //waitForEnterPress();
+                waitForEnterPress_runScreen(screen);
+                octet[octNum].Clear();
+                octet[octNum].back();
+                octet[octNum].Draw();
+                errorOut.Clear();
+            }
+            else {
+                //waitForEnterPress();
+                waitForEnterPress_runScreen(screen);
+            }
+
+        }
+
+        if (num == 'X')
+            Sleep(15);
     }
+    
     hideConsoleCursor();
+    screen.ClearInputs();
+    screen.ClearButtons();
     return host_address;
 }

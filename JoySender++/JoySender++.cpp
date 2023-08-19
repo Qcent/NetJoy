@@ -359,15 +359,26 @@ int joySender(Arguments& args) {
         
         // Acquire host address for connection attempt
         if (args.host.empty()) {
-            args.host = tUIGetHostAddress();
+            args.host = tUIGetHostAddress(g_screen);
         }
+        if (APP_KILLED) {
+            return -1;
+        }
+
         TCPConnection client(args.host, args.port);
         client.set_silence(true);
         allGood = client.establish_connection();
 
         // *******************
         // Attempt timing and mode setting handshake
-        if (allGood > 0) {
+        if (allGood < 0) {
+            int len = args.host.size() + 31;
+            swprintf(errorPointer, len, L"<< Connection To %s Failed: %d >>", std::wstring(args.host.begin(), args.host.end()).c_str(), failed_connections+1);
+            //setErrorMsg(L"Failed to Connect :: Retry 1", 32);
+            errorOut.SetWidth(len);
+            errorOut.SetText(errorPointer);
+        }
+        else{
 
             g_screen.ClearButtons();
             if(mode == 2)
@@ -602,7 +613,7 @@ int joySender(Arguments& args) {
         }
         g_screen.ClearButtons();
         g_screen.SetBackdrop(JoySendMain_Backdrop);
-        g_screen.AddButton(&quitButton);
+        //g_screen.AddButton(&quitButton);
         errorOut.SetPosition(consoleWidth / 2, 7, 50, 0, ALIGN_CENTER);
         g_screen.ReDraw();
         printCurrentController(activeGamepad);
