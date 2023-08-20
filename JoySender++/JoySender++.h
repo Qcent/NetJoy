@@ -5,6 +5,7 @@
 #include <cwchar>
 #include <codecvt>
 #include <wchar.h>
+#include <thread>
 
 #include "TCPConnection.h"
 #include "ArgumentParser.hpp"
@@ -55,16 +56,19 @@ int joySender(Arguments& args);
 void setErrorMsg(const wchar_t* text, size_t length);
 void updateFPS(const wchar_t* text, size_t length);
 void exitAppCallback(mouseButton& button);
+void joystickSelectCallback(mouseButton& button);
 void testCallback(mouseButton& button);
 void printCurrentController(SDLJoystickData& activeGamepad);
-int waitForEnterPress();
+void checkForQuit();
+int waitForEnterPress_runScreen(textUI& screen);
 bool checkKey(int key, bool pressed);
 char IpInputLoop();
 int screenLoop(textUI& screen);
 int tUISelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick, textUI& screen);
 int tUISelectDS4Dialog(std::vector<HidDeviceInfo>& devList, textUI& screen);
 bool tUIConnectToDS4Controller(textUI& screen);
-std::string tUIGetHostAddress();
+std::string tUIGetHostAddress(textUI& screen);
+void threadedEstablishConnection(TCPConnection& client, int& retVal);
 
 #pragma warning(disable : 4996)
 // Converts strings to wide strings and back again
@@ -211,19 +215,13 @@ void printCurrentController(SDLJoystickData& activeGamepad) {
     std::wcout << g_toWide(g_outputText);
 }
 
-// loops until the user presses enter
-int waitForEnterPress() {
-    while (!APP_KILLED) {
-        if (checkKey(VK_RETURN, IS_PRESSED))
-            return 1;
-        if (checkKey(VK_BACK, IS_PRESSED))
-            return 0;
-        Sleep(15);
-    }
-    return 0;
+// checks if the Q button has been pressed and sets APP_KILLED to true
+void checkForQuit() {
+    if (checkKey(0x51, IS_PRESSED)) // Q for Quit
+        APP_KILLED = true;
 }
 
-// loops until the user presses enter
+// loops until the user presses enter while running screen logic
 int waitForEnterPress_runScreen(textUI& screen) {
     while (!APP_KILLED) {
         if (checkKey(VK_RETURN, IS_PRESSED))
@@ -550,6 +548,7 @@ std::string tUIGetHostAddress(textUI& screen) {
     int octNum = 0;
     bool validIP = 0;
     bool firstDot = 0;
+    bool makeConnection = false;
     std::string host_address;
 
     COORD octPos[4] = {
@@ -566,6 +565,10 @@ std::string tUIGetHostAddress(textUI& screen) {
         textInput(41, 10, 3, 3, ALIGN_CENTER)
     };
 
+    // Lambda for setting octet cursor position
+    auto setOctetCursorPos = [&]() {
+        setCursorPosition(octPos[octNum].X + (octet[octNum].getCursorPosition() > 0) * 1, octPos[octNum].Y);
+    };
     // Lambda function for IP address validation
     auto validIPAddress = [](const std::string& ipAddress) {
         std::regex pattern(R"(^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[1-9][0-9]?)$)");
@@ -588,13 +591,14 @@ std::string tUIGetHostAddress(textUI& screen) {
             errorOut.Draw();
             output1.Draw();
             errorOut.SetColor(RED);
-            setCursorPosition(octPos[octNum]);
+            setOctetCursorPos();
             return 1;
         }
         else
         {
             errorOut.Clear();
             output1.Clear();
+            setOctetCursorPos();
         }
         return 0;
     };
@@ -607,13 +611,15 @@ std::string tUIGetHostAddress(textUI& screen) {
 
     screen.AddButton(&quitButton);
 
+    errorOut.Draw();
+
     setCursorPosition(12, 8);
     std::wcout << L"Enter IP Address Of Host:";
 
     setCursorPosition(31, 10);
     std::wcout << L".   .   .";
 
-    errorOut.SetPosition(consoleWidth / 2, 9, 25, 1, ALIGN_CENTER);
+    errorOut.SetPosition(consoleWidth / 2, 9, 50, 1, ALIGN_CENTER);
     output1.SetText(L"Press Enter to Connect");
     output1.SetPosition(consoleWidth / 2, 13, 23, 1, ALIGN_CENTER);
     
@@ -621,20 +627,17 @@ std::string tUIGetHostAddress(textUI& screen) {
        
     setCursorPosition(29, 10);
     showConsoleCursor();
-
-    //int octCount = 0;
-    while (!APP_KILLED && octNum < 4) {
-        if (checkKey(0x51, IS_PRESSED)) // Q for Quit
-            APP_KILLED = true;
-
+    bool warningShown = 0;
+    while (!APP_KILLED && !makeConnection) {
+        checkForQuit();
         screenLoop(screen);
         for (int i = 0; i < 4; ++i) {
             if (octet[i].Status() & ACTIVE_INPUT) {
                 validIP = buildAndTestIpAddress();
-                octNum = i;
+                octNum = i;        
             }
-                
         }
+        setOctetCursorPos();
 
         char num = IpInputLoop();
         // B: backspace, D: delete, N: next octet, .: dot, X: nothing
@@ -647,13 +650,14 @@ std::string tUIGetHostAddress(textUI& screen) {
             }
         }
         else if (num == 'B') {
+            errorOut.Clear();
             if (octet[octNum].getCursorPosition() == 0) {
                 if (!octet[octNum].getLength()) {
                     octet[octNum].insert(L'0');
                     octet[octNum].Draw();
                 }
                 octNum = max(0, octNum - 1);
-                setCursorPosition(octPos[octNum]);
+                setOctetCursorPos();
             }
             
             octet[octNum].Clear();
@@ -663,22 +667,13 @@ std::string tUIGetHostAddress(textUI& screen) {
             validIP = buildAndTestIpAddress();
         }
         else if (num == 'D') {
-            if (octet[octNum].getCursorPosition() == 0) {
-                /*if (!octet[octNum].getLength()) {
-                    octet[octNum].insert(L'0');
-                    octet[octNum].Draw();
-                }*/
-                //octNum = max(0, octNum - 1);
-                //setCursorPosition(octPos[octNum]);
-            }
-
             octet[octNum].Clear();
             octet[octNum].del();
             octet[octNum].Draw();
 
             validIP = buildAndTestIpAddress();
         }
-        else if (num != 'N' && num != 'X') {
+        else if (octNum < 4 && num != 'N' && num != 'X') {
             octet[octNum].overwrite(num);
             octet[octNum].Draw();
 
@@ -691,42 +686,33 @@ std::string tUIGetHostAddress(textUI& screen) {
             }
                     
             firstDot = 0;
-            octNum++;
+            octNum = min(octNum+1,4);
             octet[octNum].cursorToBegin();
-            setCursorPosition(octPos[octNum]);
+            setOctetCursorPos();
         }
                 
         if (validIP) {
             if (checkKey(VK_RETURN, IS_PRESSED)) {
-                hideConsoleCursor();
-                screen.ClearInputs();
-                screen.ClearButtons();
-                return host_address;
+                makeConnection = true;
             }
         }
-        else if (octNum == 4) {
-
-            if (!buildAndTestIpAddress()) {
+        else if (octNum == 4 && !buildAndTestIpAddress()) {
+                validIP = false;
                 setErrorMsg(L"Invalid IP Address.", 20);
                 errorOut.Draw();
-                setCursorPosition(octPos[octNum]);
-                    
                 octNum--;
-            }           
-
-            if (octNum < 4) {    
-                //waitForEnterPress();
-                waitForEnterPress_runScreen(screen);
-                octet[octNum].Clear();
-                octet[octNum].back();
-                octet[octNum].Draw();
-                errorOut.Clear();
-            }
-            else {
-                //waitForEnterPress();
-                waitForEnterPress_runScreen(screen);
-            }
-
+                setOctetCursorPos();       
+        }
+        else if (getKeyState(VK_RETURN)) {
+            warningShown = true;
+            setErrorMsg(L"Invalid IP Address.", 20);
+            errorOut.Draw();
+            setOctetCursorPos();
+        }
+        else if (warningShown && !getKeyState(VK_RETURN)) {
+            warningShown = false;
+            errorOut.Clear();
+            setOctetCursorPos();
         }
 
         if (num == 'X')
@@ -736,5 +722,89 @@ std::string tUIGetHostAddress(textUI& screen) {
     hideConsoleCursor();
     screen.ClearInputs();
     screen.ClearButtons();
+    buildAndTestIpAddress();
     return host_address;
+}
+
+void threadedEstablishConnection(TCPConnection& client, int& retVal) {
+    while (!APP_KILLED && retVal == WSAEWOULDBLOCK)
+    {
+        retVal = client.establish_connection();
+        if (!APP_KILLED && retVal == WSAEWOULDBLOCK)
+            Sleep(50);
+    }
+}
+
+///  
+/// ANIMATIONS.h
+///  
+int g_frameNum = 0;
+const int CX_ANI_FRAME_COUNT = 12;
+
+const wchar_t* ConnectAnimation[13] = {
+    {L"(>                               )"},
+    {L"(<>                              )"},
+    {L"(   <>                           )"},
+    {L"(      <>                        )"},
+    {L"(         <>                     )"},
+    {L"(            <>                  )"},
+    {L"(               <>               )"},
+    {L"(                  <>            )"},
+    {L"(                     <>         )"},
+    {L"(                        <>      )"},
+    {L"(                           <>   )"},
+    {L"(                              <>)"},
+    {L"(                               <)"}
+};
+
+
+const wchar_t* ConnectAnimation2[11] = {
+    {L"(                         )"},
+    {L"(~                        )"},
+    {L"(   ~                     )"},
+    {L"(      ~                  )"},
+    {L"(         ~               )"},
+    {L"(            ~            )"},
+    {L"(               ~         )"},
+    {L"(                  ~      )"},
+    {L"(                     ~   )"},
+    {L"(                        ~)"},
+    {L"(                         )"}
+};
+
+const wchar_t* ConnectAnimationOG[10] = {
+    {L"|                      |"},
+    {L"|=                     |"},
+    {L"|   =                  |"},
+    {L"|      =               |"},
+    {L"|         =            |"},
+    {L"|            =         |"},
+    {L"|               =      |"},
+    {L"|                  =   |"},
+    {L"|                     =|"},
+    {L"|                      |"}
+};
+
+// function will inc/dec &counter up to maxCount and down to 0
+// for animating back and forth through frames
+void countUpDown(int& counter, int maxCount) {
+    static int dir = 1; // 1: up, -1: down
+
+    if (counter == 0) {
+        dir = -1;
+    }
+    
+    if (counter < maxCount && counter > 0) {
+        counter += dir;
+    }
+    else {
+        dir *= -1;
+        counter += dir;
+    }
+}
+
+// function will loop from 0 to maxCount
+// for animation cyclically through frames
+void loopCount(int& counter, int maxCount) {
+    counter = (counter + 1) % (maxCount+1);
 }

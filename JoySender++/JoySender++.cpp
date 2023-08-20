@@ -229,8 +229,8 @@ int joySender(Arguments& args) {
     _setmode(_fileno(stdout), _O_U8TEXT);
 
     hideConsoleCursor();
-
-    g_screen.SetBackdrop(JoySendMain_Backdrop);
+    textUI& screen = g_screen;
+    screen.SetBackdrop(JoySendMain_Backdrop);
     output1.SetPosition(15, 5, 50, 1, ALIGN_LEFT);
     output1.SetColor(WHITE|BLACK AS_BG);
     errorOut.SetPosition(consoleWidth/2, 4, 50, 0, ALIGN_CENTER);
@@ -243,7 +243,7 @@ int joySender(Arguments& args) {
     switch (args.mode) {
     case 1: {   // SDL MODE
         if (!args.select) {
-           allGood = tUISelectJoystickDialog(getJoystickList().size(), activeGamepad, g_screen);
+           allGood = tUISelectJoystickDialog(getJoystickList().size(), activeGamepad, screen);
            if (!allGood) {
                setErrorMsg(L"Failed to open joystick.", 25);
                errorOut.Draw();
@@ -265,7 +265,7 @@ int joySender(Arguments& args) {
     }
           break;
     case 2: {   // DS4 MODE
-        allGood = tUIConnectToDS4Controller(g_screen);
+        allGood = tUIConnectToDS4Controller(screen);
         if (!allGood) {
             setErrorMsg(L" Unable to connect to a DS4 device !! ", 39);
             errorOut.Draw();
@@ -279,8 +279,8 @@ int joySender(Arguments& args) {
         return -1;
     }
     
-    // refresh g_screen
-    g_screen.DrawBackdrop();
+    // refresh screen
+    screen.DrawBackdrop();
     
     //###########################################################################
     // Init Settings for Operating Mode
@@ -353,25 +353,69 @@ int joySender(Arguments& args) {
     //###########################################################################
     //# Main Loop keeps client running
     //# asks for new host if connection fails 3 times
+    setErrorMsg(L"\0", 1); // clear error output in memory
     while (!APP_KILLED) {
-        //fps_counter.reset();
-        printCurrentController(activeGamepad); // not yet
         
         // Acquire host address for connection attempt
         if (args.host.empty()) {
-            args.host = tUIGetHostAddress(g_screen);
+
+            screen.ReDraw();
+            printCurrentController(activeGamepad);
+            
+            args.host = tUIGetHostAddress(screen);
+
+            // set up for connecting screen
+            setErrorMsg(L"\0", 1); // clear errors in memory
+            int len = args.host.size() + 16;
+            swprintf(message1, len, L"Connecting To: %s", std::wstring(args.host.begin(), args.host.end()).c_str());
+            output1.SetPosition(consoleWidth / 2, 9, len, 1, ALIGN_CENTER);
+            output1.SetText(message1);
+            //
         }
         if (APP_KILLED) {
             return -1;
         }
-
+        
         TCPConnection client(args.host, args.port);
         client.set_silence(true);
-        allGood = client.establish_connection();
 
-        // *******************
-        // Attempt timing and mode setting handshake
-        if (allGood < 0) {
+        // Load Connecting Screen
+        {
+            errorOut.SetPosition(consoleWidth / 2, 7, 50, 0, ALIGN_CENTER);
+            screen.AddButton(&quitButton);
+            screen.ReDraw();
+            printCurrentController(activeGamepad);
+            errorOut.Draw();            
+            output1.Draw();
+
+            //set up connecting animation
+            output2.SetPosition(consoleWidth / 2, 10, 38, 0, ALIGN_CENTER);
+            
+
+            // ### establish the connection in separate thread to animate connecting dialog
+            allGood = WSAEWOULDBLOCK;
+            std::thread connectThread(threadedEstablishConnection, std::ref(client), std::ref(allGood));
+            while (!APP_KILLED && allGood == WSAEWOULDBLOCK) {
+                output2.SetText(ConnectAnimation[g_frameNum]);
+                output2.Draw();
+
+                checkForQuit();
+                //screenLoop(screen);  // freezes animation??
+
+                countUpDown(g_frameNum, CX_ANI_FRAME_COUNT);  // bounce
+                //loopCount(frameNum, CX_ANI_FRAME_COUNT);    // loop
+
+                if (!APP_KILLED && allGood == WSAEWOULDBLOCK)
+                    Sleep(100);
+            }
+            connectThread.join();
+            // ###
+        }
+
+        if (APP_KILLED) {
+            // do nothing
+        }
+        else if (allGood < 0) {
             int len = args.host.size() + 31;
             swprintf(errorPointer, len, L"<< Connection To %s Failed: %d >>", std::wstring(args.host.begin(), args.host.end()).c_str(), failed_connections+1);
             //setErrorMsg(L"Failed to Connect :: Retry 1", 32);
@@ -379,25 +423,26 @@ int joySender(Arguments& args) {
             errorOut.SetText(errorPointer);
         }
         else{
-
-            g_screen.ClearButtons();
+        // *******************
+        // Attempt timing and mode setting handshake
+            screen.ClearButtons();
             if(mode == 2)
-                g_screen.SetBackdrop(DS4_Backdrop);
+                screen.SetBackdrop(DS4_Backdrop);
             else
-                g_screen.SetBackdrop(XBOX_Backdrop);
+                screen.SetBackdrop(XBOX_Backdrop);
 
-            LoadButtons(g_screen, mode);
+            LoadButtons(screen, mode);
             button_Guide_highlight.setCallback(testCallback); // will switch colors
 
-            g_screen.AddButton(&quitButton);
+            screen.AddButton(&quitButton);
             //quitButton.setCallback(&exitAppCallback); // will quit app
 
             wcsncpy_s(connectionPointer, 25, g_converter.from_bytes(args.host + " >>    ").c_str(), _TRUNCATE);
             connectionMsg.SetText(connectionPointer);
             connectionMsg.SetPosition(21, 1, 25, 1, ALIGN_LEFT);
 
-            g_screen.DrawBackdrop();
-            g_screen.DrawButtons();
+            screen.DrawBackdrop();
+            screen.DrawButtons();
             
             connectionMsg.Draw();
             
@@ -570,6 +615,12 @@ int joySender(Arguments& args) {
 
 
         // Catch key presses that could have terminated connection
+        //# Q  will Quit
+        if (getKeyState('Q') || APP_KILLED) {
+            //g_outputText += "<< Exiting >>\r\n";
+            //displayOutputText();
+            return 0;
+        }
         //# Shift + R  Resets program allowing joystick reconnection / selection, holding a number will change op mode
         if (getKeyState('R')) {
             g_outputText += "<< Restarted >>\r\n";
@@ -596,12 +647,7 @@ int joySender(Arguments& args) {
                 --failed_connections;
             }
         }
-        //# Shift + Q  will Quit
-        if (getKeyState('Q') || APP_KILLED) {
-            //g_outputText += "<< Exiting >>\r\n";
-            //displayOutputText();
-            return 0;
-        }
+        
         
 
         //###################################
@@ -611,16 +657,16 @@ int joySender(Arguments& args) {
             args.host = "";
             failed_connections = 0;
         }
-        g_screen.ClearButtons();
-        g_screen.SetBackdrop(JoySendMain_Backdrop);
-        //g_screen.AddButton(&quitButton);
-        errorOut.SetPosition(consoleWidth / 2, 7, 50, 0, ALIGN_CENTER);
-        g_screen.ReDraw();
-        printCurrentController(activeGamepad);
-        errorOut.Draw();
+        screen.ClearButtons();
+        screen.SetBackdrop(JoySendMain_Backdrop);
+        //screen.AddButton(&quitButton);
+        //errorOut.SetPosition(consoleWidth / 2, 7, 50, 0, ALIGN_CENTER);
+        //screen.ReDraw();
+        //printCurrentController(activeGamepad);
+        //errorOut.Draw();
 
         //Clear any keyboard input
-        swallowInput();
+        //swallowInput();
     }
 
     return 1;

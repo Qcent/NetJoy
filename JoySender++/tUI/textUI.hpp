@@ -172,7 +172,7 @@ public:
         _lines = lines;
         _alignment = align;
     }
-    
+
     void SetWidth(int width) {
         _width = width;
     }
@@ -377,7 +377,7 @@ protected:
     }
 };
 
-// Extends textBox for text input
+// Extends textBox for text input to a heap allocated wchar_t*
 class textInput : public textBox {
 public:
     const int INPUT_MAX_LENGTH = 96;
@@ -454,12 +454,12 @@ public:
             ++_length;
     }
 
-    void cursorRight(int move = 1) {
+    void cursorRight(unsigned int move = 1) {
         if (_currentPosition == _length) return;
         _currentPosition += min(move, _length - _currentPosition);
     }
 
-    void cursorLeft(int move = 1) {
+    void cursorLeft(unsigned int move = 1) {
         if (!_currentPosition) return;
         _currentPosition -= min(move, _currentPosition);
     }
@@ -536,8 +536,8 @@ public:
     }
 
 private:
-    int _maxLength;
-    int _currentPosition;
+    unsigned int _maxLength;
+    unsigned int _currentPosition;
     wchar_t* _input;
     WORD _highlightColor;
     WORD _selectColor;
@@ -776,8 +776,8 @@ private:
     mouseButton* _partner;
 };
 
-// Holds pointers to a text 'backdrop' and all buttons, currently on screen
-// for easy update handling
+// Holds pointers to a text 'backdrop' and all buttons and textInputs,
+//  currently on screen, for easy update handling
 class textUI {
 public:
     textUI() {
