@@ -69,14 +69,7 @@ int tUISelectDS4Dialog(std::vector<HidDeviceInfo>& devList, textUI& screen);
 bool tUIConnectToDS4Controller(textUI& screen);
 std::string tUIGetHostAddress(textUI& screen);
 void threadedEstablishConnection(TCPConnection& client, int& retVal);
-
-#pragma warning(disable : 4996)
-// Converts strings to wide strings and back again
-std::wstring_convert<std::codecvt_utf8<wchar_t>> g_converter;
-
-int g_mode = 1;
-int g_currentColorScheme;
-WORD g_BG_COLOR = 0;
+bool checkKey(int key, bool pressed);
 
 #define IS_PRESSED      1
 #define IS_RELEASED     0
@@ -103,27 +96,35 @@ bool checkKey(int key, bool pressed) {
 const int consoleWidth = 72;
 const int consoleHeight = 24;
 
+#pragma warning(disable : 4996)
+// Converts strings to wide strings and back again
+std::wstring_convert<std::codecvt_utf8<wchar_t>> g_converter;
+
+int g_mode = 1;
+int g_currentColorScheme;
+WORD g_BG_COLOR = 0;
+
 wchar_t g_stringBuff[500];
 wchar_t* errorPointer = g_stringBuff;   // max length 100
-wchar_t* connectionPointer = g_stringBuff + 100;    // max length 25
-wchar_t* fpsPointer = connectionPointer + 25;   // max length 10
-wchar_t* message1 = fpsPointer + 10;   // max length 100
-wchar_t* message2 = message1 + 100;   // max length 100
-wchar_t* message3 = message2 + 100;   // max length 165
+wchar_t* hostPointer = g_stringBuff + 100;    // max length 25
+wchar_t* fpsPointer = hostPointer + 25;   // max length 10
+wchar_t* msgPointer1 = fpsPointer + 10;   // max length 100
+wchar_t* msgPointer2 = msgPointer1 + 100;   // max length 100
+wchar_t* msgPointer3 = msgPointer2 + 100;   // max length 165
 
-//wcsncpy_s(message3, 10, L"Message 3", _TRUNCATE);
+//wcsncpy_s(msgPointer1, 10, L"Message 1", _TRUNCATE);
 
 HANDLE g_hConsoleInput;
 
 textUI g_screen;
 textBox errorOut(4, 22, 45, 0, ALIGN_CENTER, errorPointer, BRIGHT_RED);
 
-textBox connectionMsg(2, 8, 20, 0, ALIGN_LEFT, connectionPointer, BRIGHT_GREEN);
-textBox fpsMsg(2, 52, 20, 0, ALIGN_LEFT, fpsPointer, BRIGHT_BLUE);
+textBox hostMsg(1, 8, 20, 0, ALIGN_LEFT, hostPointer, BRIGHT_GREEN);
+textBox fpsMsg(1, 52, 20, 0, ALIGN_LEFT, fpsPointer, BRIGHT_CYAN);
 
-textBox output1(3, 19, 60, 0, ALIGN_LEFT, message1, BRIGHT_BLUE);
-textBox output2(3, 21, 60, 0, ALIGN_LEFT, message2, BRIGHT_BLUE);
-textBox output3(3, 24, 60, 0, ALIGN_LEFT, message3, BRIGHT_BLUE);
+textBox output1(3, 19, 60, 0, ALIGN_LEFT, msgPointer1, BRIGHT_BLUE);
+textBox output2(3, 21, 60, 0, ALIGN_LEFT, msgPointer2, BRIGHT_BLUE);
+textBox output3(3, 24, 60, 0, ALIGN_LEFT, msgPointer3, BRIGHT_BLUE);
 
 //
 // text buffer setting functions
@@ -270,7 +271,7 @@ char IpInputLoop() {
     return 'X';
 }
 
-// loop looks for mouse input and compares to buttons on screen
+// used in a loop, looks for mouse input and compares to buttons on screen // blocks without constant mouse input :(
 int screenLoop(textUI& screen) {
     INPUT_RECORD inputRecord;
     DWORD eventsRead;
@@ -325,10 +326,10 @@ int tUISelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick, textUI&
         // Allocate memory for the wchar_t string
         wchar_t* wideStr = new wchar_t[charLen + 5]; // +4 for the index string and +1 null terminator
         // Convert the char string to a wchar_t string // store in message3 as temp location 
-        mbstowcs(message3, SDL_JoystickNameForIndex(i), charLen + 1);
+        mbstowcs(msgPointer3, SDL_JoystickNameForIndex(i), charLen + 1);
 
         // Copy to wideStr with a formatted index
-        swprintf(wideStr, L"(%d) %s", i+1, message3);
+        swprintf(wideStr, L"(%d) %s", i+1, msgPointer3);
 
         // create a button with joystick index and name
         availableJoystickBtn[i] = mouseButton(START_COL, START_LINE + i, charLen + 5, wideStr);
@@ -343,8 +344,8 @@ int tUISelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick, textUI&
     // Draw the screen with the available joysticks
     screen.ReDraw();
     // add messages to screen
-    wcsncpy_s(message1, 19, L"Select a Joystick:", _TRUNCATE);
-    output1.SetText(message1);
+    wcsncpy_s(msgPointer1, 19, L"Select a Joystick:", _TRUNCATE);
+    output1.SetText(msgPointer1);
     output1.Draw();
 
     
@@ -454,8 +455,8 @@ int tUISelectDS4Dialog(std::vector<HidDeviceInfo>& devList, textUI& screen) {
     // Draw the screen with the available joysticks
     screen.ReDraw();
     // add messages to screen
-    wcsncpy_s(message1, 27, L"Connected DS4 Controllers:", _TRUNCATE);
-    output1.SetText(message1);
+    wcsncpy_s(msgPointer1, 27, L"Connected DS4 Controllers:", _TRUNCATE);
+    output1.SetText(msgPointer1);
     output1.Draw();
 
 
@@ -735,13 +736,91 @@ void threadedEstablishConnection(TCPConnection& client, int& retVal) {
     }
 }
 
+void buttonStatesFromXboxReport(XUSB_REPORT& xboxReport) {
+    std::vector<mouseButton*> newlyActive;
+    byte shoulderRedraw=0;  // 0x01: left, 0x08: right
+    auto updateButtonStatus = [&](mouseButton& button, bool condition, byte special=0) {
+        if (condition && button.Status() == MOUSE_OUT) {
+            button.SetStatus(MOUSE_HOVERED | MOUSE_DOWN);
+            if (!special)
+               // newlyActive.push_back(&button);
+                button.Update();
+            else
+                shoulderRedraw |= special;
+        }
+        else if(!condition && button.Status() == (MOUSE_HOVERED | MOUSE_DOWN)){
+            button.SetStatus(MOUSE_OUT);
+            if (!special)
+                button.Update();
+            else
+                shoulderRedraw |= special;
+        }
+    };
+
+    // Left Stick
+    updateButtonStatus(button_LStickLeft_highlight, xboxReport.sThumbLX < 0);   // left
+    updateButtonStatus(button_LStickRight_highlight, xboxReport.sThumbLX > 0);   // right
+    updateButtonStatus(button_LStickDown_highlight, xboxReport.sThumbLY < 0);   // down
+    updateButtonStatus(button_LStickUp_highlight, xboxReport.sThumbLY > 0);   // up
+
+    // Right Stick
+    updateButtonStatus(button_RStickLeft_highlight, xboxReport.sThumbRX < 0);   // left
+    updateButtonStatus(button_RStickRight_highlight, xboxReport.sThumbRX > 0);   // right
+    updateButtonStatus(button_RStickDown_highlight, xboxReport.sThumbRY < 0);   // down
+    updateButtonStatus(button_RStickUp_highlight, xboxReport.sThumbRY > 0);   // up
+   
+    // Shoulders: L1 / R1
+    updateButtonStatus(button_L1_highlight, xboxReport.wButtons & XUSB_GAMEPAD_LEFT_SHOULDER, 0x01);   // left shoulder
+    updateButtonStatus(button_R1_highlight, xboxReport.wButtons & XUSB_GAMEPAD_RIGHT_SHOULDER, 0x08);   // right shoulder
+
+    // Triggers: L2 / R2
+    updateButtonStatus(button_L2_highlight, xboxReport.bLeftTrigger > 0, 0x01);   // left trigger
+    updateButtonStatus(button_R2_highlight, xboxReport.bRightTrigger > 0, 0x08);   // right trigger
+   
+    // Thumbs: L3 / R3
+    updateButtonStatus(button_L3_highlight, xboxReport.wButtons & XUSB_GAMEPAD_LEFT_THUMB);   // left thumb
+    updateButtonStatus(button_R3_highlight, xboxReport.wButtons & XUSB_GAMEPAD_RIGHT_THUMB);   // right thumb
+
+    // DPAD
+    updateButtonStatus(button_DpadUp_outline, xboxReport.wButtons & XUSB_GAMEPAD_DPAD_UP);
+    updateButtonStatus(button_DpadDown_outline, xboxReport.wButtons & XUSB_GAMEPAD_DPAD_DOWN);
+    updateButtonStatus(button_DpadLeft_outline, xboxReport.wButtons & XUSB_GAMEPAD_DPAD_LEFT);
+    updateButtonStatus(button_DpadRight_outline, xboxReport.wButtons & XUSB_GAMEPAD_DPAD_RIGHT);
+
+    // Buttons
+    updateButtonStatus(button_Start_highlight, xboxReport.wButtons & XUSB_GAMEPAD_START);  // start
+    updateButtonStatus(button_Back_highlight, xboxReport.wButtons & XUSB_GAMEPAD_BACK);    // back
+    updateButtonStatus(button_Guide_highlight, xboxReport.wButtons & XUSB_GAMEPAD_GUIDE);   // guide
+
+    // Main Face Buttons
+    updateButtonStatus(button_A_outline, xboxReport.wButtons & XUSB_GAMEPAD_A);   // A
+    updateButtonStatus(button_B_outline, xboxReport.wButtons & XUSB_GAMEPAD_B);   // B
+    updateButtonStatus(button_X_outline, xboxReport.wButtons & XUSB_GAMEPAD_X);   // X
+    updateButtonStatus(button_Y_outline, xboxReport.wButtons & XUSB_GAMEPAD_Y);   // Y
+
+    for (auto button : newlyActive) {
+        button->Update();
+    }
+
+    // must redraw both buttons in this order for highlighting to always be correct
+    if (shoulderRedraw & 0x01) {
+        button_L1_highlight.Update();
+        button_L2_highlight.Update();
+    }
+    if (shoulderRedraw & 0x08) {
+        button_R1_highlight.Update();
+        button_R2_highlight.Update();
+    }
+}
+
+
 ///  
 /// ANIMATIONS.h
 ///  
-int g_frameNum = 0;
+int g_frameNum = 0;  //
 const int CX_ANI_FRAME_COUNT = 12;
 
-const wchar_t* ConnectAnimation[13] = {
+const wchar_t* ConnectAnimation[CX_ANI_FRAME_COUNT+1] = {
     {L"(>                               )"},
     {L"(<>                              )"},
     {L"(   <>                           )"},
@@ -755,34 +834,6 @@ const wchar_t* ConnectAnimation[13] = {
     {L"(                           <>   )"},
     {L"(                              <>)"},
     {L"(                               <)"}
-};
-
-
-const wchar_t* ConnectAnimation2[11] = {
-    {L"(                         )"},
-    {L"(~                        )"},
-    {L"(   ~                     )"},
-    {L"(      ~                  )"},
-    {L"(         ~               )"},
-    {L"(            ~            )"},
-    {L"(               ~         )"},
-    {L"(                  ~      )"},
-    {L"(                     ~   )"},
-    {L"(                        ~)"},
-    {L"(                         )"}
-};
-
-const wchar_t* ConnectAnimationOG[10] = {
-    {L"|                      |"},
-    {L"|=                     |"},
-    {L"|   =                  |"},
-    {L"|      =               |"},
-    {L"|         =            |"},
-    {L"|            =         |"},
-    {L"|               =      |"},
-    {L"|                  =   |"},
-    {L"|                     =|"},
-    {L"|                      |"}
 };
 
 // function will inc/dec &counter up to maxCount and down to 0

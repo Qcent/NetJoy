@@ -234,7 +234,7 @@ int joySender(Arguments& args) {
     output1.SetPosition(15, 5, 50, 1, ALIGN_LEFT);
     output1.SetColor(WHITE|BLACK AS_BG);
     errorOut.SetPosition(consoleWidth/2, 4, 50, 0, ALIGN_CENTER);
-    fpsMsg.SetPosition(52, 2, 7, 1, ALIGN_LEFT);
+    fpsMsg.SetPosition(52, 1, 7, 1, ALIGN_LEFT);
     quitButton.setCallback(&exitAppCallback);
     quitButton.SetPosition(10, 17);
     
@@ -367,9 +367,9 @@ int joySender(Arguments& args) {
             // set up for connecting screen
             setErrorMsg(L"\0", 1); // clear errors in memory
             int len = args.host.size() + 16;
-            swprintf(message1, len, L"Connecting To: %s", std::wstring(args.host.begin(), args.host.end()).c_str());
+            swprintf(msgPointer1, len, L"Connecting To: %s", std::wstring(args.host.begin(), args.host.end()).c_str());
             output1.SetPosition(consoleWidth / 2, 9, len, 1, ALIGN_CENTER);
-            output1.SetText(message1);
+            output1.SetText(msgPointer1);
             //
         }
         if (APP_KILLED) {
@@ -423,31 +423,38 @@ int joySender(Arguments& args) {
             errorOut.SetText(errorPointer);
         }
         else{
-        // *******************
-        // Attempt timing and mode setting handshake
-            screen.ClearButtons();
-            if(mode == 2)
-                screen.SetBackdrop(DS4_Backdrop);
-            else
-                screen.SetBackdrop(XBOX_Backdrop);
+            // Set up screen for main connection loop
+            {
+                if (mode == 2) {
+                    screen.SetBackdrop(DS4_Backdrop);
+                    quitButton.SetPosition(consoleWidth / 2 - 5, 17);
+                }
+                else {
+                    screen.SetBackdrop(XBOX_Backdrop);
+                    quitButton.SetPosition(consoleWidth / 2 - 5, 18);
+                }
 
-            LoadButtons(screen, mode);
-            button_Guide_highlight.setCallback(testCallback); // will switch colors
+                LoadButtons(screen, mode);
+                button_Guide_highlight.setCallback(testCallback); // will switch colors
 
-            screen.AddButton(&quitButton);
-            //quitButton.setCallback(&exitAppCallback); // will quit app
+                screen.AddButton(&quitButton);
 
-            wcsncpy_s(connectionPointer, 25, g_converter.from_bytes(args.host + " >>    ").c_str(), _TRUNCATE);
-            connectionMsg.SetText(connectionPointer);
-            connectionMsg.SetPosition(21, 1, 25, 1, ALIGN_LEFT);
+                wcsncpy_s(msgPointer1, 37, g_converter.from_bytes("<< Connected to: " + args.host + " >>").c_str(), _TRUNCATE);
+                output1.SetText(msgPointer1);
+                output1.SetPosition(4, 1, 38, 1, ALIGN_LEFT);
 
-            screen.DrawBackdrop();
-            screen.DrawButtons();
-            
-            connectionMsg.Draw();
-            
-          
-            // Send timing and mode data
+                wcsncpy_s(hostPointer, 16, g_converter.from_bytes(args.host).c_str(), _TRUNCATE);
+                hostMsg.SetText(hostPointer);
+                hostMsg.SetPosition(21, 1, 38, 1, ALIGN_LEFT);
+
+                screen.ReDraw();
+
+                output1.Draw();
+                hostMsg.Draw();
+            }
+            // *******************
+            // Attempt timing and mode setting handshake
+
             std::string txSettings = std::to_string(args.fps) + ":" + std::to_string(args.mode);
             allGood = client.send_data(txSettings.c_str(), static_cast<int>(txSettings.length()));
             if (allGood < 1) {              
@@ -472,9 +479,12 @@ int joySender(Arguments& args) {
 
 
         // ******************
-        // Connection loop
+        // Main Connection loop
         fps_counter.reset();
         while (inConnection){
+
+            //screenLoop(screen);
+
             // Shift + R will Reset program allowing joystick reconnection / selection
             // Shift + M will reMap all buttons on an SDL device
             // Shift + Q will Quit the program
@@ -517,6 +527,12 @@ int joySender(Arguments& args) {
             else {
                 //# set the XBOX REPORT from SDL inputs
                 get_xbox_report_from_SDLmap(activeGamepad, activeInputs, xbox_report);
+
+                // activate buttons from xbox report
+                // ###  TO DO  #####
+                buttonStatesFromXboxReport(xbox_report);
+
+                // **************** //
             }
 
             // ###################################

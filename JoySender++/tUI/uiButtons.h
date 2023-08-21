@@ -298,11 +298,72 @@ void LoadButtonOutlines(textUI& screen) {
     button_R3_outline.SetSelectColor(HOVERED_BUTTON);
 }
 
+// Sets controller button active input colors
+void SetButtonActiveColors() {
+    // Highlights
+    button_Guide_highlight.SetActiveColor(button_Guide_highlight.getSelectColor());
+    button_Start_highlight.SetActiveColor(button_Start_highlight.getSelectColor());
+    button_Back_highlight.SetActiveColor(button_Back_highlight.getSelectColor());
+
+    button_LStickUp_highlight.SetActiveColor(button_LStickUp_highlight.getSelectColor());
+    button_LStickLeft_highlight.SetActiveColor(button_LStickLeft_highlight.getSelectColor());
+    button_LStickRight_highlight.SetActiveColor(button_LStickRight_highlight.getSelectColor());
+    button_LStickDown_highlight.SetActiveColor(button_LStickDown_highlight.getSelectColor());
+
+    button_RStickUp_highlight.SetActiveColor(button_RStickUp_highlight.getSelectColor());
+    button_RStickLeft_highlight.SetActiveColor(button_RStickLeft_highlight.getSelectColor());
+    button_RStickRight_highlight.SetActiveColor(button_RStickRight_highlight.getSelectColor());
+    button_RStickDown_highlight.SetActiveColor(button_RStickDown_highlight.getSelectColor());
+
+    button_A_highlight.SetActiveColor(button_A_highlight.getSelectColor());
+    button_B_highlight.SetActiveColor(button_B_highlight.getSelectColor());
+    button_X_highlight.SetActiveColor(button_X_highlight.getSelectColor());
+    button_Y_highlight.SetActiveColor(button_Y_highlight.getSelectColor());
+
+    button_DpadUp_highlight.SetActiveColor(button_DpadUp_highlight.getSelectColor());
+    button_DpadLeft_highlight.SetActiveColor(button_DpadLeft_highlight.getSelectColor());
+    button_DpadRight_highlight.SetActiveColor(button_DpadRight_highlight.getSelectColor());
+    button_DpadDown_highlight.SetActiveColor(button_DpadDown_highlight.getSelectColor());
+
+    button_L1_highlight.SetActiveColor(button_L1_highlight.getSelectColor());
+    button_L2_highlight.SetActiveColor(button_L2_highlight.getSelectColor());
+    button_L3_highlight.SetActiveColor(button_L3_highlight.getSelectColor());
+
+    button_R1_highlight.SetActiveColor(button_R1_highlight.getSelectColor());
+    button_R2_highlight.SetActiveColor(button_R2_highlight.getSelectColor());
+    button_R3_highlight.SetActiveColor(button_R3_highlight.getSelectColor());
+
+
+    // Outlines
+    /*
+    button_A_outline.SetActiveColor(button_A_outline.getSelectColor());
+    button_B_outline.SetActiveColor(button_B_outline.getSelectColor());
+    button_X_outline.SetActiveColor(button_X_outline.getSelectColor());
+    button_Y_outline.SetActiveColor(button_Y_outline.getSelectColor());
+
+    button_DpadUp_outline.SetActiveColor(button_DpadUp_outline.getSelectColor());
+    button_DpadLeft_outline.SetActiveColor(button_DpadLeft_outline.getSelectColor());
+    button_DpadRight_outline.SetActiveColor(button_DpadRight_outline.getSelectColor());
+    button_DpadDown_outline.SetActiveColor(button_DpadDown_outline.getSelectColor());
+    */
+
+    button_L1_outline.SetActiveColor(button_L1_outline.getHighlightColor());
+    button_L2_outline.SetActiveColor(button_L2_outline.getHighlightColor());
+    button_L3_outline.SetActiveColor(button_L3_outline.getHighlightColor());
+
+    button_R1_outline.SetActiveColor(button_R1_outline.getHighlightColor());
+    button_R2_outline.SetActiveColor(button_R2_outline.getHighlightColor());
+    button_R3_outline.SetActiveColor(button_R3_outline.getHighlightColor());
+}
+
+
 // Initializes controller buttons into screen UI
 void LoadButtons(textUI& screen, byte controlerType=0) {
 
     LoadButtonHighlightAreas(screen);
     LoadButtonOutlines(screen); 
+
+    SetButtonActiveColors();
 
     SetButtonPositions(controlerType);
 }

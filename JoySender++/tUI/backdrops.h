@@ -36,7 +36,7 @@ const wchar_t* JoySendMain_Backdrop = LR"(     ,________________________________
 )";
 
 const wchar_t* XBOX_Backdrop = LR"(                                                                         
-    << Connected to: 192.168.15.127 >>         FPS: 31.51                
+                                               FPS:                      
                    ______                       ______                   
                  ,/______\_   Mode: 1 (XBOX)  _/______\,                 
                 /\________/#######(-Q-)#######\________/\                
@@ -59,7 +59,7 @@ const wchar_t* XBOX_Backdrop = LR"(
 )";
 
 const wchar_t* DS4_Backdrop = LR"(                                                                         
-    << Connection from: 192.168.15.10 >>        FPS: 31.51               
+    <<                                          FPS:                     
                  ______                           ______                 
                ,/______\_     Mode: 2 (DS4)     _/______\,               
               /\________/#########(-Q-)#########\________/\              

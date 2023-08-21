@@ -667,8 +667,8 @@ public:
 
         if (_status & MOUSE_DOWN)       // clicked
             setTextColor(_selectColor);
-        //else if (_status & MOUSE_UP)    // active
-        //    setTextColor(_activeColor);
+        else if (_status & ACTIVE_INPUT)    // active
+            setTextColor(_activeColor);
         else if (_status & MOUSE_HOVERED)    // hovered
             setTextColor(_highlightColor);
         else                            // default
