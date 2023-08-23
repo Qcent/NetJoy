@@ -64,7 +64,7 @@ int findNextLineBreak(const wchar_t* text, int start, int width) {
     return lastSpace;
 }
 
-// Function to get rid of the flashing cursor and bring it back
+// Function to get rid of the flashing cursor
 void hideConsoleCursor() {
     HANDLE consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
     CONSOLE_CURSOR_INFO cursorInfo;
@@ -81,45 +81,112 @@ void showConsoleCursor() {
     SetConsoleCursorInfo(consoleHandle, &cursorInfo);
 }
 
-// A Text Area to complement the textUI class
-class textBox {
+// Packages 4 colors representing: defaultColor, highlightColor, selectedColor, activeColor
+struct tUIColorPkg {
+    WORD col1;
+    WORD col2;
+    WORD col3;
+    WORD col4;
+
+    tUIColorPkg(WORD c1, WORD c2, WORD c3, WORD c4 ) : col1(c1), col2(c2), col3(c3), col4(c4) {
+    }
+};
+
+// Contains the base attributes shared by all textUI objects 
+class tUIObj {
 public:
-    textBox(int x, int y, int width, int lines, byte align, const wchar_t* text, WORD color) : _width(width), _lines(lines), _alignment(align), _text(text), _color(color) {
-        _pos.X = x;
-        _pos.Y = y;
+    void SetText(const wchar_t* text) {
+        _text = text;
         // Find length of null terminated text
         _length = 0;
         while (text[_length] != L'\0') {
             _length++;
         }
     }
-    textBox() {
+
+    void SetPosition(int x, int y, int width, int lines, byte align) {
+        _pos.X = x;
+        _pos.Y = y;
+        _width = width;
+        _lines = lines;
+        _alignment = align;
+    }
+    void SetPosition(int x, int y) {
+        _pos.X = x;
+        _pos.Y = y;
+    }
+    void SetPosition(COORD pos) {
+        _pos = pos;
+    }
+
+    void SetWidth(int width) {
+        _width = width;
+    }
+
+    void SetColors(tUIColorPkg colors) {
+        _defaultColor = colors.col1;
+        _highlightColor = colors.col2;
+        _selectColor = colors.col3;
+        _activeColor = colors.col4;
+    }
+    tUIColorPkg GetColors() {
+        return tUIColorPkg(_defaultColor, _highlightColor, _selectColor, _activeColor);
+    }
+
+    tUIObj() {
         _pos.X = 0;
         _pos.Y = 0;
-        _color = DEFAULT_TEXT;
+        _width = 0;
+        _text = nullptr;
         _alignment = ALIGN_LEFT;
+        _length = 0;
+        _lines = 0;
+        _defaultColor = DEFAULT_TEXT;
+        _highlightColor = HOVERED_BUTTON;
+        _selectColor = SELECTED_BUTTON;
+        _activeColor = ACTIVE_BUTTON;        
+    }
+
+protected:
+    COORD _pos;
+    byte _alignment;
+    int _width;
+    int _lines;
+    int _length;
+    const wchar_t* _text;
+    WORD _defaultColor;
+    WORD _highlightColor;
+    WORD _selectColor;
+    WORD _activeColor;  // not really used...
+};
+
+// A Text Area to complement the textUI class
+class textBox : public tUIObj {
+public:
+    textBox(int x, int y, int width, int lines, byte align, const wchar_t* text, WORD color){
+        _pos.X = x;
+        _pos.Y = y;
+        _width = width;
+        _lines = lines;
+        _alignment = align;
+        _text = text;
+        _color = color;
+
+        SetText(text);
+    }
+    textBox() {
         _text = L"<empty>";
         _length = 7;
         _width = 80;
-        _lines = 0;
+        _lines = 1;
+        _color = DEFAULT_TEXT;
     }
     ~textBox() {
         //delete[] _text;
     }
 
-    void Clear() {
-        setTextColor(_color);
-        switch (_alignment) {
-        case ALIGN_LEFT:
-            _clearLeftAutoBreak();
-            break;
-        case ALIGN_CENTER:
-            _clearCenterAutoBreak();
-            break;
-        case ALIGN_RIGHT:
-            _clearRightAutoBreak();
-            break;
-        }
+    void SetColor(WORD col) {
+        _color = col;
     }
 
     void Draw() {
@@ -135,7 +202,21 @@ public:
             _drawRightAutoBreak();
             break;
         }
-        setTextColor(DEFAULT_TEXT);
+    }
+
+    void Clear() {
+        setTextColor(_color); // for background
+        switch (_alignment) {
+        case ALIGN_LEFT:
+            _clearLeftAutoBreak();
+            break;
+        case ALIGN_CENTER:
+            _clearCenterAutoBreak();
+            break;
+        case ALIGN_RIGHT:
+            _clearRightAutoBreak();
+            break;
+        }
     }
 
     void Draw_noColor() {
@@ -152,39 +233,8 @@ public:
         }
     }
 
-    void SetText(const wchar_t* text) {
-        _text = text;
-        // Find length of null terminated text
-        _length = 0;
-        while (text[_length] != L'\0') {
-            _length++;
-        }
-    }
-
-    void SetColor(WORD col) {
-        _color = col;
-    }
-
-    void SetPosition(int x, int y, int width, int lines, byte align) {
-        _pos.X = x;
-        _pos.Y = y;
-        _width = width;
-        _lines = lines;
-        _alignment = align;
-    }
-
-    void SetWidth(int width) {
-        _width = width;
-    }
-
 protected:
-    COORD _pos;
     WORD _color;
-    int _width;
-    int _lines;
-    byte _alignment;
-    int _length;
-    const wchar_t* _text;
 
     void _drawLeftAutoBreak() {
         int line = 0;
@@ -219,9 +269,9 @@ protected:
         auto setStartPoint = [&]() {
             if (charsRemaining > _width) {
                 nextBreak = findNextLineBreak(_text, i - 1, _width);
-                startPoint = _pos.X - (nextBreak-i) / 2;
+                startPoint = _pos.X - (nextBreak - i) / 2;
             }
-            else {               
+            else {
                 nextBreak = _length;
                 startPoint = _pos.X - charsRemaining / 2;
             }
@@ -253,12 +303,12 @@ protected:
         int charsRemaining = _length;
         auto setStartPoint = [&]() {
             if (charsRemaining > _width) {
-                nextBreak = findNextLineBreak(_text, i , _width);
-                startPoint = _pos.X - (nextBreak-1 - i);
+                nextBreak = findNextLineBreak(_text, i, _width);
+                startPoint = _pos.X - (nextBreak - 1 - i);
             }
             else {
                 nextBreak = _length;
-                startPoint = _pos.X - charsRemaining+1;
+                startPoint = _pos.X - charsRemaining + 1;
             }
         };
 
@@ -276,7 +326,7 @@ protected:
                 }
                 setStartPoint();
                 setCursorPosition(startPoint, _pos.Y + line);
-                
+
             }
         }
     }
@@ -288,7 +338,7 @@ protected:
         int nextBreak = findNextLineBreak(_text, i - 1, _width);
 
         setCursorPosition(_pos);
-        for (i = 1; i - 1 < _width*_lines; i++) {
+        for (i = 1; i - 1 < _width * _lines; i++) {
             charsRemaining--;
             if (i - 1 < nextBreak) {
                 std::wcout << ' ';
@@ -384,17 +434,9 @@ public:
     textInput() {
         _maxLength = INPUT_MAX_LENGTH;
         _currentPosition = 0;
-        _pos.X = 0;
-        _pos.Y = 0;
-        _width = 0;
-        _length = 0;
         _input = new wchar_t[_maxLength + 1];
         _text = _input;
         _lines = 1;
-        _highlightColor = HOVERED_BUTTON;
-        _selectColor = SELECTED_BUTTON;
-        _activeColor = ACTIVE_BUTTON;
-        _defaultColor = DEFAULT_TEXT;
         _status = 0;
     }
     textInput(int x, int y, int width, int maxLen, byte align) : _maxLength(maxLen) {
@@ -407,10 +449,6 @@ public:
         _input = new wchar_t[_maxLength + 1];
         _text = _input;
         _lines = 1;
-        _highlightColor = HOVERED_BUTTON;
-        _selectColor = SELECTED_BUTTON;
-        _activeColor = ACTIVE_BUTTON;
-        _defaultColor = DEFAULT_TEXT;
         _status = 0;
     }
     ~textInput() {
@@ -472,7 +510,7 @@ public:
         _currentPosition = _length;
     }
 
-    void clearAll() {
+    void clearBuffer() {
         for (int i = 0; i < _maxLength; ++i) {
             _input[i] = L'\0';
         }
@@ -495,7 +533,6 @@ public:
     int getLength() {
         return _length;
     }
-
 
     void CheckMouseHover(COORD mousePos) {
         if (mousePos.X >= _pos.X && mousePos.X <= _pos.X + _width - 1 && mousePos.Y >= _pos.Y && mousePos.Y <= _pos.Y + _lines - 1) {
@@ -539,19 +576,25 @@ private:
     unsigned int _maxLength;
     unsigned int _currentPosition;
     wchar_t* _input;
-    WORD _highlightColor;
-    WORD _selectColor;
-    WORD _activeColor;
-    WORD _defaultColor;
     BYTE _status;
 };
 
 // On screen click-able button and star of the textUI class
-class mouseButton {
+class mouseButton : public tUIObj {
 public:
     typedef void (*CallbackFunction)(mouseButton&);
 
-    mouseButton(int x, int y, int w, const wchar_t* text, WORD hcol, WORD scol, WORD acol) : _X(x), _Y(y), _width(w), _txt(text), _highlightColor(hcol), _selectColor(scol), _activeColor(acol) {
+    mouseButton(int x, int y, int w, const wchar_t* text, WORD dcol, WORD hcol, WORD scol, WORD acol) {
+        _pos.X = x;
+        _pos.Y = y;
+        _width = w;
+        _text = text;
+        
+        _defaultColor = dcol;
+        _highlightColor = hcol;
+        _selectColor = scol;
+        _activeColor = acol;
+
         _status = MOUSE_OUT;
         _Settings = 0;
         _length = 0;
@@ -562,96 +605,59 @@ public:
 
         _lines = max(1,_length / _width);
         _callback = nullptr;
-        _defaultColor = DEFAULT_TEXT;
         _partner = nullptr;
         _id = 0;
     }
-    mouseButton(int x, int y, int w, const wchar_t* text) : _X(x), _Y(y), _width(w), _txt(text) {
+    mouseButton(int x, int y, int w, const wchar_t* text) {
+        _pos.X = x;
+        _pos.Y = y;
+        _width = w;
+        _text = text;
+
         _status = MOUSE_OUT;
         _Settings = 0;
-        _length = 0;
+
         // Find length of null terminated text
         while (text[_length] != L'\0') {
             _length++;
         }
         _lines = max(1, _length / _width);
-        _highlightColor = HOVERED_BUTTON;
-        _selectColor = SELECTED_BUTTON;
-        _activeColor = ACTIVE_BUTTON;
-        _defaultColor = DEFAULT_TEXT;
+
         _callback = nullptr;
         _partner = nullptr;
         _id = 0;
     }
-    mouseButton(int x, int y, int w, const wchar_t* text, byte set) : _X(x), _Y(y), _width(w), _txt(text), _Settings(set) {
+    mouseButton(int x, int y, int w, const wchar_t* text, byte set) {
+        _pos.X = x;
+        _pos.Y = y;
+        _width = w;
+        _text = text;
+        _Settings = set;
         _status = MOUSE_OUT;
-        _length = 0;
+
         // Find length of null terminated text
         while (text[_length] != L'\0') {
             _length++;
         }
         _lines = max(1, _length / _width);
-        _highlightColor = HOVERED_BUTTON;
-        _selectColor = SELECTED_BUTTON;
-        _activeColor = ACTIVE_BUTTON;
-        _defaultColor = DEFAULT_TEXT;
+
         _callback = nullptr;
         _partner = nullptr;
         _id = 0;
     }
     mouseButton() {
-        _X = 0;
-        _Y = 0;
-        _width = 0;
-        _txt = nullptr;
         _status = MOUSE_OUT;
         _Settings = 0;
-        _length = 0;
-        _lines = 0;
-        _highlightColor = HOVERED_BUTTON;
-        _selectColor = SELECTED_BUTTON;
-        _activeColor = ACTIVE_BUTTON;
-        _defaultColor = DEFAULT_TEXT;
         _callback = nullptr;
         _partner = nullptr;
         _id = 0;
     }
 
     ~mouseButton() {
-        //delete[] _txt; // Needed?? no it causes an exception trying to delete
     }
 
     void SetId(int id) {
         _id = id;
-    }
-
-    void SetPosition(int x, int y) {
-        _X = x;
-        _Y = y;
-    }
-
-    void SetHighlightColor(WORD hcol) {
-        _highlightColor = hcol;
-        if (_partner != nullptr)
-            _partner->SetHighlightColor(hcol);
-    }
-
-    void SetSelectColor(WORD scol) {
-        _selectColor = scol;
-        if (_partner != nullptr)
-            _partner->SetSelectColor(scol);
-    }
-
-    void SetActiveColor(WORD acol) {
-        _activeColor = acol;
-        if (_partner != nullptr)
-            _partner->SetActiveColor(acol);
-    }
-
-    void SetDefaultColor(WORD dcol) {
-        _defaultColor = dcol;
-        if (_partner != nullptr)
-            _partner->SetDefaultColor(dcol);
     }
 
     void SetStatus(BYTE status) {
@@ -667,32 +673,32 @@ public:
 
         if (_status & MOUSE_DOWN)       // clicked
             setTextColor(_selectColor);
-        else if (_status & ACTIVE_INPUT)    // active
-            setTextColor(_activeColor);
+        //else if (_status & ACTIVE_INPUT)    // active
+            //setTextColor(_activeColor);
         else if (_status & MOUSE_HOVERED)    // hovered
             setTextColor(_highlightColor);
         else                            // default
             setTextColor(_defaultColor);
         
         int line = 0;
-        setCursorPosition(_X, _Y);
+        setCursorPosition(_pos);
         for (int i = 1; i - 1 < _length; i++) {
-            if (_txt[i - 1] == '\t') {
+            if (_text[i - 1] == '\t') {
                 // advance cursor
-                setCursorPosition(_X + i%_width, _Y + line);
+                setCursorPosition(_pos.X + i%_width, _pos.Y + line);
             }
             else
-                std::wcout << _txt[i - 1];
+                std::wcout << _text[i - 1];
             if (i % _width == 0 && i < _length){
                 line++;
-                setCursorPosition(_X, _Y + line);
+                setCursorPosition(_pos.X, _pos.Y + line);
             }
         }
-        setTextColor(_defaultColor);
+        setTextColor(_defaultColor); // ?? get rid of this ??
     }
 
     void CheckMouseHover(COORD mousePos) {
-        if (mousePos.X >= _X && mousePos.X <= _X + _width-1 && mousePos.Y >= _Y && mousePos.Y <= _Y + _lines - 1) {
+        if (mousePos.X >= _pos.X && mousePos.X <= _pos.X + _width-1 && mousePos.Y >= _pos.Y && mousePos.Y <= _pos.Y + _lines - 1) {
             if (!(_status & MOUSE_HOVERED)) {
                 _status = MOUSE_HOVERED;
                 if (_Settings & UNHOVERABLE) return;
@@ -738,6 +744,41 @@ public:
         return _id;
     }
 
+    void SetAllColors(tUIColorPkg colors) {
+        if (_partner != nullptr)
+            _partner->SetColors(colors);
+
+        SetColors(colors);
+    }
+
+    void SetDefaultColor(WORD col) {
+        if (_partner != nullptr)
+            _partner->SetDefaultColor(col);
+
+        _defaultColor = col;
+    }
+
+    void SetHighlightColor(WORD col) {
+        if (_partner != nullptr)
+            _partner->SetHighlightColor(col);
+
+        _highlightColor = col;
+    }
+
+    void SetSelectColor(WORD col) {
+        if (_partner != nullptr)
+            _partner->SetSelectColor(col);
+
+        _selectColor = col;
+    }
+
+    void SetActiveColor(WORD col) {
+        if (_partner != nullptr)
+            _partner->SetActiveColor(col);
+
+        _activeColor = col;
+    }
+
     WORD getHighlightColor() {
         return _highlightColor;
     }
@@ -754,23 +795,13 @@ public:
         return _activeColor;
     }
 
-    const wchar_t* getTxtPtr() {
-        return _txt;
+    const wchar_t* getTextPtr() {
+        return _text;
     }
 
 private:
-    int _X;
-    int _Y;
-    int _width;
-    int _length;
-    int _lines;
     int _id;
-    const wchar_t* _txt;
     byte _Settings;
-    WORD _highlightColor;
-    WORD _selectColor;
-    WORD _activeColor;
-    WORD _defaultColor;
     BYTE _status;
     CallbackFunction _callback;
     mouseButton* _partner;
@@ -787,8 +818,6 @@ public:
         _backdropColor = DEFAULT_TEXT;
     }
     ~textUI() {
-        //delete[] _buttons;
-        //delete[] _backdrop;
     }
 
     void SetBackdrop(const wchar_t* text) {
@@ -799,8 +828,12 @@ public:
         _backdropColor = col;
     }
     
+    WORD GetBackdropColor() {
+       return _backdropColor;
+    }
+
     void DrawBackdrop() {
-        setTextColor(getSafeColors());
+        setTextColor(_backdropColor);
         setCursorPosition(0, 0);
         std::wcout << _backdrop;
     }
@@ -867,6 +900,7 @@ public:
         }
     }
 
+    
     void SetButtonsHighlightColor(WORD col) {
         for (int i = 0; i < _buttonsCount; i++) {
             _buttons[i]->SetHighlightColor(col);
@@ -891,6 +925,19 @@ public:
         }
     }
 
+    void SetButtonsColors(tUIColorPkg colors) {
+        for (int i = 0; i < _buttonsCount; i++) {
+            _buttons[i]->SetAllColors(colors);
+        }
+    }
+
+    void SetInputsColors(tUIColorPkg colors) {
+        for (int i = 0; i < _inputsCount; i++) {
+            _textInputs[i]->SetColors(colors);
+        }
+    }
+
+    /*
     WORD getSafeColors() {
         // A list of replacement colors to select from
         std::vector<WORD> colorList = {		// new color selection is as follows:
@@ -910,7 +957,7 @@ public:
 
         return safe_col;
     }
-
+    */
 private:
     const wchar_t* _backdrop;
     WORD _backdropColor;

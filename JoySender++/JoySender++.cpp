@@ -230,6 +230,7 @@ int joySender(Arguments& args) {
 
     hideConsoleCursor();
     textUI& screen = g_screen;
+    CoupleControllerButtons(); // sets up controller outline/highlight coupling for nice looks 
     screen.SetBackdrop(JoySendMain_Backdrop);
     output1.SetPosition(15, 5, 50, 1, ALIGN_LEFT);
     output1.SetColor(WHITE|BLACK AS_BG);
@@ -379,8 +380,9 @@ int joySender(Arguments& args) {
         TCPConnection client(args.host, args.port);
         client.set_silence(true);
 
-        // Load Connecting Screen
+        // Establish connection to host
         {
+            // Load Connecting Screen
             errorOut.SetPosition(consoleWidth / 2, 7, 50, 0, ALIGN_CENTER);
             screen.AddButton(&quitButton);
             screen.ReDraw();
@@ -400,7 +402,7 @@ int joySender(Arguments& args) {
                 output2.Draw();
 
                 checkForQuit();
-                //screenLoop(screen);  // freezes animation??
+                screenLoop(screen);
 
                 countUpDown(g_frameNum, CX_ANI_FRAME_COUNT);  // bounce
                 //loopCount(frameNum, CX_ANI_FRAME_COUNT);    // loop
@@ -418,7 +420,6 @@ int joySender(Arguments& args) {
         else if (allGood < 0) {
             int len = args.host.size() + 31;
             swprintf(errorPointer, len, L"<< Connection To %s Failed: %d >>", std::wstring(args.host.begin(), args.host.end()).c_str(), failed_connections+1);
-            //setErrorMsg(L"Failed to Connect :: Retry 1", 32);
             errorOut.SetWidth(len);
             errorOut.SetText(errorPointer);
         }
@@ -428,16 +429,18 @@ int joySender(Arguments& args) {
                 if (mode == 2) {
                     screen.SetBackdrop(DS4_Backdrop);
                     quitButton.SetPosition(consoleWidth / 2 - 5, 17);
+                    BuildDS4Face();
                 }
                 else {
                     screen.SetBackdrop(XBOX_Backdrop);
                     quitButton.SetPosition(consoleWidth / 2 - 5, 18);
+                    BuildXboxFace();
                 }
 
-                LoadButtons(screen, mode);
-                button_Guide_highlight.setCallback(testCallback); // will switch colors
-
-                screen.AddButton(&quitButton);
+                SetControllerButtonPositions(mode);
+                
+                // create restart and map buttons
+                // todo
 
                 wcsncpy_s(msgPointer1, 37, g_converter.from_bytes("<< Connected to: " + args.host + " >>").c_str(), _TRUNCATE);
                 output1.SetText(msgPointer1);
@@ -456,21 +459,20 @@ int joySender(Arguments& args) {
             // Attempt timing and mode setting handshake
 
             std::string txSettings = std::to_string(args.fps) + ":" + std::to_string(args.mode);
+            // tx
             allGood = client.send_data(txSettings.c_str(), static_cast<int>(txSettings.length()));
             if (allGood < 1) {              
                 setErrorMsg(g_converter.from_bytes("<< Connection To: " + args.host + " Failed >>").c_str(), 46);
-
                 client.~TCPConnection();
                 break;
             }
-
+            // rx
             bytesReceived = client.receive_data(buffer, buffer_size);
             if (bytesReceived > 0) {
                 inConnection = true;
             }
             else{
-                setErrorMsg(g_converter.from_bytes("<< Connection To: " + args.host + " Lost >>").c_str(), 44);
-                
+                setErrorMsg(g_converter.from_bytes("<< Connection To: " + args.host + " Lost >>").c_str(), 44);         
                 client.~TCPConnection();
                 break;
             }
@@ -483,21 +485,25 @@ int joySender(Arguments& args) {
         fps_counter.reset();
         while (inConnection){
 
-            //screenLoop(screen);
+            screenLoop(screen);
 
             // Shift + R will Reset program allowing joystick reconnection / selection
             // Shift + M will reMap all buttons on an SDL device
             // Shift + Q will Quit the program
-            // Shift + G will re output g_outputText
-            if (getKeyState(VK_SHIFT)) {
-                if (getKeyState('G')) {
+            // Shift + G will ...
+            if (IsAppActiveWindow() && getKeyState(VK_SHIFT)) {
+                if (checkKey('G', IS_PRESSED)) {
                     // maybe change colors or something
+                    button_Guide_highlight.SetStatus(MOUSE_UP);
+                    testCallback(button_Guide_highlight);
+                    //output1.copyColors(&quitButton);
+                    output1.Draw();
+                    hostMsg.Draw();
+                    // sometimes locks program??
                 }
                 if (getKeyState('R') || getKeyState('M') || getKeyState('Q')) {
-                    if (IsAppActiveWindow()) {
                         client.~TCPConnection();
                         inConnection = false;
-                    }
                 }
             }
             if (!inConnection || APP_KILLED) {
@@ -517,8 +523,6 @@ int joySender(Arguments& args) {
                 repositionConsoleCursor(-4);
 #endif
                 if (!allGood) {
-                    //g_outputText += "<< Device Disconnected >> \r\n";
-                    //displayOutputText();
                     setErrorMsg(g_converter.from_bytes("<< Device Disconnected >>").c_str(), 26);
                     client.~TCPConnection();
                     inConnection = false;
@@ -529,10 +533,7 @@ int joySender(Arguments& args) {
                 get_xbox_report_from_SDLmap(activeGamepad, activeInputs, xbox_report);
 
                 // activate buttons from xbox report
-                // ###  TO DO  #####
                 buttonStatesFromXboxReport(xbox_report);
-
-                // **************** //
             }
 
             // ###################################
@@ -542,12 +543,7 @@ int joySender(Arguments& args) {
             if (!fpsOutput.empty()) {
                 updateFPS(g_converter.from_bytes(fpsOutput+"   ").c_str(), 8);
             }
-            //latencyOutput = do_latency_timing(latency_report_freq);
-            //if (latencyOutput) {
-                //overwriteLatency("Latency: " + formatDecimalString(std::to_string((latencyOutput*1000) - fpsAdjustment), 5) + " ms  ");
-            //}
-            
-            // ###################################
+           
                 
             //####################################
             //# Send joystick input to server
@@ -575,9 +571,7 @@ int joySender(Arguments& args) {
             }
             //  Error ?
             if (allGood < 1) {
-                //std::cout << "<< Connection Lost >> \r\n";
                 setErrorMsg(g_converter.from_bytes("<< Connection To: " + args.host + " Failed >>").c_str(), 46);
-                //displayOutputText();
                 client.~TCPConnection();
                 inConnection = false;
                 break;
@@ -675,14 +669,6 @@ int joySender(Arguments& args) {
         }
         screen.ClearButtons();
         screen.SetBackdrop(JoySendMain_Backdrop);
-        //screen.AddButton(&quitButton);
-        //errorOut.SetPosition(consoleWidth / 2, 7, 50, 0, ALIGN_CENTER);
-        //screen.ReDraw();
-        //printCurrentController(activeGamepad);
-        //errorOut.Draw();
-
-        //Clear any keyboard input
-        //swallowInput();
     }
 
     return 1;
@@ -715,6 +701,7 @@ int main(int argc, char **argv)
     swallowInput();
     SDL_Quit();
     setCursorPosition(0, CONSOLE_HEIGHT);
+    setTextColor(DEFAULT_TEXT);
     showConsoleCursor();
 
     return 1;

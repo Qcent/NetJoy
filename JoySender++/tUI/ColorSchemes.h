@@ -27,7 +27,7 @@ enum ConsoleColor {
 #define DROP_BG         & 0xFF0F
 #define AS_BG			<< 4
 
-
+// Package up all the colors needed for maximum color expression
 struct ColorScheme {
 	WORD outlineColor;
 	WORD faceColor;
@@ -38,7 +38,6 @@ struct ColorScheme {
 };
 
 #define NUM_COLOR_SCHEMES 15
-
 // Global Collection of Controller Face/Button Color schemes
 ColorScheme colorSchemes[NUM_COLOR_SCHEMES + 1] = {
 	//	:outline,	:face,			:buttonLine,   :buttonHover,    :buttonClicked,				:name
@@ -47,7 +46,7 @@ ColorScheme colorSchemes[NUM_COLOR_SCHEMES + 1] = {
 	{ BRIGHT_MAGENTA, BRIGHT_MAGENTA AS_BG, WHITE,	GREY,			WHITE | CYAN AS_BG,			L"PINKY" },			//2
 	{ YELLOW,		BLACK AS_BG,	YELLOW,			BRIGHT_YELLOW,	WHITE | YELLOW AS_BG,		L"GOLD_AND_BLACK" },  //3
 	{ WHITE,		GREY AS_BG,		BLUE,			YELLOW,			BRIGHT_BLUE | WHITE AS_BG,	L"BLUE_ON_GREY" },  //4
-	{ BRIGHT_BLUE,	BLUE AS_BG,		BRIGHT_YELLOW,	BRIGHT_GREEN, BRIGHT_GREEN | BRIGHT_YELLOW AS_BG ,	L"YELLOW_ON_BLUE" }, //5
+	{ BRIGHT_BLUE,	BLUE AS_BG,		BRIGHT_YELLOW,	BRIGHT_GREEN,	BRIGHT_GREEN | BRIGHT_YELLOW AS_BG ,	L"YELLOW_ON_BLUE" }, //5
 	{ BRIGHT_YELLOW, BRIGHT_YELLOW AS_BG, GREY,		YELLOW,			YELLOW | GREY AS_BG,		L"BANANA/CREAM" },  //6
 	{ BRIGHT_YELLOW, YELLOW AS_BG,	BRIGHT_BLUE,	BLUE,			BLUE | BRIGHT_BLUE AS_BG ,	L"BLUE_ON_YELLOW" },  //7
 	{ BRIGHT_RED,	RED AS_BG,		WHITE,			GREY,			WHITE | BLUE AS_BG,			L"WHITE_ON_RED" }, //8
@@ -59,7 +58,6 @@ ColorScheme colorSchemes[NUM_COLOR_SCHEMES + 1] = {
 	{ BLACK,		WHITE AS_BG,	BLACK,			GREY,			BLUE | BRIGHT_MAGENTA AS_BG,L"LIGHT_MODE" },	 //14
 	{ WHITE,		BLACK AS_BG,	WHITE,			BRIGHT_BLUE,	BRIGHT_BLUE | YELLOW AS_BG,	L"BLACK_DEFAULT" },  //15
 };
-
 
 // Generate a random integer from r1 - r2
 int generateRandomInt(int r1, int r2) {
@@ -153,7 +151,7 @@ WORD makeSafeColors(WORD inputColor) {
 			// Reading four bits at a time within each byte
 			for (int nibbleIndex = 0; nibbleIndex < 2; ++nibbleIndex) {
 				unsigned char nibble = (byteValue >> (nibbleIndex * 4)) & 0x0F; // Extract four bits
-				colorList.push_back(nibble);
+				colorList.push_back(nibble);	// use 4 bits as color value
 			}
 		}
 		colorList.push_back(WHITE);  // If both white and black fail to pass

@@ -60,7 +60,6 @@ void joystickSelectCallback(mouseButton& button);
 void testCallback(mouseButton& button);
 void printCurrentController(SDLJoystickData& activeGamepad);
 void checkForQuit();
-int waitForEnterPress_runScreen(textUI& screen);
 bool checkKey(int key, bool pressed);
 char IpInputLoop();
 int screenLoop(textUI& screen);
@@ -174,22 +173,36 @@ void testCallback(mouseButton& button) {
             g_currentColorScheme = -1;
         }
 
+        g_BG_COLOR |= randomScheme.outlineColor;
+
         if (g_mode == 2) {
             BuildDS4Face();
-            SetButtonPositions(g_mode);
+            SetControllerButtonPositions(g_mode);
             quitButton.SetPosition(consoleWidth / 2 - 5, 17);
         }
-        else {
-            BuildXboxFace();
-            SetButtonPositions(g_mode);
-            quitButton.SetPosition(consoleWidth / 2 - 5, 18);
+        else { // testing only XBOX for now no need to redo this 
+            // BuildXboxFace();
+            // SetButtonPositions(g_mode);
+            // quitButton.SetPosition(consoleWidth / 2 - 5, 18);
         }
 
+        // Draw Controller
         DrawControllerFace(g_screen, randomScheme, newRandomBG, g_mode);
 
-        quitButton.SetDefaultColor(g_screen.getSafeColors());
-        quitButton.SetHighlightColor(makeSafeColors(button_Guide_highlight.getHighlightColor()));
-        quitButton.SetSelectColor(makeSafeColors(button_Guide_highlight.getSelectColor()));
+        tUIColorPkg buttonColors(
+            g_screen.GetBackdropColor(),
+            button_Guide_highlight.getHighlightColor(),
+            button_Guide_highlight.getSelectColor(),
+            0 // unused
+        );
+
+        quitButton.SetColors(buttonColors);
+
+        //quitButton.SetDefaultColor(makeSafeColors(newRandomBG));
+        //quitButton.SetHighlightColor(makeSafeColors(button_Guide_highlight.getHighlightColor()));
+        //quitButton.SetSelectColor(makeSafeColors(button_Guide_highlight.getSelectColor()));
+
+
         quitButton.Update();
     }
 }
@@ -222,23 +235,12 @@ void checkForQuit() {
         APP_KILLED = true;
 }
 
-// loops until the user presses enter while running screen logic
-int waitForEnterPress_runScreen(textUI& screen) {
-    while (!APP_KILLED) {
-        if (checkKey(VK_RETURN, IS_PRESSED))
-            return 1;
-        if (checkKey(VK_BACK, IS_PRESSED))
-            return 0;
-        if (checkKey(0x51, IS_PRESSED)) // Q for Quit
-            APP_KILLED = true;
-        screenLoop(screen);
-        Sleep(15);
-    }
-    return 0;
-}
-
 // accepts keyboard input for ip addresses
 char IpInputLoop() {
+    if (!IsAppActiveWindow()) { 
+        return 'X'; 
+    }
+
     if (checkKey(0x30, IS_PRESSED) || checkKey(VK_NUMPAD0, IS_PRESSED))
         return '0';
     else if (checkKey(0x31, IS_PRESSED) || checkKey(VK_NUMPAD1, IS_PRESSED))
@@ -271,34 +273,38 @@ char IpInputLoop() {
     return 'X';
 }
 
-// used in a loop, looks for mouse input and compares to buttons on screen // blocks without constant mouse input :(
+// used in a loop, looks for mouse input and compares to buttons on screen
 int screenLoop(textUI& screen) {
-    INPUT_RECORD inputRecord;
-    DWORD eventsRead;
+    DWORD eventsAvailable;
+    GetNumberOfConsoleInputEvents(g_hConsoleInput, &eventsAvailable);
 
-    if (!ReadConsoleInput(g_hConsoleInput, &inputRecord, 1, &eventsRead)) {
-        return -1;
-    }
+    if (eventsAvailable > 0) {
+        INPUT_RECORD inputRecord;
+        DWORD eventsRead;
 
-    // Check for mouse input events
-    if (inputRecord.EventType == MOUSE_EVENT) {
-        MOUSE_EVENT_RECORD& mouseEvent = inputRecord.Event.MouseEvent;
-        COORD mousePos = mouseEvent.dwMousePosition;
+        if (!ReadConsoleInput(g_hConsoleInput, &inputRecord, 1, &eventsRead)) {
+            return -1;
+        }
 
-        if (mouseEvent.dwEventFlags == 0) {
-            // Mouse button event
-            if (mouseEvent.dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED) {
-                screen.CheckMouseClick(MOUSE_DOWN);
+        // Check for mouse input events
+        if (inputRecord.EventType == MOUSE_EVENT) {
+            MOUSE_EVENT_RECORD& mouseEvent = inputRecord.Event.MouseEvent;
+            COORD mousePos = mouseEvent.dwMousePosition;
+
+            if (mouseEvent.dwEventFlags == MOUSE_MOVED) {
+                // Check if mouse is hovering over the buttons
+                screen.CheckMouseHover(mousePos);
             }
-            else
-                screen.CheckMouseClick(MOUSE_UP);
-        }
 
-        if (mouseEvent.dwEventFlags == MOUSE_MOVED) {
-            // Check if mouse is hovering over the buttons
-            screen.CheckMouseHover(mousePos);
+            if (mouseEvent.dwEventFlags == 0) {
+                // Mouse button event
+                if (mouseEvent.dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED) {
+                    screen.CheckMouseClick(MOUSE_DOWN);
+                }
+                else
+                    screen.CheckMouseClick(MOUSE_UP);
+            }
         }
-
     }
     return 0;
 }
@@ -312,7 +318,7 @@ int tUISelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick, textUI&
     auto cleanMemory = [&]() {
         screen.ClearButtons();
         for (int i = 0; i < numJoysticks; ++i) {
-            delete[] availableJoystickBtn[i].getTxtPtr();
+            delete[] availableJoystickBtn[i].getTextPtr();
         }
 
         delete[] availableJoystickBtn;
@@ -359,28 +365,29 @@ int tUISelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick, textUI&
 
     // scan for mouse and keyboard input
     while (!APP_KILLED && g_joystickSelected < 0) {
-        screenLoop(screen);
-        if (getKeyState('Q'))
-            APP_KILLED = true;
-        else if (getKeyState(0x31) || getKeyState(VK_NUMPAD1))
-            g_joystickSelected = 0;
-        else if (getKeyState(0x32) || getKeyState(VK_NUMPAD2))
-            g_joystickSelected = 1;
-        else if (getKeyState(0x33) || getKeyState(VK_NUMPAD3))
-            g_joystickSelected = 2;
-        else if (getKeyState(0x34) || getKeyState(VK_NUMPAD4))
-            g_joystickSelected = 3;
-        else if (getKeyState(0x35) || getKeyState(VK_NUMPAD5))
-            g_joystickSelected = 4;
-        else if (getKeyState(0x36) || getKeyState(VK_NUMPAD6))
-            g_joystickSelected = 5;
-        else if (getKeyState(0x37) || getKeyState(VK_NUMPAD7))
-            g_joystickSelected = 6;
-        else if (getKeyState(0x38) || getKeyState(VK_NUMPAD8))
-            g_joystickSelected = 7;
-        else if (getKeyState(0x39) || getKeyState(VK_NUMPAD9))
-            g_joystickSelected = 8;
-     
+        if (IsAppActiveWindow()) {
+            screenLoop(screen);
+            if (getKeyState('Q'))
+                APP_KILLED = true;
+            else if (getKeyState(0x31) || getKeyState(VK_NUMPAD1))
+                g_joystickSelected = 0;
+            else if (getKeyState(0x32) || getKeyState(VK_NUMPAD2))
+                g_joystickSelected = 1;
+            else if (getKeyState(0x33) || getKeyState(VK_NUMPAD3))
+                g_joystickSelected = 2;
+            else if (getKeyState(0x34) || getKeyState(VK_NUMPAD4))
+                g_joystickSelected = 3;
+            else if (getKeyState(0x35) || getKeyState(VK_NUMPAD5))
+                g_joystickSelected = 4;
+            else if (getKeyState(0x36) || getKeyState(VK_NUMPAD6))
+                g_joystickSelected = 5;
+            else if (getKeyState(0x37) || getKeyState(VK_NUMPAD7))
+                g_joystickSelected = 6;
+            else if (getKeyState(0x38) || getKeyState(VK_NUMPAD8))
+                g_joystickSelected = 7;
+            else if (getKeyState(0x39) || getKeyState(VK_NUMPAD9))
+                g_joystickSelected = 8;
+        }
 
         // if selection has been assigned
         if (g_joystickSelected > -1) {
@@ -426,7 +433,7 @@ int tUISelectDS4Dialog(std::vector<HidDeviceInfo>& devList, textUI& screen) {
     auto cleanMemory = [&]() {
         screen.ClearButtons();
         for (std::vector<mouseButton>::iterator it = gamepadButtons.begin(); it != gamepadButtons.end(); ++it) {
-            delete[] it->getTxtPtr();
+            delete[] it->getTextPtr();
         }
     };
 
@@ -614,6 +621,7 @@ std::string tUIGetHostAddress(textUI& screen) {
 
     errorOut.Draw();
 
+    setTextColor(makeSafeColors(g_BG_COLOR)); // was screen.getSafeColors()
     setCursorPosition(12, 8);
     std::wcout << L"Enter IP Address Of Host:";
 

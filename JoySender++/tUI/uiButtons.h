@@ -39,20 +39,20 @@ mouseButton button_RStickRight_highlight(44, 11, 2, L"} ");
 mouseButton button_RStickDown_highlight(41, 12, 2, L"--");
 
 // Controller button outlines
-mouseButton button_A_outline(50, 10, 4, L" .. |\t\t| ``", HOVERED_BUTTON, HOVERED_BUTTON, DEFAULT_TEXT);
-mouseButton button_B_outline(53, 8, 4, L" .. |\t\t| ``", HOVERED_BUTTON, HOVERED_BUTTON, DEFAULT_TEXT);
-mouseButton button_X_outline(46, 8, 4, L" .. |\t\t| ``", HOVERED_BUTTON, HOVERED_BUTTON, DEFAULT_TEXT);
-mouseButton button_Y_outline(50, 6, 4, L" .. |\t\t| ``", HOVERED_BUTTON, HOVERED_BUTTON, DEFAULT_TEXT);
+mouseButton button_A_outline(50, 10, 4, L" .. |\t\t| ``", DEFAULT_TEXT, HOVERED_BUTTON, HOVERED_BUTTON, DEFAULT_TEXT);
+mouseButton button_B_outline(53, 8, 4, L" .. |\t\t| ``", DEFAULT_TEXT, HOVERED_BUTTON, HOVERED_BUTTON, DEFAULT_TEXT);
+mouseButton button_X_outline(46, 8, 4, L" .. |\t\t| ``", DEFAULT_TEXT, HOVERED_BUTTON, HOVERED_BUTTON, DEFAULT_TEXT);
+mouseButton button_Y_outline(50, 6, 4, L" .. |\t\t| ``", DEFAULT_TEXT, HOVERED_BUTTON, HOVERED_BUTTON, DEFAULT_TEXT);
 
 //mouseButton button_Back_outline(29, 8, 3, L"( )", UNCLICKABLE);
 //mouseButton button_Start_outline(41, 8, 3, L"( )", UNCLICKABLE);
 //mouseButton button_Guide_outline(35, 7, 3, L"[_]", UNCLICKABLE);
 // Same as highlight
 
-mouseButton button_DpadUp_outline(26, 9, 4, L"\t__\t|\t\t|", HOVERED_BUTTON, HOVERED_BUTTON, DEFAULT_TEXT);
-mouseButton button_DpadLeft_outline(23, 10, 3, L"\t__|\t\t", HOVERED_BUTTON, HOVERED_BUTTON, DEFAULT_TEXT);
-mouseButton button_DpadRight_outline(30, 10, 3, L"__\t\t\t|", HOVERED_BUTTON, HOVERED_BUTTON, DEFAULT_TEXT);
-mouseButton button_DpadDown_outline(26, 12, 4, L"|\t\t|", HOVERED_BUTTON, HOVERED_BUTTON, DEFAULT_TEXT);
+mouseButton button_DpadUp_outline(26, 9, 4, L"\t__\t|\t\t|", DEFAULT_TEXT, HOVERED_BUTTON, HOVERED_BUTTON, DEFAULT_TEXT);
+mouseButton button_DpadLeft_outline(23, 10, 3, L"\t__|\t\t", DEFAULT_TEXT, HOVERED_BUTTON, HOVERED_BUTTON, DEFAULT_TEXT);
+mouseButton button_DpadRight_outline(30, 10, 3, L"__\t\t\t|", DEFAULT_TEXT, HOVERED_BUTTON, HOVERED_BUTTON, DEFAULT_TEXT);
+mouseButton button_DpadDown_outline(26, 12, 4, L"|\t\t|", DEFAULT_TEXT, HOVERED_BUTTON, HOVERED_BUTTON, DEFAULT_TEXT);
 
 mouseButton button_L1_outline(17, 3, 10, L",\t______\t_\\________/", UNCLICKABLE);
 mouseButton button_L2_outline(18, 2, 8, L" ______ /______\\", UNCLICKABLE);
@@ -83,7 +83,7 @@ void ShareButtonStatus(mouseButton& button) {
 }
 
 // Sets position properties for controller buttons according to type
-void SetButtonPositions(byte controlerType) {
+void SetControllerButtonPositions(byte controlerType) {
     if (controlerType == 1) {
         // Set positions for Xbox Layout 
         button_A_highlight.SetPosition(51, 11);
@@ -192,21 +192,10 @@ void SetButtonPositions(byte controlerType) {
     }
 }
 
-// Loads controller button Highlight areas into screen
-void LoadButtonHighlightAreas(textUI& screen) {
+// Adds Controller buttons to the textUI object // highlights and outlines
+void AddControllerButtons(textUI& screen) {
 
-    //screen.AddButton(&button_A_highlight);
-    //screen.AddButton(&button_B_highlight);
-    //screen.AddButton(&button_X_highlight);
-    //screen.AddButton(&button_Y_highlight);
-    
-    //screen.AddButton(&button_DpadUp_highlight);
-    //screen.AddButton(&button_DpadLeft_highlight);
-    //screen.AddButton(&button_DpadRight_highlight);
-    //screen.AddButton(&button_DpadDown_highlight);
-     
-    // Above is 'Coupled' to share status with outline
-
+    // Highlight areas
     screen.AddButton(&button_Back_highlight);
     screen.AddButton(&button_Start_highlight);
     screen.AddButton(&button_Guide_highlight);
@@ -229,142 +218,67 @@ void LoadButtonHighlightAreas(textUI& screen) {
     screen.AddButton(&button_RStickRight_highlight);
     screen.AddButton(&button_RStickDown_highlight);
 
- }
-
-// Loads controller button outline areas into screen
-void LoadButtonOutlines(textUI& screen) {
-
+    // Outline areas
     screen.AddButton(&button_A_outline);
+    screen.AddButton(&button_B_outline);
+    screen.AddButton(&button_X_outline);
+    screen.AddButton(&button_Y_outline);
+    screen.AddButton(&button_DpadUp_outline);
+    screen.AddButton(&button_DpadLeft_outline);
+    screen.AddButton(&button_DpadRight_outline);
+    screen.AddButton(&button_DpadDown_outline);
+
+}
+
+// Run once to couple button outline <-> highlight areas
+void CoupleControllerButtons() {
     button_A_outline.Couple(&button_A_highlight);
     button_A_outline.setCallback(ShareButtonStatus);
 
-    screen.AddButton(&button_B_outline);
     button_B_outline.Couple(&button_B_highlight);
     button_B_outline.setCallback(ShareButtonStatus);
 
-    screen.AddButton(&button_X_outline);
     button_X_outline.Couple(&button_X_highlight);
     button_X_outline.setCallback(ShareButtonStatus);
 
-    screen.AddButton(&button_Y_outline);
     button_Y_outline.Couple(&button_Y_highlight);
     button_Y_outline.setCallback(ShareButtonStatus);
 
-    screen.AddButton(&button_DpadUp_outline);
     button_DpadUp_outline.Couple(&button_DpadUp_highlight);
     button_DpadUp_outline.setCallback(ShareButtonStatus);
 
-    screen.AddButton(&button_DpadLeft_outline);
     button_DpadLeft_outline.Couple(&button_DpadLeft_highlight);
     button_DpadLeft_outline.setCallback(ShareButtonStatus);
 
-    screen.AddButton(&button_DpadRight_outline);
     button_DpadRight_outline.Couple(&button_DpadRight_highlight);
     button_DpadRight_outline.setCallback(ShareButtonStatus);
 
-    screen.AddButton(&button_DpadDown_outline);
     button_DpadDown_outline.Couple(&button_DpadDown_highlight);
     button_DpadDown_outline.setCallback(ShareButtonStatus);
 
-
-    //screen.AddButton(&button_L1_outline);
     button_L1_highlight.Couple(&button_L1_outline);
     button_L1_highlight.setCallback(ShareButtonStatus);
-    button_L1_outline.SetSelectColor(HOVERED_BUTTON);
 
-    //screen.AddButton(&button_L2_outline);
     button_L2_highlight.Couple(&button_L2_outline);
     button_L2_highlight.setCallback(ShareButtonStatus);
-    button_L2_outline.SetSelectColor(HOVERED_BUTTON);
 
-    //screen.AddButton(&button_L3_outline);
     button_L3_highlight.Couple(&button_L3_outline);
     button_L3_highlight.setCallback(ShareButtonStatus);
-    button_L3_outline.SetSelectColor(HOVERED_BUTTON);
 
-    //screen.AddButton(&button_R1_outline);
     button_R1_highlight.Couple(&button_R1_outline);
     button_R1_highlight.setCallback(ShareButtonStatus);
-    button_R1_outline.SetSelectColor(HOVERED_BUTTON);
 
-    //screen.AddButton(&button_R2_outline);
     button_R2_highlight.Couple(&button_R2_outline);
     button_R2_highlight.setCallback(ShareButtonStatus);
-    button_R2_outline.SetSelectColor(HOVERED_BUTTON);
 
-    //screen.AddButton(&button_R3_outline);
     button_R3_highlight.Couple(&button_R3_outline);
     button_R3_highlight.setCallback(ShareButtonStatus);
+
+    // Some color changes are also necessary
+    button_L1_outline.SetSelectColor(HOVERED_BUTTON);
+    button_L2_outline.SetSelectColor(HOVERED_BUTTON);
+    button_L3_outline.SetSelectColor(HOVERED_BUTTON);
+    button_R1_outline.SetSelectColor(HOVERED_BUTTON);
+    button_R2_outline.SetSelectColor(HOVERED_BUTTON);
     button_R3_outline.SetSelectColor(HOVERED_BUTTON);
 }
-
-// Sets controller button active input colors
-void SetButtonActiveColors() {
-    // Highlights
-    button_Guide_highlight.SetActiveColor(button_Guide_highlight.getSelectColor());
-    button_Start_highlight.SetActiveColor(button_Start_highlight.getSelectColor());
-    button_Back_highlight.SetActiveColor(button_Back_highlight.getSelectColor());
-
-    button_LStickUp_highlight.SetActiveColor(button_LStickUp_highlight.getSelectColor());
-    button_LStickLeft_highlight.SetActiveColor(button_LStickLeft_highlight.getSelectColor());
-    button_LStickRight_highlight.SetActiveColor(button_LStickRight_highlight.getSelectColor());
-    button_LStickDown_highlight.SetActiveColor(button_LStickDown_highlight.getSelectColor());
-
-    button_RStickUp_highlight.SetActiveColor(button_RStickUp_highlight.getSelectColor());
-    button_RStickLeft_highlight.SetActiveColor(button_RStickLeft_highlight.getSelectColor());
-    button_RStickRight_highlight.SetActiveColor(button_RStickRight_highlight.getSelectColor());
-    button_RStickDown_highlight.SetActiveColor(button_RStickDown_highlight.getSelectColor());
-
-    button_A_highlight.SetActiveColor(button_A_highlight.getSelectColor());
-    button_B_highlight.SetActiveColor(button_B_highlight.getSelectColor());
-    button_X_highlight.SetActiveColor(button_X_highlight.getSelectColor());
-    button_Y_highlight.SetActiveColor(button_Y_highlight.getSelectColor());
-
-    button_DpadUp_highlight.SetActiveColor(button_DpadUp_highlight.getSelectColor());
-    button_DpadLeft_highlight.SetActiveColor(button_DpadLeft_highlight.getSelectColor());
-    button_DpadRight_highlight.SetActiveColor(button_DpadRight_highlight.getSelectColor());
-    button_DpadDown_highlight.SetActiveColor(button_DpadDown_highlight.getSelectColor());
-
-    button_L1_highlight.SetActiveColor(button_L1_highlight.getSelectColor());
-    button_L2_highlight.SetActiveColor(button_L2_highlight.getSelectColor());
-    button_L3_highlight.SetActiveColor(button_L3_highlight.getSelectColor());
-
-    button_R1_highlight.SetActiveColor(button_R1_highlight.getSelectColor());
-    button_R2_highlight.SetActiveColor(button_R2_highlight.getSelectColor());
-    button_R3_highlight.SetActiveColor(button_R3_highlight.getSelectColor());
-
-
-    // Outlines
-    /*
-    button_A_outline.SetActiveColor(button_A_outline.getSelectColor());
-    button_B_outline.SetActiveColor(button_B_outline.getSelectColor());
-    button_X_outline.SetActiveColor(button_X_outline.getSelectColor());
-    button_Y_outline.SetActiveColor(button_Y_outline.getSelectColor());
-
-    button_DpadUp_outline.SetActiveColor(button_DpadUp_outline.getSelectColor());
-    button_DpadLeft_outline.SetActiveColor(button_DpadLeft_outline.getSelectColor());
-    button_DpadRight_outline.SetActiveColor(button_DpadRight_outline.getSelectColor());
-    button_DpadDown_outline.SetActiveColor(button_DpadDown_outline.getSelectColor());
-    */
-
-    button_L1_outline.SetActiveColor(button_L1_outline.getHighlightColor());
-    button_L2_outline.SetActiveColor(button_L2_outline.getHighlightColor());
-    button_L3_outline.SetActiveColor(button_L3_outline.getHighlightColor());
-
-    button_R1_outline.SetActiveColor(button_R1_outline.getHighlightColor());
-    button_R2_outline.SetActiveColor(button_R2_outline.getHighlightColor());
-    button_R3_outline.SetActiveColor(button_R3_outline.getHighlightColor());
-}
-
-
-// Initializes controller buttons into screen UI
-void LoadButtons(textUI& screen, byte controlerType=0) {
-
-    LoadButtonHighlightAreas(screen);
-    LoadButtonOutlines(screen); 
-
-    SetButtonActiveColors();
-
-    SetButtonPositions(controlerType);
-}
-

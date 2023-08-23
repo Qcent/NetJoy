@@ -6,57 +6,57 @@
 #define DS4_FACE_LINES		17
 
 // defines the area to be colored in for the controller face
-textBox ControlerFace[XBOX_FACE_LINES];
+textBox ControllerFace[XBOX_FACE_LINES];
 
-// Sets the ControlerFace array to the Xbox controller configuration
+// Sets the ControllerFace array to the Xbox controller configuration
 void BuildXboxFace() {
-	ControlerFace[0] = textBox(17, 5, 40, 1, ALIGN_LEFT, L"                                       ", GREY AS_BG);
-	ControlerFace[1] = textBox(16, 6, 42, 1, ALIGN_LEFT, L"                                         ", GREY AS_BG);
-	ControlerFace[2] = textBox(15, 7, 44, 1, ALIGN_LEFT, L"                                           ", GREY AS_BG);
-	ControlerFace[3] = textBox(14, 8, 46, 1, ALIGN_LEFT, L"                                             ", GREY AS_BG);
-	ControlerFace[4] = textBox(13, 9, 48, 1, ALIGN_LEFT, L"                                               ", GREY AS_BG);
-	ControlerFace[5] = textBox(12, 10, 50, 1, ALIGN_LEFT, L"                                                 ", GREY AS_BG);
-	ControlerFace[6] = textBox(11, 11, 52, 1, ALIGN_LEFT, L"                                                   ", GREY AS_BG);
-	ControlerFace[7] = textBox(10, 12, 54, 1, ALIGN_LEFT, L"                                                     ", GREY AS_BG);
-	ControlerFace[8] = textBox(9, 13, 56, 1, ALIGN_LEFT, L"                                                       ", GREY AS_BG);
+	ControllerFace[0] = textBox(17, 5, 40, 1, ALIGN_LEFT, L"                                       ", GREY AS_BG);
+	ControllerFace[1] = textBox(16, 6, 42, 1, ALIGN_LEFT, L"                                         ", GREY AS_BG);
+	ControllerFace[2] = textBox(15, 7, 44, 1, ALIGN_LEFT, L"                                           ", GREY AS_BG);
+	ControllerFace[3] = textBox(14, 8, 46, 1, ALIGN_LEFT, L"                                             ", GREY AS_BG);
+	ControllerFace[4] = textBox(13, 9, 48, 1, ALIGN_LEFT, L"                                               ", GREY AS_BG);
+	ControllerFace[5] = textBox(12, 10, 50, 1, ALIGN_LEFT, L"                                                 ", GREY AS_BG);
+	ControllerFace[6] = textBox(11, 11, 52, 1, ALIGN_LEFT, L"                                                   ", GREY AS_BG);
+	ControllerFace[7] = textBox(10, 12, 54, 1, ALIGN_LEFT, L"                                                     ", GREY AS_BG);
+	ControllerFace[8] = textBox(9, 13, 56, 1, ALIGN_LEFT, L"                                                       ", GREY AS_BG);
 
-	ControlerFace[9] = textBox(9, 14, 13, 1, ALIGN_LEFT, L"            ", GREY AS_BG);
-	ControlerFace[10] = textBox(52, 14, 13, 1, ALIGN_LEFT, L"            ", GREY AS_BG);
+	ControllerFace[9] = textBox(9, 14, 13, 1, ALIGN_LEFT, L"            ", GREY AS_BG);
+	ControllerFace[10] = textBox(52, 14, 13, 1, ALIGN_LEFT, L"            ", GREY AS_BG);
 
-	ControlerFace[11] = textBox(9, 15, 10, 1, ALIGN_LEFT, L"          ", GREY AS_BG);
-	ControlerFace[12] = textBox(54, 15, 10, 1, ALIGN_LEFT, L"          ", GREY AS_BG);
+	ControllerFace[11] = textBox(9, 15, 10, 1, ALIGN_LEFT, L"          ", GREY AS_BG);
+	ControllerFace[12] = textBox(54, 15, 10, 1, ALIGN_LEFT, L"          ", GREY AS_BG);
 
-	ControlerFace[13] = textBox(9, 16, 8, 1, ALIGN_LEFT, L"        ", GREY AS_BG);
-	ControlerFace[14] = textBox(56, 16, 8, 1, ALIGN_LEFT, L"        ", GREY AS_BG);
+	ControllerFace[13] = textBox(9, 16, 8, 1, ALIGN_LEFT, L"        ", GREY AS_BG);
+	ControllerFace[14] = textBox(56, 16, 8, 1, ALIGN_LEFT, L"        ", GREY AS_BG);
 
-	ControlerFace[15] = textBox(9, 17, 7, 1, ALIGN_LEFT, L",     .", GREY AS_BG);
-	ControlerFace[16] = textBox(57, 17, 7, 1, ALIGN_LEFT, L".     ,", GREY AS_BG);
+	ControllerFace[15] = textBox(9, 17, 7, 1, ALIGN_LEFT, L",     .", GREY AS_BG);
+	ControllerFace[16] = textBox(57, 17, 7, 1, ALIGN_LEFT, L".     ,", GREY AS_BG);
 }
 
-// Sets the ControlerFace array to the DS4 controller configuration
+// Sets the ControllerFace array to the DS4 controller configuration
 void BuildDS4Face() {
-	ControlerFace[0] = textBox(14, 5, 45, 1, ALIGN_LEFT, L"                                             ", GREY AS_BG);
-	ControlerFace[1] = textBox(13, 6, 47, 1, ALIGN_LEFT, L"                                               ", GREY AS_BG);
-	ControlerFace[2] = textBox(12, 7, 49, 1, ALIGN_LEFT, L"                                                 ", GREY AS_BG);
-	ControlerFace[3] = textBox(11, 8, 51, 1, ALIGN_LEFT, L"/                                                 \\", GREY AS_BG);
-	ControlerFace[4] = textBox(11, 9, 51, 1, ALIGN_LEFT, L"                                                   ", GREY AS_BG);
-	ControlerFace[5] = textBox(10, 10, 53, 1, ALIGN_LEFT, L"'                                                   '", GREY AS_BG);
-	ControlerFace[6] = textBox(9, 11, 55, 1, ALIGN_LEFT, L"/                                                     \\", GREY AS_BG);
+	ControllerFace[0] = textBox(14, 5, 45, 1, ALIGN_LEFT, L"                                             ", GREY AS_BG);
+	ControllerFace[1] = textBox(13, 6, 47, 1, ALIGN_LEFT, L"                                               ", GREY AS_BG);
+	ControllerFace[2] = textBox(12, 7, 49, 1, ALIGN_LEFT, L"                                                 ", GREY AS_BG);
+	ControllerFace[3] = textBox(11, 8, 51, 1, ALIGN_LEFT, L"/                                                 \\", GREY AS_BG);
+	ControllerFace[4] = textBox(11, 9, 51, 1, ALIGN_LEFT, L"                                                   ", GREY AS_BG);
+	ControllerFace[5] = textBox(10, 10, 53, 1, ALIGN_LEFT, L"'                                                   '", GREY AS_BG);
+	ControllerFace[6] = textBox(9, 11, 55, 1, ALIGN_LEFT, L"/                                                     \\", GREY AS_BG);
 
-	ControlerFace[7] = textBox(9, 12, 35, 1, ALIGN_LEFT, L"                       /^^^^^^^", GREY AS_BG);
-	ControlerFace[8] = textBox(40, 12, 25, 1, ALIGN_LEFT, L"\\                       ", GREY AS_BG);
+	ControllerFace[7] = textBox(9, 12, 35, 1, ALIGN_LEFT, L"                       /^^^^^^^", GREY AS_BG);
+	ControllerFace[8] = textBox(40, 12, 25, 1, ALIGN_LEFT, L"\\                       ", GREY AS_BG);
 
-	ControlerFace[9] = textBox(9, 13, 14, 1, ALIGN_LEFT, L"              ", GREY AS_BG);
-	ControlerFace[10] = textBox(50, 13, 14, 1, ALIGN_LEFT, L"              ", GREY AS_BG);
+	ControllerFace[9] = textBox(9, 13, 14, 1, ALIGN_LEFT, L"              ", GREY AS_BG);
+	ControllerFace[10] = textBox(50, 13, 14, 1, ALIGN_LEFT, L"              ", GREY AS_BG);
 
-	ControlerFace[11] = textBox(9, 14, 13, 1, ALIGN_LEFT, L"             ", GREY AS_BG);
-	ControlerFace[12] = textBox(51, 14, 13, 1, ALIGN_LEFT, L"             ", GREY AS_BG);
+	ControllerFace[11] = textBox(9, 14, 13, 1, ALIGN_LEFT, L"             ", GREY AS_BG);
+	ControllerFace[12] = textBox(51, 14, 13, 1, ALIGN_LEFT, L"             ", GREY AS_BG);
 
-	ControlerFace[13] = textBox(9, 15, 12, 1, ALIGN_LEFT, L"            ", GREY AS_BG);
-	ControlerFace[14] = textBox(52, 15, 12, 1, ALIGN_LEFT, L"            ", GREY AS_BG);
+	ControllerFace[13] = textBox(9, 15, 12, 1, ALIGN_LEFT, L"            ", GREY AS_BG);
+	ControllerFace[14] = textBox(52, 15, 12, 1, ALIGN_LEFT, L"            ", GREY AS_BG);
 
-	ControlerFace[15] = textBox(10, 16, 10, 1, ALIGN_LEFT, L".        .", GREY AS_BG);
-	ControlerFace[16] = textBox(53, 16, 10, 1, ALIGN_LEFT, L".        ,", GREY AS_BG);
+	ControllerFace[15] = textBox(10, 16, 10, 1, ALIGN_LEFT, L".        .", GREY AS_BG);
+	ControllerFace[16] = textBox(53, 16, 10, 1, ALIGN_LEFT, L".        ,", GREY AS_BG);
 }
 
 // Handles all details of color setting coupled buttons and contrast correcting shoulder buttons
@@ -168,14 +168,19 @@ void DrawControllerFace(textUI& screen, ColorScheme& colorsScheme, WORD BG_COLOR
 	}
 
 	//
-	// Set all the Colors
-	screen.SetBackdropColor(colorsScheme.outlineColor | BG_COLOR);
-
+	// Set the background colors
+	screen.SetBackdropColor(makeSafeColors(colorsScheme.outlineColor | BG_COLOR));
+	
 	// Set all buttons to color scheme
-	screen.SetButtonsDefaultColor(colorsScheme.buttonColor | colorsScheme.faceColor);
-	screen.SetButtonsHighlightColor(colorsScheme.highlightColor | colorsScheme.faceColor);
-	screen.SetButtonsSelectColor(colorsScheme.selectColor);
+	textUI controllerButtons;		// for setting button colors
+	AddControllerButtons(controllerButtons);	// without them being click able on screen
 
+	controllerButtons.SetButtonsColors({ static_cast<WORD>(colorsScheme.buttonColor | colorsScheme.faceColor),
+								static_cast<WORD>(colorsScheme.highlightColor | colorsScheme.faceColor),
+							 	colorsScheme.selectColor,
+							 	0x0000  // unused
+		});
+		
 	// do customized button effect colors & // Shoulder button contrast correction
 	SetCoupledButtonColors(
 		BG_COLOR,
@@ -183,9 +188,9 @@ void DrawControllerFace(textUI& screen, ColorScheme& colorsScheme, WORD BG_COLOR
 		colorsScheme.buttonColor,
 		colorsScheme.highlightColor,
 		colorsScheme.selectColor);
-
 	//
-	screen.DrawBackdrop();
+
+	screen.DrawBackdrop(); 
 
 	// make sure detail on controller face is visible
 	WORD safe_col = colorsScheme.outlineColor;
@@ -193,17 +198,18 @@ void DrawControllerFace(textUI& screen, ColorScheme& colorsScheme, WORD BG_COLOR
 		safe_col = BG_COLOR >> 4;
 	}
 	while (CheckContrastMismatch(safe_col, colorsScheme.faceColor)) {
-		safe_col= safe_col++ % 15;
+		safe_col= (safe_col+1) % 15;
 	}
 
 	//
 	// Draw face
 	setTextColor(safe_col | colorsScheme.faceColor);
 	for (int i = 0; i < faceLines; i++) {
-		ControlerFace[i].Draw_noColor();
+		ControllerFace[i].Draw_noColor();
 	}
 
-	//
-	screen.DrawButtons();
+	// 
+	controllerButtons.DrawButtons();
 
+	//screen.DrawButtons();  // this should be handled in calling function ??
 }
