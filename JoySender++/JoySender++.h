@@ -173,6 +173,8 @@ void testCallback(mouseButton& button) {
             g_currentColorScheme = -1;
         }
 
+        randomScheme = colorSchemes[16];
+
         g_BG_COLOR |= randomScheme.outlineColor;
 
         if (g_mode == 2) {
@@ -195,12 +197,9 @@ void testCallback(mouseButton& button) {
             button_Guide_highlight.getSelectColor(),
             0 // unused
         );
-
+        //
         quitButton.SetColors(buttonColors);
 
-        //quitButton.SetDefaultColor(makeSafeColors(newRandomBG));
-        //quitButton.SetHighlightColor(makeSafeColors(button_Guide_highlight.getHighlightColor()));
-        //quitButton.SetSelectColor(makeSafeColors(button_Guide_highlight.getSelectColor()));
 
 
         quitButton.Update();
