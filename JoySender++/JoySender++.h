@@ -23,6 +23,9 @@ int g_joystickSelected = -1;
 volatile sig_atomic_t APP_KILLED = 0;
 void signalHandler(int signal);
 
+int RESTART_FLAG = 0;
+bool MAPPING_FLAG = 0;
+
 // Function safely returns environment variables
 std::string g_getenv(const char* variableName);
 
@@ -57,7 +60,7 @@ void setErrorMsg(const wchar_t* text, size_t length);
 void updateFPS(const wchar_t* text, size_t length);
 void exitAppCallback(mouseButton& button);
 void joystickSelectCallback(mouseButton& button);
-void testCallback(mouseButton& button);
+void newControllerColorsCallback(mouseButton& button);
 void printCurrentController(SDLJoystickData& activeGamepad);
 void checkForQuit();
 bool checkKey(int key, bool pressed);
@@ -154,14 +157,12 @@ void joystickSelectCallback(mouseButton& button) {
     }
 }
 
-void testCallback(mouseButton& button) {
+void newControllerColorsCallback(mouseButton& button) {
     if (button.Status() & MOUSE_UP) {
         button.SetStatus(MOUSE_OUT);
-        //screen.ClearButtons();
 
         WORD newRandomBG = generateRandomInt(0, 15) << 4;
-        g_BG_COLOR = newRandomBG;
-
+        
         static ColorScheme randomScheme;
         randomScheme = createRandomScheme();
         g_currentColorScheme = generateRandomInt(0, NUM_COLOR_SCHEMES);
@@ -173,9 +174,14 @@ void testCallback(mouseButton& button) {
             g_currentColorScheme = -1;
         }
 
-        randomScheme = colorSchemes[16];
 
-        g_BG_COLOR |= randomScheme.outlineColor;
+        // force watermelon scheme for now
+        randomScheme = colorSchemes[16];
+        newRandomBG = BRIGHT_BLUE AS_BG;
+
+
+        // update global background for universal color consistency
+        g_BG_COLOR = newRandomBG | randomScheme.outlineColor;
 
         if (g_mode == 2) {
             BuildDS4Face();
@@ -198,12 +204,119 @@ void testCallback(mouseButton& button) {
             0 // unused
         );
         //
-        quitButton.SetColors(buttonColors);
+        
 
-
-
-        quitButton.Update();
+        // non controller buttons
+        restartButton[3].SetColors(buttonColors);  // mode section of restart button
+        g_screen.SetButtonsColors(buttonColors);
+        g_screen.DrawButtons();
     }
+}
+
+void restartModeCallback(mouseButton& button) {
+    static int lastStatus = 0;
+    static std::wstring modeCheckValue(L"1");
+    
+    // if the status has not changed do nothing
+    if (button.Status() == lastStatus) return;
+
+    
+    if (button.Status() & (MOUSE_HOVERED)) {
+
+        // Get mode value from button text
+        std::wstring modetxt = button.getTextPtr();
+                
+        // if mouse released on number restart in that mode
+        if (button.Status() & MOUSE_UP) {
+            /*
+            if (modetxt == modeCheckValue)
+                RESTART_FLAG = 2;
+            else
+                RESTART_FLAG = 3;
+            */
+            RESTART_FLAG = (modetxt != modeCheckValue) + 2;  // non branching
+
+            for (int i = 0; i < 3; ++i)
+                restartButton[i].SetStatus(MOUSE_OUT);
+
+            return;
+        }
+
+
+        // create new text for button
+        std::wstring modeText = L"[mode " + modetxt + L"] ";
+        // store text in msgPointer3 
+        swprintf(msgPointer3, modeText.size() + 1, L"%s", modeText.c_str());
+        // update button text
+        restartButton[3].SetText(msgPointer3);
+
+
+        // correct button colors
+        WORD correctColor;
+
+        if (button.Status() & MOUSE_DOWN || restartButton[0].Status() & MOUSE_DOWN)
+            correctColor = restartButton[0].getCurrentColor();
+        else
+            correctColor = button.getCurrentColor();
+
+        
+        restartButton[3].Draw(correctColor);
+
+        /*
+        if (modetxt == modeCheckValue) {
+            restartButton[2].Draw(correctColor);
+        }
+        else {
+            restartButton[1].Draw(correctColor);
+        }
+        */
+        restartButton[(modetxt == modeCheckValue)+1].Draw(correctColor); // non branching, yay!
+
+        restartButton[1].SetDefaultColor(correctColor);
+        restartButton[2].SetDefaultColor(correctColor);
+    }
+
+    else if (button.Status() == MOUSE_OUT) {
+        restartButton[3].Clear(g_BG_COLOR);
+        restartButton[3].SetText(L"[mode] ");
+        restartButton[3].Draw(restartButton[0].getCurrentColor());
+    }
+
+    lastStatus = button.Status();
+}
+
+void restartStatusCallback(mouseButton& button) {
+    static int lastStatus = 0;
+
+    if (button.Status() & MOUSE_UP) {
+        //RESTART_FLAG = (g_mode == 2) + 2; // will equal mode +1
+        RESTART_FLAG = 1;
+        for(int i=0; i<3;++i)
+            restartButton[i].SetStatus(MOUSE_OUT);
+        return;
+    }
+
+    if (button.Status() == lastStatus) return;
+
+    byte a = restartButton[1].Status();  // mode 1 button
+    byte b = restartButton[2].Status();  // mode 2 button
+
+    if ((a | b) & ( MOUSE_DOWN | MOUSE_HOVERED ) ) {
+        // mode 1 or 2 button is the target
+        button.SetStatus(MOUSE_HOVERED);  // cancel mouse down on main restart button
+    }
+    else {
+        // The status has changed // make colors match
+        restartButton[1].SetDefaultColor(button.getCurrentColor());
+        restartButton[1].Draw(button.getCurrentColor());
+
+        restartButton[2].SetDefaultColor(button.getCurrentColor());
+        restartButton[2].Draw(button.getCurrentColor());
+
+        restartButton[3].Draw(button.getCurrentColor());
+    }
+
+    lastStatus = button.Status();
 }
 
 // Prints the current controller header to screen

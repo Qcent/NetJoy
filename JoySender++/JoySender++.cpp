@@ -214,6 +214,8 @@ int joySender(Arguments& args) {
         return 0.0;
 };
 
+    RESTART_FLAG = 0;
+    MAPPING_FLAG = 0;
 
     //
     // Set Up for first tUI screen
@@ -428,19 +430,31 @@ int joySender(Arguments& args) {
             {
                 if (mode == 2) {
                     screen.SetBackdrop(DS4_Backdrop);
-                    quitButton.SetPosition(consoleWidth / 2 - 5, 17);
+                    quitButton.SetPosition(consoleWidth / 2 - 5, DS4_QUIT_LINE);
                     BuildDS4Face();
                 }
                 else {
                     screen.SetBackdrop(XBOX_Backdrop);
-                    quitButton.SetPosition(consoleWidth / 2 - 5, 18);
+                    quitButton.SetPosition(consoleWidth / 2 - 5, XBOX_QUIT_LINE);
                     BuildXboxFace();
                 }
 
                 SetControllerButtonPositions(mode);
-                
+
                 // create restart and map buttons
-                // todo
+                screen.AddButton(&mappingButton);
+                
+                screen.AddButton(&restartButton[1]);
+                screen.AddButton(&restartButton[2]);
+
+                screen.AddButton(&restartButton[0]);
+
+                //screen.AddButton(&restartButton[3]);
+
+                restartButton[0].setCallback(restartStatusCallback);
+
+                restartButton[1].setCallback(restartModeCallback);
+                restartButton[2].setCallback(restartModeCallback);
 
                 wcsncpy_s(msgPointer1, 37, g_converter.from_bytes("<< Connected to: " + args.host + " >>").c_str(), _TRUNCATE);
                 output1.SetText(msgPointer1);
@@ -487,15 +501,21 @@ int joySender(Arguments& args) {
 
             screenLoop(screen);
 
+            // Catch if Restart or mapping button was pressed
+            if (RESTART_FLAG || MAPPING_FLAG) {
+                client.~TCPConnection();
+                inConnection = false;
+            }
+
             // Shift + R will Reset program allowing joystick reconnection / selection
             // Shift + M will reMap all buttons on an SDL device
             // Shift + Q will Quit the program
             // Shift + G will ...
-            if (IsAppActiveWindow() && getKeyState(VK_SHIFT)) {
+            if (inConnection && IsAppActiveWindow() && getKeyState(VK_SHIFT)) {
                 if (checkKey('G', IS_PRESSED)) {
                     // maybe change colors or something
                     button_Guide_highlight.SetStatus(MOUSE_UP);
-                    testCallback(button_Guide_highlight);
+                    newControllerColorsCallback(button_Guide_highlight);
                     //output1.copyColors(&quitButton);
                     output1.Draw();
                     hostMsg.Draw();
@@ -504,6 +524,13 @@ int joySender(Arguments& args) {
                 if (getKeyState('R') || getKeyState('M') || getKeyState('Q')) {
                         client.~TCPConnection();
                         inConnection = false;
+
+                        if (getKeyState('R'))
+                            //RESTART_FLAG = (args.mode == 2)+2; // will equal mode +1
+                            RESTART_FLAG = 1;
+
+                        if (getKeyState('M'))
+                            MAPPING_FLAG = 1;
                 }
             }
             if (!inConnection || APP_KILLED) {
@@ -632,24 +659,23 @@ int joySender(Arguments& args) {
             return 0;
         }
         //# Shift + R  Resets program allowing joystick reconnection / selection, holding a number will change op mode
-        if (getKeyState('R')) {
-            g_outputText += "<< Restarted >>\r\n";
-            while (getKeyState('R')) {
+        if (RESTART_FLAG) {
+            //g_outputText += "<< Restarted >>\r\n";
+            while (RESTART_FLAG < 2 && getKeyState('R')) {
                 if (getKeyState('1'))
-                    return 2;
+                    RESTART_FLAG = 2;
                 if (getKeyState('2'))
-                    return 3;
-                if (getKeyState('3'))
-                    return 4;
+                    RESTART_FLAG = 3;
             }
-            return 1;
+
+            screen.ClearButtons();
+            screen.SetBackdrop(JoySendMain_Backdrop);
+
+            return RESTART_FLAG;
         }
         //# Shift + M  reMaps all inputs
-        if (getKeyState('M')) {
-            if (args.mode == 3) {
-                //set_hid_mapping(gamepad, buttons, []);
-            }
-            else if(args.mode == 1) {
+        if (MAPPING_FLAG) {
+           if(args.mode == 1) {
                 // REMAP STUFF
                 activeGamepad.mapping = SDLButtonMapping();
                 std::vector<SDLButtonMapping::ButtonName> blankList;
@@ -659,7 +685,6 @@ int joySender(Arguments& args) {
         }
         
         
-
         //###################################
         //# Connection has failed or been aborted
         ++failed_connections;

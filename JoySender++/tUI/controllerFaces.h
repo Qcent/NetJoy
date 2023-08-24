@@ -171,7 +171,7 @@ void DrawControllerFace(textUI& screen, ColorScheme& colorsScheme, WORD BG_COLOR
 	// Set the background colors
 	screen.SetBackdropColor(makeSafeColors(colorsScheme.outlineColor | BG_COLOR));
 	
-	// Set all buttons to color scheme
+	// Set controller buttons to color scheme
 	textUI controllerButtons;		// for setting button colors
 	AddControllerButtons(controllerButtons);	// without them being click able on screen
 

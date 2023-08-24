@@ -20,6 +20,7 @@
 // mouse button settings flags
 #define UNCLICKABLE     0x1
 #define UNHOVERABLE     0x2
+//#define SELF_MANAGED    0x8
 
 // mouse button default colors
 #define DEFAULT_TEXT        WHITE | BLACK AS_BG
@@ -694,7 +695,51 @@ public:
                 setCursorPosition(_pos.X, _pos.Y + line);
             }
         }
-        setTextColor(_defaultColor); // ?? get rid of this ??
+        //setTextColor(_defaultColor); // ?? get rid of this ??
+    }
+
+    void Clear(int color = -1) {
+        if(color>-1)
+            setTextColor(color);
+        else
+            setTextColor(_defaultColor);
+
+        int line = 0;
+        setCursorPosition(_pos);
+        for (int i = 1; i - 1 < _length; i++) {
+            if (_text[i - 1] == '\t') {
+                // advance cursor
+                setCursorPosition(_pos.X + i % _width, _pos.Y + line);
+            }
+            else
+                std::wcout << ' ';
+            if (i % _width == 0 && i < _length) {
+                line++;
+                setCursorPosition(_pos.X, _pos.Y + line);
+            }
+        }
+    }
+
+    void Draw(int color = -1) {
+        if (color > -1)
+            setTextColor(color);
+        else
+            setTextColor(_defaultColor);
+
+        int line = 0;
+        setCursorPosition(_pos);
+        for (int i = 1; i - 1 < _length; i++) {
+            if (_text[i - 1] == '\t') {
+                // advance cursor
+                setCursorPosition(_pos.X + i % _width, _pos.Y + line);
+            }
+            else
+                std::wcout << _text[i - 1];
+            if (i % _width == 0 && i < _length) {
+                line++;
+                setCursorPosition(_pos.X, _pos.Y + line);
+            }
+        }
     }
 
     void CheckMouseHover(COORD mousePos) {
@@ -797,6 +842,17 @@ public:
 
     const wchar_t* getTextPtr() {
         return _text;
+    }
+
+    WORD getCurrentColor() {
+        if (_status & MOUSE_DOWN)       // clicked
+            return _selectColor;
+        //else if (_status & ACTIVE_INPUT)    // active
+            //return _activeColor;
+        else if (_status & MOUSE_HOVERED)    // hovered
+            return _highlightColor;
+        else                            // default
+            return _defaultColor;
     }
 
 private:

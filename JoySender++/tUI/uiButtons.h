@@ -1,8 +1,21 @@
 #pragma once
 #include "textUI.hpp"
 
+#define XBOX_QUIT_LINE  18
+#define DS4_QUIT_LINE   17
+
 // lets make a quit button
-mouseButton quitButton(CONSOLE_WIDTH / 2 - 5, 17, 11, L" (Q) Quit  ");
+mouseButton quitButton(CONSOLE_WIDTH / 2 - 5, XBOX_QUIT_LINE, 11, L" (Q) Quit  ");
+
+mouseButton mappingButton(CONSOLE_WIDTH / 2 - 9, XBOX_QUIT_LINE - 2, 18, L" (M) Map Buttons  ");
+
+mouseButton restartButton[4] = {
+    mouseButton(CONSOLE_WIDTH / 2 - 12, XBOX_QUIT_LINE - 1, 25, L" (R[\t,\t]) Restart "),
+    mouseButton(CONSOLE_WIDTH / 2 - 8, XBOX_QUIT_LINE - 1, 1, L"1"),
+    mouseButton(CONSOLE_WIDTH / 2 - 6, XBOX_QUIT_LINE - 1, 1, L"2"),
+    mouseButton(CONSOLE_WIDTH / 2 + 6, XBOX_QUIT_LINE - 1, 9, L"[mode] "),
+};
+
 
 
 // Controller button highlight areas
