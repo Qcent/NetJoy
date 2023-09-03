@@ -494,7 +494,7 @@ std::pair<bool, std::filesystem::path> check_for_saved_mapping(const std::string
 }
 
 std::pair< std::tuple<int, int, int>, std::tuple<std::vector<int>, std::vector<int>, std::vector<int>, std::vector<int>>>
-get_sdl_joystick_baseline(SDL_Joystick* joystick, int numSamples = 512) {
+get_sdl_joystick_baseline(SDL_Joystick* joystick, int numSamples = 64) {
     int numAxes = SDL_JoystickNumAxes(joystick);
     int numButtons = SDL_JoystickNumButtons(joystick);
     int numHats = SDL_JoystickNumHats(joystick);
@@ -524,6 +524,9 @@ get_sdl_joystick_baseline(SDL_Joystick* joystick, int numSamples = 512) {
             avgBuffer[j] += value;
             sampleBuf[i][j] = value;
         }
+        
+        // sleep for more accurate polling
+        Sleep(5);
     }
 
     // Calculate median, mode, range, and average for each input
