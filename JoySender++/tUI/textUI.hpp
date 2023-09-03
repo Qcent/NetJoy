@@ -55,8 +55,8 @@ int findNextLineBreak(const wchar_t* text, int start, int width) {
         return start + width;
     int lastSpace=0;
     int i;
-    for (i = 0; i < width ; i++) {
-        if (text[i + start] == L'\0')
+    for (i = 0; i < width+1 ; i++) {
+        if (text[i + start] == L'\0' || text[i + start] == L'\n')
             return i + start;
         if (i && text[i+start] == L' ') {
             lastSpace = i+start;
@@ -90,6 +90,13 @@ struct tUIColorPkg {
     WORD col4;
 
     tUIColorPkg(WORD c1, WORD c2, WORD c3, WORD c4 ) : col1(c1), col2(c2), col3(c3), col4(c4) {
+    }
+
+    bool operator==(const tUIColorPkg& other) const {
+        return (this->col1 == other.col1) &&
+            (this->col2 == other.col2) &&
+            (this->col3 == other.col3) &&
+            (this->col4 == other.col4);
     }
 };
 
@@ -205,8 +212,11 @@ public:
         }
     }
 
-    void Clear() {
-        setTextColor(_color); // for background
+    void Clear(int color = -1) {
+        if (color > -1)
+            setTextColor(color);
+        else
+            setTextColor(_color); // for background
         switch (_alignment) {
         case ALIGN_LEFT:
             _clearLeftAutoBreak();
@@ -339,7 +349,7 @@ protected:
         int nextBreak = findNextLineBreak(_text, i - 1, _width);
 
         setCursorPosition(_pos);
-        for (i = 1; i - 1 < _width * _lines; i++) {
+        for (i = 1; i - 1 < _length; i++) {
             charsRemaining--;
             if (i - 1 < nextBreak) {
                 std::wcout << ' ';
@@ -375,7 +385,7 @@ protected:
         setStartPoint();
         setCursorPosition(startPoint, _pos.Y);
 
-        for (i = 1; i - 1 < _width * _lines; i++) {
+        for (i = 1; i - 1 < _length; i++) {
             charsRemaining--;
             if (i - 1 < nextBreak) {
                 std::wcout << ' ';
@@ -410,7 +420,7 @@ protected:
 
         setStartPoint();
         setCursorPosition(startPoint, _pos.Y);
-        for (i = 1; i - 1 < _width * _lines; i++) {
+        for (i = 1; i - 1 < _length; i++) {
             charsRemaining--;
             if (i - 1 < nextBreak) {
                 std::wcout << ' ';
@@ -445,6 +455,19 @@ public:
         _pos.Y = y;
         _alignment = align;
         _width = width;
+        _currentPosition = 0;
+        _length = 0;
+        _input = new wchar_t[_maxLength + 1];
+        _text = _input;
+        _lines = 1;
+        _status = 0;
+    }
+    textInput(int x, int y, int width, int maxLen, byte align, WORD color) : _maxLength(maxLen) {
+        _pos.X = x;
+        _pos.Y = y;
+        _alignment = align;
+        _width = width;
+        _color = color;
         _currentPosition = 0;
         _length = 0;
         _input = new wchar_t[_maxLength + 1];
@@ -993,6 +1016,18 @@ public:
         }
     }
 
+    void SetButtonsCallback(mouseButton::CallbackFunction cbFunc) {
+        for (int i = 0; i < _buttonsCount; i++) {
+            _buttons[i]->setCallback(cbFunc);
+        }
+    }
+    
+    void ClearButtonsCallback(mouseButton::CallbackFunction cbFunc) {
+        for (int i = 0; i < _buttonsCount; i++) {
+            _buttons[i]->setCallback(nullptr);
+        }
+    }
+
     /*
     WORD getSafeColors() {
         // A list of replacement colors to select from
@@ -1014,6 +1049,7 @@ public:
         return safe_col;
     }
     */
+
 private:
     const wchar_t* _backdrop;
     WORD _backdropColor;

@@ -4,11 +4,9 @@
 #define XBOX_QUIT_LINE  18
 #define DS4_QUIT_LINE   17
 
-// lets make a quit button
+// 'Permanent' / memory persistent, on screen buttons
 mouseButton quitButton(CONSOLE_WIDTH / 2 - 5, XBOX_QUIT_LINE, 11, L" (Q) Quit  ");
-
 mouseButton mappingButton(CONSOLE_WIDTH / 2 - 9, XBOX_QUIT_LINE - 2, 18, L" (M) Map Buttons  ");
-
 mouseButton restartButton[4] = {
     mouseButton(CONSOLE_WIDTH / 2 - 12, XBOX_QUIT_LINE - 1, 25, L" (R[\t,\t]) Restart "),
     mouseButton(CONSOLE_WIDTH / 2 - 8, XBOX_QUIT_LINE - 1, 1, L"1"),
@@ -17,6 +15,8 @@ mouseButton restartButton[4] = {
 };
 
 
+// *********************************
+// Declare all necessary controller buttons: outline and highlight areas
 
 // Controller button highlight areas
 mouseButton button_A_highlight(51, 11, 2, L"  ", UNHOVERABLE);
@@ -88,11 +88,132 @@ mouseButton button_R3_outline(40, 10, 4, L".\t\t.\t\t\t\t'\t\t'", UNCLICKABLE);
 // Same as highlight
 
 
-// Callback function to link buttons status
-void ShareButtonStatus(mouseButton& button) {
-    auto other = button.GetPartner();
-    other->SetStatus(button.Status());
-    other->Update();
+// A map of controller ButtonNames to their associated mouseButtons
+std::map<SDLButtonMapping::ButtonName, mouseButton*> buttonIdMap = {
+    {SDLButtonMapping::ButtonName::DPAD_UP, &button_DpadUp_outline },
+    {SDLButtonMapping::ButtonName::DPAD_DOWN, &button_DpadDown_outline},
+    {SDLButtonMapping::ButtonName::DPAD_LEFT, &button_DpadLeft_outline},
+    {SDLButtonMapping::ButtonName::DPAD_RIGHT, &button_DpadRight_outline},
+    {SDLButtonMapping::ButtonName::START, &button_Start_highlight},
+    {SDLButtonMapping::ButtonName::BACK, &button_Back_highlight},
+    {SDLButtonMapping::ButtonName::LEFT_THUMB, &button_L3_highlight},
+    {SDLButtonMapping::ButtonName::RIGHT_THUMB, &button_R3_highlight},
+    {SDLButtonMapping::ButtonName::LEFT_SHOULDER, &button_L1_highlight},
+    {SDLButtonMapping::ButtonName::RIGHT_SHOULDER, &button_R1_highlight},
+    {SDLButtonMapping::ButtonName::GUIDE, &button_Guide_highlight},
+    {SDLButtonMapping::ButtonName::A, &button_A_outline},
+    {SDLButtonMapping::ButtonName::B, &button_B_outline},
+    {SDLButtonMapping::ButtonName::X, &button_X_outline},
+    {SDLButtonMapping::ButtonName::Y, &button_Y_outline},
+    {SDLButtonMapping::ButtonName::LEFT_TRIGGER, &button_L2_highlight},
+    {SDLButtonMapping::ButtonName::RIGHT_TRIGGER, &button_R2_highlight},
+    {SDLButtonMapping::ButtonName::LEFT_STICK_LEFT, &button_LStickLeft_highlight},
+    {SDLButtonMapping::ButtonName::LEFT_STICK_UP, &button_LStickUp_highlight},
+    {SDLButtonMapping::ButtonName::LEFT_STICK_RIGHT, &button_LStickRight_highlight},
+    {SDLButtonMapping::ButtonName::LEFT_STICK_DOWN, &button_LStickDown_highlight},
+    {SDLButtonMapping::ButtonName::RIGHT_STICK_LEFT, &button_RStickLeft_highlight},
+    {SDLButtonMapping::ButtonName::RIGHT_STICK_UP, &button_RStickUp_highlight},
+    {SDLButtonMapping::ButtonName::RIGHT_STICK_RIGHT, &button_RStickRight_highlight},
+    {SDLButtonMapping::ButtonName::RIGHT_STICK_DOWN, &button_RStickDown_highlight}
+};
+
+
+// ********************************
+//  For managing controller face and shoulder buttons
+
+// callback links buttons status with _partner // defined in joySender++.h, **FOR NOW**
+void ShareButtonStatusCallback(mouseButton& button);
+
+// Sets ids associated with SDLButtonMapping::ButtonName values for controller buttons
+void SetControllerButtonIds() {
+    // Highlight areas
+    button_Back_highlight.SetId(static_cast<int>(SDLButtonMapping::ButtonName::BACK));
+    button_Start_highlight.SetId(static_cast<int>(SDLButtonMapping::ButtonName::START));
+    button_Guide_highlight.SetId(static_cast<int>(SDLButtonMapping::ButtonName::GUIDE));
+
+    button_LStickUp_highlight.SetId(static_cast<int>(SDLButtonMapping::ButtonName::LEFT_STICK_UP));
+    button_LStickLeft_highlight.SetId(static_cast<int>(SDLButtonMapping::ButtonName::LEFT_STICK_LEFT));
+    button_LStickRight_highlight.SetId(static_cast<int>(SDLButtonMapping::ButtonName::LEFT_STICK_RIGHT));
+    button_LStickDown_highlight.SetId(static_cast<int>(SDLButtonMapping::ButtonName::LEFT_STICK_DOWN));
+
+    button_L1_highlight.SetId(static_cast<int>(SDLButtonMapping::ButtonName::LEFT_SHOULDER));
+    button_L2_highlight.SetId(static_cast<int>(SDLButtonMapping::ButtonName::LEFT_TRIGGER));
+    button_L3_highlight.SetId(static_cast<int>(SDLButtonMapping::ButtonName::LEFT_THUMB));
+
+    button_RStickUp_highlight.SetId(static_cast<int>(SDLButtonMapping::ButtonName::RIGHT_STICK_UP));
+    button_RStickLeft_highlight.SetId(static_cast<int>(SDLButtonMapping::ButtonName::RIGHT_STICK_LEFT));
+    button_RStickRight_highlight.SetId(static_cast<int>(SDLButtonMapping::ButtonName::RIGHT_STICK_RIGHT));
+    button_RStickDown_highlight.SetId(static_cast<int>(SDLButtonMapping::ButtonName::RIGHT_STICK_DOWN));
+
+    button_R1_highlight.SetId(static_cast<int>(SDLButtonMapping::ButtonName::RIGHT_SHOULDER));
+    button_R2_highlight.SetId(static_cast<int>(SDLButtonMapping::ButtonName::RIGHT_TRIGGER));
+    button_R3_highlight.SetId(static_cast<int>(SDLButtonMapping::ButtonName::RIGHT_THUMB));
+
+    // Outline areas
+    button_A_outline.SetId(static_cast<int>(SDLButtonMapping::ButtonName::A));
+    button_B_outline.SetId(static_cast<int>(SDLButtonMapping::ButtonName::B));
+    button_X_outline.SetId(static_cast<int>(SDLButtonMapping::ButtonName::X));
+    button_Y_outline.SetId(static_cast<int>(SDLButtonMapping::ButtonName::Y));
+    button_DpadUp_outline.SetId(static_cast<int>(SDLButtonMapping::ButtonName::DPAD_UP));
+    button_DpadLeft_outline.SetId(static_cast<int>(SDLButtonMapping::ButtonName::DPAD_LEFT));
+    button_DpadRight_outline.SetId(static_cast<int>(SDLButtonMapping::ButtonName::DPAD_RIGHT));
+    button_DpadDown_outline.SetId(static_cast<int>(SDLButtonMapping::ButtonName::DPAD_DOWN));
+}
+
+// Run once to couple button outline <-> highlight areas // make color changes and set button id's
+void CoupleControllerButtons() {
+    button_A_outline.Couple(&button_A_highlight);
+    button_A_outline.setCallback(ShareButtonStatusCallback);
+
+    button_B_outline.Couple(&button_B_highlight);
+    button_B_outline.setCallback(ShareButtonStatusCallback);
+
+    button_X_outline.Couple(&button_X_highlight);
+    button_X_outline.setCallback(ShareButtonStatusCallback);
+
+    button_Y_outline.Couple(&button_Y_highlight);
+    button_Y_outline.setCallback(ShareButtonStatusCallback);
+
+    button_DpadUp_outline.Couple(&button_DpadUp_highlight);
+    button_DpadUp_outline.setCallback(ShareButtonStatusCallback);
+
+    button_DpadLeft_outline.Couple(&button_DpadLeft_highlight);
+    button_DpadLeft_outline.setCallback(ShareButtonStatusCallback);
+
+    button_DpadRight_outline.Couple(&button_DpadRight_highlight);
+    button_DpadRight_outline.setCallback(ShareButtonStatusCallback);
+
+    button_DpadDown_outline.Couple(&button_DpadDown_highlight);
+    button_DpadDown_outline.setCallback(ShareButtonStatusCallback);
+
+    button_L1_highlight.Couple(&button_L1_outline);
+    button_L1_highlight.setCallback(ShareButtonStatusCallback);
+
+    button_L2_highlight.Couple(&button_L2_outline);
+    button_L2_highlight.setCallback(ShareButtonStatusCallback);
+
+    button_L3_highlight.Couple(&button_L3_outline);
+    button_L3_highlight.setCallback(ShareButtonStatusCallback);
+
+    button_R1_highlight.Couple(&button_R1_outline);
+    button_R1_highlight.setCallback(ShareButtonStatusCallback);
+
+    button_R2_highlight.Couple(&button_R2_outline);
+    button_R2_highlight.setCallback(ShareButtonStatusCallback);
+
+    button_R3_highlight.Couple(&button_R3_outline);
+    button_R3_highlight.setCallback(ShareButtonStatusCallback);
+
+    // Some color changes are also necessary
+    button_L1_outline.SetSelectColor(HOVERED_BUTTON);
+    button_L2_outline.SetSelectColor(HOVERED_BUTTON);
+    button_L3_outline.SetSelectColor(HOVERED_BUTTON);
+    button_R1_outline.SetSelectColor(HOVERED_BUTTON);
+    button_R2_outline.SetSelectColor(HOVERED_BUTTON);
+    button_R3_outline.SetSelectColor(HOVERED_BUTTON);
+
+    // might as well run this here it won't hurt anything :)
+    SetControllerButtonIds();
 }
 
 // Sets position properties for controller buttons according to type
@@ -213,23 +334,23 @@ void AddControllerButtons(textUI& screen) {
     screen.AddButton(&button_Start_highlight);
     screen.AddButton(&button_Guide_highlight);
 
-    screen.AddButton(&button_L1_highlight);
-    screen.AddButton(&button_L2_highlight);
-    screen.AddButton(&button_L3_highlight);
-
     screen.AddButton(&button_LStickUp_highlight);
     screen.AddButton(&button_LStickLeft_highlight);
     screen.AddButton(&button_LStickRight_highlight);
     screen.AddButton(&button_LStickDown_highlight);
 
-    screen.AddButton(&button_R1_highlight);
-    screen.AddButton(&button_R2_highlight);
-    screen.AddButton(&button_R3_highlight);
+    screen.AddButton(&button_L1_highlight);
+    screen.AddButton(&button_L2_highlight);
+    screen.AddButton(&button_L3_highlight);
 
     screen.AddButton(&button_RStickUp_highlight);
     screen.AddButton(&button_RStickLeft_highlight);
     screen.AddButton(&button_RStickRight_highlight);
     screen.AddButton(&button_RStickDown_highlight);
+
+    screen.AddButton(&button_R1_highlight);
+    screen.AddButton(&button_R2_highlight);
+    screen.AddButton(&button_R3_highlight);
 
     // Outline areas
     screen.AddButton(&button_A_outline);
@@ -243,55 +364,3 @@ void AddControllerButtons(textUI& screen) {
 
 }
 
-// Run once to couple button outline <-> highlight areas
-void CoupleControllerButtons() {
-    button_A_outline.Couple(&button_A_highlight);
-    button_A_outline.setCallback(ShareButtonStatus);
-
-    button_B_outline.Couple(&button_B_highlight);
-    button_B_outline.setCallback(ShareButtonStatus);
-
-    button_X_outline.Couple(&button_X_highlight);
-    button_X_outline.setCallback(ShareButtonStatus);
-
-    button_Y_outline.Couple(&button_Y_highlight);
-    button_Y_outline.setCallback(ShareButtonStatus);
-
-    button_DpadUp_outline.Couple(&button_DpadUp_highlight);
-    button_DpadUp_outline.setCallback(ShareButtonStatus);
-
-    button_DpadLeft_outline.Couple(&button_DpadLeft_highlight);
-    button_DpadLeft_outline.setCallback(ShareButtonStatus);
-
-    button_DpadRight_outline.Couple(&button_DpadRight_highlight);
-    button_DpadRight_outline.setCallback(ShareButtonStatus);
-
-    button_DpadDown_outline.Couple(&button_DpadDown_highlight);
-    button_DpadDown_outline.setCallback(ShareButtonStatus);
-
-    button_L1_highlight.Couple(&button_L1_outline);
-    button_L1_highlight.setCallback(ShareButtonStatus);
-
-    button_L2_highlight.Couple(&button_L2_outline);
-    button_L2_highlight.setCallback(ShareButtonStatus);
-
-    button_L3_highlight.Couple(&button_L3_outline);
-    button_L3_highlight.setCallback(ShareButtonStatus);
-
-    button_R1_highlight.Couple(&button_R1_outline);
-    button_R1_highlight.setCallback(ShareButtonStatus);
-
-    button_R2_highlight.Couple(&button_R2_outline);
-    button_R2_highlight.setCallback(ShareButtonStatus);
-
-    button_R3_highlight.Couple(&button_R3_outline);
-    button_R3_highlight.setCallback(ShareButtonStatus);
-
-    // Some color changes are also necessary
-    button_L1_outline.SetSelectColor(HOVERED_BUTTON);
-    button_L2_outline.SetSelectColor(HOVERED_BUTTON);
-    button_L3_outline.SetSelectColor(HOVERED_BUTTON);
-    button_R1_outline.SetSelectColor(HOVERED_BUTTON);
-    button_R2_outline.SetSelectColor(HOVERED_BUTTON);
-    button_R3_outline.SetSelectColor(HOVERED_BUTTON);
-}

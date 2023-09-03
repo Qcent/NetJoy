@@ -82,7 +82,7 @@ std::string formatDecimalString(const std::string& str, UINT8 numDigits) {
     if (decimalPos == std::string::npos) {
         // No decimal point found, return the original 
         // string with decimal and padded zeros
-        std::string paddedStr = str + ".";
+        std::string paddedStr = " " + str + ".";
         paddedStr.append(numDigits, '0');
         return paddedStr;
     }
@@ -93,7 +93,7 @@ std::string formatDecimalString(const std::string& str, UINT8 numDigits) {
         return str;
     }
     // Truncate the string to the desired number of decimal places
-    std::string truncatedStr = str.substr(0, decimalPos + numDigits + 1);
+    std::string truncatedStr = " " + str.substr(0, decimalPos + numDigits + 1);
     // Pad with zeros if necessary
     if (numDecimals < numDigits) {
         truncatedStr.append(numDigits - numDecimals, '0');
@@ -161,7 +161,7 @@ bool updateRumble(const char motor, BYTE val) {
 
 int joySender(Arguments& args) {
     FPSCounter fps_counter;
-    FPSCounter latencyTimer;
+    //FPSCounter latencyTimer;
     bool inConnection = false;
     int failed_connections = 0;
     std::string mapName;
@@ -205,14 +205,6 @@ int joySender(Arguments& args) {
     };
     double latencyOutput = 0.0;
     const int latency_report_freq = 25;
-    auto do_latency_timing = [&latencyTimer](int report_frequency = 15) {
-        if (latencyTimer.increment_frame_count() >= report_frequency) {
-            double elapsedTime = latencyTimer.get_elapsed_time();
-            latencyTimer.reset();
-            return elapsedTime / report_frequency; // average time per frame
-        }
-        return 0.0;
-};
 
     RESTART_FLAG = 0;
     MAPPING_FLAG = 0;
@@ -220,24 +212,38 @@ int joySender(Arguments& args) {
     //
     // Set Up for first tUI screen
     //
+    hideConsoleCursor();
         // Get the console input handle to enable mouse input
     g_hConsoleInput = GetStdHandle(STD_INPUT_HANDLE);
     g_mode = args.mode;
     DWORD mode;
-    GetConsoleMode(g_hConsoleInput, &mode);                     // Disable Quick Edit Mode
+    GetConsoleMode(g_hConsoleInput, &mode);                     // Disable Quick Edit Mode // working??
     SetConsoleMode(g_hConsoleInput, mode | ENABLE_MOUSE_INPUT & ~ENABLE_QUICK_EDIT_MODE);
 
         // Set the console to UTF-8 mode
     _setmode(_fileno(stdout), _O_U8TEXT);
+       
+        // establish a color scheme
+    g_currentColorScheme = 16;
+    g_BG_COLOR = BRIGHT_BLUE AS_BG | colorSchemes[g_currentColorScheme].outlineColor;
+        // inverted controller face bg color
+    tUIColorPkg ColorPack1 = colorSchemeToColorPkg(1); 
+        // same background color
+    tUIColorPkg ColorPack2 = colorSchemeToColorPkg(3);
+        // inverted select background color
+    tUIColorPkg ColorPack3 = colorSchemeToColorPkg(2); 
 
-    hideConsoleCursor();
+    WORD HEADDING_COLOR = ColorPack1.col1;
+    WORD ERROR_COLOR = ColorPack3.col4;
+
+        // set element properties
     textUI& screen = g_screen;
-    CoupleControllerButtons(); // sets up controller outline/highlight coupling for nice looks 
+    CoupleControllerButtons(); // sets up controller outline/highlight coupling for nice looks & button ids
     screen.SetBackdrop(JoySendMain_Backdrop);
-    output1.SetPosition(15, 5, 50, 1, ALIGN_LEFT);
-    output1.SetColor(WHITE|BLACK AS_BG);
-    errorOut.SetPosition(consoleWidth/2, 4, 50, 0, ALIGN_CENTER);
-    fpsMsg.SetPosition(52, 1, 7, 1, ALIGN_LEFT);
+    screen.SetBackdropColor(g_BG_COLOR);
+    output1.SetPosition(15, 5, 50, 1, ALIGN_LEFT); // output1 is a textarea used for screen headers/titles
+    errorOut.SetPosition(consoleWidth/2, 4, 50, 0, ALIGN_CENTER); // used for error messaging
+    fpsMsg.SetPosition(51, 1, 7, 1, ALIGN_LEFT);                // fps output
     quitButton.setCallback(&exitAppCallback);
     quitButton.SetPosition(10, 17);
     
@@ -245,18 +251,19 @@ int joySender(Arguments& args) {
     //# User or auto select gamepad 
     switch (args.mode) {
     case 1: {   // SDL MODE
-        if (!args.select) {
-           allGood = tUISelectJoystickDialog(getJoystickList().size(), activeGamepad, screen);
+        if (!args.select) { // not auto select
+           allGood = tUISelectJoystickDialog(getUIJoystickList().size(), activeGamepad, screen);
            if (!allGood) {
-               setErrorMsg(L"Failed to open joystick.", 25);
-               errorOut.Draw();
+               // the error output is handled inside function
+               //setErrorMsg(L"Failed to open joystick.", 25);
+               //errorOut.Draw();
 
                SDL_Quit();
                return -1;
            }
         }
         else {
-            allGood = ConnectToJoystick(0, activeGamepad);
+            allGood = ConnectToJoystick(0, activeGamepad); //select the first gamepad: index 0;
             if (!allGood) {
                 setErrorMsg(L" Unable to connect to a device !! ", 35);
                 errorOut.Draw();
@@ -281,10 +288,7 @@ int joySender(Arguments& args) {
         errorOut.Draw();
         return -1;
     }
-    
-    // refresh screen
-    screen.DrawBackdrop();
-    
+        
     //###########################################################################
     // Init Settings for Operating Mode
     if (args.mode == 2) {  
@@ -337,7 +341,6 @@ int joySender(Arguments& args) {
         }
     }
     else {
-        //g_outputText = "SDL Mode Activated\r\n";
         BuildJoystickInputData(activeGamepad);
         // Convert joystick name to hex  
         mapName = encodeStringToHex(activeGamepad.name);
@@ -348,7 +351,7 @@ int joySender(Arguments& args) {
     //# If not in DS4 pass through mode look for Saved Mapping or create one
     if (args.mode != 2) {
         //# Look for an existing map for selected device
-        OpenOrCreateMapping(activeGamepad, mapName);
+        uiOpenOrCreateMapping(activeGamepad, mapName, screen);
         // Create a list of set joystick inputs
         activeInputs = activeGamepad.mapping.getSetButtonNames();
     }
@@ -358,23 +361,24 @@ int joySender(Arguments& args) {
     //# asks for new host if connection fails 3 times
     setErrorMsg(L"\0", 1); // clear error output in memory
     while (!APP_KILLED) {
+
+        screen.ReDraw();
+        setTextColor(HEADDING_COLOR);
+        printCurrentController(activeGamepad);
         
         // Acquire host address for connection attempt
-        if (args.host.empty()) {
-
-            screen.ReDraw();
-            printCurrentController(activeGamepad);
-            
+        if (args.host.empty()) {         
             args.host = tUIGetHostAddress(screen);
 
-            // set up for connecting screen
             setErrorMsg(L"\0", 1); // clear errors in memory
-            int len = args.host.size() + 16;
-            swprintf(msgPointer1, len, L"Connecting To: %s", std::wstring(args.host.begin(), args.host.end()).c_str());
-            output1.SetPosition(consoleWidth / 2, 9, len, 1, ALIGN_CENTER);
-            output1.SetText(msgPointer1);
-            //
         }
+        // set up for connecting screen
+        int len = args.host.size() + 18;
+        swprintf(msgPointer1, len, L" Connecting To: %s ", std::wstring(args.host.begin(), args.host.end()).c_str());
+        output1.SetPosition(consoleWidth / 2, 9, len, 1, ALIGN_CENTER);
+        output1.SetText(msgPointer1);
+        //
+       
         if (APP_KILLED) {
             return -1;
         }
@@ -385,16 +389,22 @@ int joySender(Arguments& args) {
         // Establish connection to host
         {
             // Load Connecting Screen
+            output1.SetColor(HEADDING_COLOR);    // title/heading text // inverted face color for bg
+            errorOut.SetColor(ERROR_COLOR);   
+
             errorOut.SetPosition(consoleWidth / 2, 7, 50, 0, ALIGN_CENTER);
+            
             screen.AddButton(&quitButton);
+            screen.SetButtonsColors(colorSchemeToColorPkg(0));   // matches controller face buttons
             screen.ReDraw();
+            setTextColor(HEADDING_COLOR);
             printCurrentController(activeGamepad);
             errorOut.Draw();            
             output1.Draw();
 
             //set up connecting animation
-            output2.SetPosition(consoleWidth / 2, 10, 38, 0, ALIGN_CENTER);
-            
+            output2.SetColor(ColorPack2.col4);
+            output2.SetPosition(consoleWidth / 2, 10, 38, 0, ALIGN_CENTER);   
 
             // ### establish the connection in separate thread to animate connecting dialog
             allGood = WSAEWOULDBLOCK;
@@ -402,7 +412,7 @@ int joySender(Arguments& args) {
             while (!APP_KILLED && allGood == WSAEWOULDBLOCK) {
                 output2.SetText(ConnectAnimation[g_frameNum]);
                 output2.Draw();
-
+                
                 checkForQuit();
                 screenLoop(screen);
 
@@ -416,19 +426,19 @@ int joySender(Arguments& args) {
             // ###
         }
 
-        if (APP_KILLED) {
-            // do nothing
-        }
-        else if (allGood < 0) {
-            int len = args.host.size() + 31;
-            swprintf(errorPointer, len, L"<< Connection To %s Failed: %d >>", std::wstring(args.host.begin(), args.host.end()).c_str(), failed_connections+1);
+        // failed to make connection
+        if (!APP_KILLED && allGood < 0) {
+            int len = args.host.size() + 33;
+            swprintf(errorPointer, len, L" << Connection To %s Failed: %d >> ", std::wstring(args.host.begin(), args.host.end()).c_str(), failed_connections+1);
             errorOut.SetWidth(len);
             errorOut.SetText(errorPointer);
         }
-        else{
+
+        // set up UI and timing/mode handshake with host
+        else if(!APP_KILLED){
             // Set up screen for main connection loop
             {
-                if (mode == 2) {
+                if (args.mode == 2) {
                     screen.SetBackdrop(DS4_Backdrop);
                     quitButton.SetPosition(consoleWidth / 2 - 5, DS4_QUIT_LINE);
                     BuildDS4Face();
@@ -439,33 +449,51 @@ int joySender(Arguments& args) {
                     BuildXboxFace();
                 }
 
-                SetControllerButtonPositions(mode);
+                SetControllerButtonPositions(args.mode);
 
                 // create restart and map buttons
                 screen.AddButton(&mappingButton);
                 
-                screen.AddButton(&restartButton[1]);
-                screen.AddButton(&restartButton[2]);
+                screen.AddButton(&restartButton[1]);  // mode 1
+                screen.AddButton(&restartButton[2]);  // mode 2
+                screen.AddButton(&restartButton[0]);  // main restart
+                //screen.AddButton(&restartButton[3]); // not needed in screen
 
-                screen.AddButton(&restartButton[0]);
-
-                //screen.AddButton(&restartButton[3]);
+                // Set button and controller colors
+                    // Sets controller to color scheme colors with some contrast correction for bg color then draws the controller face
+                DrawControllerFace(screen, colorSchemes[g_currentColorScheme], g_BG_COLOR, args.mode);
+                    // get color package of contrast corrected button colors
+                tUIColorPkg buttonColors(
+                    screen.GetBackdropColor(),
+                    button_Guide_highlight.getHighlightColor(),
+                    button_Guide_highlight.getSelectColor(),
+                    0 // unused
+                );
+                    // color non controller buttons and draw them
+                restartButton[3].SetColors(buttonColors);  // mode section of restart button
+                screen.SetButtonsColors(buttonColors);
+                screen.DrawButtons();
 
                 restartButton[0].setCallback(restartStatusCallback);
 
                 restartButton[1].setCallback(restartModeCallback);
                 restartButton[2].setCallback(restartModeCallback);
+               
+                mappingButton.setCallback(mappingButtonCallback);
 
-                wcsncpy_s(msgPointer1, 37, g_converter.from_bytes("<< Connected to: " + args.host + " >>").c_str(), _TRUNCATE);
+                wcsncpy_s(msgPointer1, 40, g_converter.from_bytes(" << Connected to: " + args.host + "  >> ").c_str(), _TRUNCATE);
                 output1.SetText(msgPointer1);
-                output1.SetPosition(4, 1, 38, 1, ALIGN_LEFT);
+                output1.SetPosition(3, 1, 40, 1, ALIGN_LEFT);
+                output1.SetColor(g_BG_COLOR);
 
-                wcsncpy_s(hostPointer, 16, g_converter.from_bytes(args.host).c_str(), _TRUNCATE);
+                wcsncpy_s(hostPointer, 18, g_converter.from_bytes(" "+args.host+" ").c_str(), _TRUNCATE);
                 hostMsg.SetText(hostPointer);
-                hostMsg.SetPosition(21, 1, 38, 1, ALIGN_LEFT);
+                hostMsg.SetPosition(20, 1, 38, 1, ALIGN_LEFT);
+                hostMsg.SetColor(ColorPack3.col4);
 
-                screen.ReDraw();
+                fpsMsg.SetColor(colorSchemeToColorPkg(0).col3);
 
+                restartButton[3].Draw();
                 output1.Draw();
                 hostMsg.Draw();
             }
@@ -476,7 +504,7 @@ int joySender(Arguments& args) {
             // tx
             allGood = client.send_data(txSettings.c_str(), static_cast<int>(txSettings.length()));
             if (allGood < 1) {              
-                setErrorMsg(g_converter.from_bytes("<< Connection To: " + args.host + " Failed >>").c_str(), 46);
+                setErrorMsg(g_converter.from_bytes(" << Connection To: " + args.host + " Failed >> ").c_str(), 48);
                 client.~TCPConnection();
                 break;
             }
@@ -486,7 +514,7 @@ int joySender(Arguments& args) {
                 inConnection = true;
             }
             else{
-                setErrorMsg(g_converter.from_bytes("<< Connection To: " + args.host + " Lost >>").c_str(), 44);         
+                setErrorMsg(g_converter.from_bytes(" << Connection To: " + args.host + " Lost >> ").c_str(), 46);         
                 client.~TCPConnection();
                 break;
             }
@@ -495,7 +523,7 @@ int joySender(Arguments& args) {
 
 
         // ******************
-        // Main Connection loop
+        // Connection loop
         fps_counter.reset();
         while (inConnection){
 
@@ -516,17 +544,14 @@ int joySender(Arguments& args) {
                     // maybe change colors or something
                     button_Guide_highlight.SetStatus(MOUSE_UP);
                     newControllerColorsCallback(button_Guide_highlight);
-                    //output1.copyColors(&quitButton);
                     output1.Draw();
                     hostMsg.Draw();
-                    // sometimes locks program??
                 }
                 if (getKeyState('R') || getKeyState('M') || getKeyState('Q')) {
                         client.~TCPConnection();
                         inConnection = false;
 
                         if (getKeyState('R'))
-                            //RESTART_FLAG = (args.mode == 2)+2; // will equal mode +1
                             RESTART_FLAG = 1;
 
                         if (getKeyState('M'))
@@ -539,7 +564,6 @@ int joySender(Arguments& args) {
 
             //###################################
             //# Read from Input
-
             if (args.mode == 2) {
                 //# Read the next HID report for DS4 Passthrough
                 allGood = GetDS4Report();
@@ -550,7 +574,7 @@ int joySender(Arguments& args) {
                 repositionConsoleCursor(-4);
 #endif
                 if (!allGood) {
-                    setErrorMsg(g_converter.from_bytes("<< Device Disconnected >>").c_str(), 26);
+                    setErrorMsg(g_converter.from_bytes(" << Device Disconnected >> ").c_str(), 28);
                     client.~TCPConnection();
                     inConnection = false;
                 }
@@ -561,14 +585,6 @@ int joySender(Arguments& args) {
 
                 // activate buttons from xbox report
                 buttonStatesFromXboxReport(xbox_report);
-            }
-
-            // ###################################
-            //# let's calculate some timing
-            fpsOutput = do_fps_counting();
-
-            if (!fpsOutput.empty()) {
-                updateFPS(g_converter.from_bytes(fpsOutput+"   ").c_str(), 8);
             }
            
                 
@@ -596,9 +612,9 @@ int joySender(Arguments& args) {
                 }
 #endif  
             }
-            //  Error ?
+            //  Error 
             if (allGood < 1) {
-                setErrorMsg(g_converter.from_bytes("<< Connection To: " + args.host + " Failed >>").c_str(), 46);
+                setErrorMsg(g_converter.from_bytes(" << Connection To: " + args.host + " Failed >> ").c_str(), 48);
                 client.~TCPConnection();
                 inConnection = false;
                 break;
@@ -609,7 +625,7 @@ int joySender(Arguments& args) {
             allGood = client.receive_data(buffer, buffer_size);                
             if (allGood < 1) {
                 //std::cout << "<< Connection Lost >> \r\n";
-                setErrorMsg(g_converter.from_bytes("<< Connection To: " + args.host + " Lost >>").c_str(), 44);
+                setErrorMsg(g_converter.from_bytes(" << Connection To: " + args.host + " Lost >> ").c_str(), 46);
                 //displayOutputText();
                 client.~TCPConnection();
                 inConnection = false;
@@ -640,6 +656,14 @@ int joySender(Arguments& args) {
                 }
             }
 
+            // ###################################
+            //# let's calculate some timing
+            fpsOutput = do_fps_counting();
+
+            if (!fpsOutput.empty()) {
+                updateFPS(g_converter.from_bytes(fpsOutput + "   ").c_str(), 8);
+            }
+
             // Sleep to yield thread
             Sleep(max(fpsAdjustment, 0)); 
             if (args.mode == 2) {
@@ -651,11 +675,9 @@ int joySender(Arguments& args) {
         // Connection ended    \\
 
 
-        // Catch key presses that could have terminated connection
-        //# Q  will Quit
+        // Catch mouse/key presses that could have terminated connection
+        //# Shift + Q  will Quit
         if (getKeyState('Q') || APP_KILLED) {
-            //g_outputText += "<< Exiting >>\r\n";
-            //displayOutputText();
             return 0;
         }
         //# Shift + R  Resets program allowing joystick reconnection / selection, holding a number will change op mode
@@ -675,12 +697,16 @@ int joySender(Arguments& args) {
         }
         //# Shift + M  reMaps all inputs
         if (MAPPING_FLAG) {
-           if(args.mode == 1) {
+            if (args.mode == 1) {
                 // REMAP STUFF
-                activeGamepad.mapping = SDLButtonMapping();
+                //activeGamepad.mapping = SDLButtonMapping();
                 std::vector<SDLButtonMapping::ButtonName> blankList;
-                RemapInputs(activeGamepad, blankList);
+                tUIRemapInputsScreen(activeGamepad, screen);
+                activeInputs = activeGamepad.mapping.getSetButtonNames();
                 --failed_connections;
+            }
+            else {
+                MAPPING_FLAG = 0;
             }
         }
         
@@ -696,7 +722,7 @@ int joySender(Arguments& args) {
         screen.SetBackdrop(JoySendMain_Backdrop);
     }
 
-    return 1;
+    return !APP_KILLED;
 }
 
 int main(int argc, char **argv)

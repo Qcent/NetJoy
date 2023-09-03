@@ -95,6 +95,13 @@ public:
             index = -1;
             value = 0;
         }
+
+        bool operator==(const ButtonMapInput& other) const {
+             return (this->input_type == other.input_type) && 
+                    (this->index == other.index)           && 
+                    (this->value == other.value) ;
+        }
+
     };
 
     using ButtonMap = std::unordered_map<ButtonName, ButtonMapInput>;
@@ -118,7 +125,7 @@ public:
                       {ButtonName::RIGHT_THUMB, ButtonMapInput()},
                       {ButtonName::LEFT_SHOULDER, ButtonMapInput()},
                       {ButtonName::RIGHT_SHOULDER, ButtonMapInput()},
-                      //{ButtonName::GUIDE, ButtonMapInput()}, // useless and annoying button on pc
+                      {ButtonName::GUIDE, ButtonMapInput()},
                       {ButtonName::A, ButtonMapInput()},
                       {ButtonName::B, ButtonMapInput()},
                       {ButtonName::X, ButtonMapInput()},
@@ -178,7 +185,7 @@ public:
             return 1; // Successfully saved button maps
         }
         else {
-            return -1; // Error: Failed to open file
+            return 0; // Error: Failed to open file
         }
     }
 
@@ -191,7 +198,7 @@ public:
 
             if (fileSize % sizeof(std::tuple<ButtonName, ButtonType, int, int>) != 0) {
                 file.close();
-                return -2; // Error: Invalid file size
+                return -1; // Error: Invalid file size
             }
 
             std::vector<std::tuple<ButtonName, ButtonType, int, int>> buttonList(fileSize / sizeof(std::tuple<ButtonName, ButtonType, int, int>));
@@ -212,7 +219,7 @@ public:
             return 1; // Successfully loaded button maps
         }
         else {
-            return -1; // Error: Failed to open file
+            return 0; // Error: Failed to open file
         }
     }
 
@@ -299,6 +306,16 @@ public:
         else {
             return "Button not found: " + getButtonNameString(buttonName);
         }
+    }
+
+    static std::wstring displayInput(ButtonMapInput input) {
+        if (input.input_type == SDLButtonMapping::ButtonType::UNSET)
+            return L" (UNSET) ";
+        std::string out = getButtonTypeString(input.input_type) + " " + 
+                          std::to_string(input.index) + ": " + 
+                          std::to_string(input.value);
+
+        return g_toWide(out);
     }
 
 private:
@@ -426,13 +443,13 @@ std::string encodeStringToHex(const std::string& s) {
 
 std::string input_verb(SDLButtonMapping::ButtonType type) {
     if (type == SDLButtonMapping::ButtonType::TRIGGER) {
-        return "squeeze";
+        return "Squeeze";
     }
     else if (type == SDLButtonMapping::ButtonType::STICK) {
-        return "move";
+        return "Move";
     }
     else {
-        return "press";
+        return "Press";
     }
 }
 
@@ -1113,7 +1130,7 @@ int ConnectToJoystick(int joyIndex, SDLJoystickData& joystick) {
     joystick._ptr = SDL_JoystickOpen(joyIndex);
     if (joystick._ptr == nullptr)
     {
-        std::cout << "Failed to open joystick: " << SDL_GetError() << std::endl;
+        //std::cout << "Failed to open joystick: " << SDL_GetError() << std::endl;
         return 0;
     }
     return 1;

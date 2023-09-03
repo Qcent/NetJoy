@@ -105,7 +105,6 @@ bool CheckContrastMismatch(WORD fg, WORD bg) {
 
 // Function checks if FG is same as BG
 bool sameFG_BG(WORD fg, WORD bg) {
-	//return (fg & 0xff0f) == ((bg & 0xfff0) >> 4);
 	return (fg & 0x000f) == ((bg & 0x00f0) >> 4);
 }
 

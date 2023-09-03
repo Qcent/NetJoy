@@ -1,17 +1,5 @@
 ﻿#pragma once
 
-// lets make a kitty button for fun
-mouseButton kittyButton(0,0,15,LR"(
-　　　 　　／＞　　フ
-          | _　 _ l
-        ／` ミ＿xノ
-       /　　　 　 |
-      /　 ヽ　　 ﾉ
-      │　　|　|　|
-  ／￣|　　 |　|　|
-  | (￣ヽ＿_ヽ_)__)
-  ＼二つ)");
-
 const wchar_t* JoySendMain_Backdrop = LR"(     ,_____________________________________________________________,    
     /_______________________________________________________________\    
    ++                                                               ++   
@@ -51,8 +39,8 @@ const wchar_t* XBOX_Backdrop = LR"(
         #                                                       #        
         #            ##%%%%%%%%%%%%%%%%%%%%%%%%%%%##            #        
         #          ##                               ##          #        
-        #        ##          (M) Map Buttons          ##        #        
-        \,     .#        (R[1,2]) Restart [mode]        #.     ,/        
+        #        ##                                   ##        #        
+        \,     .#                                       #.     ,/        
          '#####                                           #####'         
                                                                          
                                                                          
@@ -80,3 +68,4 @@ const wchar_t* DS4_Backdrop = LR"(
                                                                          
                                                                          
 )";
+

@@ -210,6 +210,42 @@ void DrawControllerFace(textUI& screen, ColorScheme& colorsScheme, WORD BG_COLOR
 
 	// 
 	controllerButtons.DrawButtons();
+}
 
-	//screen.DrawButtons();  // this should be handled in calling function ??
+void ReDrawControllerFace(textUI& screen, ColorScheme& colorsScheme, WORD BG_COLOR, int mode) {
+	int faceLines;
+	if (mode == 1) {
+		screen.SetBackdrop(XBOX_Backdrop);
+		faceLines = XBOX_FACE_LINES;
+	}
+	else {
+		screen.SetBackdrop(DS4_Backdrop);
+		faceLines = DS4_FACE_LINES;
+	}
+
+	// Set controller buttons to color scheme
+	//textUI controllerButtons;		// for setting button colors
+	//AddControllerButtons(controllerButtons);	// without them being click able on screen
+
+	screen.DrawBackdrop();
+
+
+	// make sure detail on controller face is visible
+	WORD safe_col = colorsScheme.outlineColor;
+	if (CheckContrastMismatch(colorsScheme.outlineColor, colorsScheme.faceColor)) {
+		safe_col = BG_COLOR >> 4;
+	}
+	while (CheckContrastMismatch(safe_col, colorsScheme.faceColor)) {
+		safe_col = (safe_col + 1) % 15;
+	}
+
+	//
+	// Draw face
+	setTextColor(safe_col | colorsScheme.faceColor);
+	for (int i = 0; i < faceLines; i++) {
+		ControllerFace[i].Draw_noColor();
+	}
+
+	// 
+	//controllerButtons.DrawButtons();
 }
