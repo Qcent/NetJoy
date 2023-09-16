@@ -67,12 +67,12 @@ bool checkKey(int key, bool pressed);
 char IpInputLoop();
 int screenLoop(textUI& screen);
 int tUISelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick, textUI& screen);
-int tUISelectDS4Dialog(std::vector<HidDeviceInfo>& devList, textUI& screen);
+int tUISelectDS4Dialog(std::vector<HidDeviceInfo>devList, textUI& screen);
 bool tUIConnectToDS4Controller(textUI& screen);
 std::string tUIGetHostAddress(textUI& screen);
 void threadedEstablishConnection(TCPConnection& client, int& retVal);
 bool checkKey(int key, bool pressed);
-tUIColorPkg colorSchemeToColorPkg(int version = 0);
+// tUIColorPkg colorSchemeToColorPkg(int version = 0);
 void tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonName>& inputList);
 int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen);
 
@@ -147,6 +147,42 @@ void updateFPS(const wchar_t* text, size_t length) {
 }
 
 
+// ********************************
+// FullColourScheme
+
+// Package up all the colors needed for maximum color expression
+struct FullColorScheme {
+    const wchar_t* name;
+    tUIColorPkg menuColors;
+    tUIColorPkg controllerColors;
+    WORD menuBg;
+    WORD controllerBg;
+};
+
+FullColorScheme fullColorSchemes[1] = {
+    { L"Plum",
+        {
+        // Menu Colors
+        WHITE | (MAGENTA AS_BG),			// Header
+        WHITE | (RED AS_BG),		        // Error
+        WHITE | (CYAN AS_BG),				// message 1
+        WHITE | (BRIGHT_RED AS_BG)			// message 2
+    },
+    {
+        // Controller Colors
+        BLACK | (BRIGHT_MAGENTA AS_BG),	    // outline | faceColor 
+        WHITE | (BRIGHT_MAGENTA AS_BG),		// buttonColor
+        BLUE | (BRIGHT_MAGENTA AS_BG),	    // highlightColor
+        WHITE | (CYAN AS_BG)	            // selectColor
+    },
+    // Menu background
+    WHITE | (BRIGHT_RED AS_BG),
+    // Controller background
+    BLACK | (MAGENTA AS_BG),
+    }
+};
+
+
 
 // ********************************
 //  mouseButton callback functions
@@ -179,60 +215,68 @@ if (button.Status() & MOUSE_UP) {
 
 // will generate a new color scheme for program and controller face
 void newControllerColorsCallback(mouseButton& button) {
-if (button.Status() & MOUSE_UP) {
-    button.SetStatus(MOUSE_OUT);
+    static int drawMode = 0;
 
-    WORD newRandomBG = generateRandomInt(0, 15) << 4;
+    if (button.Status() & MOUSE_UP) {
+        button.SetStatus(MOUSE_OUT);
 
-    static ColorScheme randomScheme;
-    randomScheme = createRandomScheme();
-    g_currentColorScheme = generateRandomInt(0, NUM_COLOR_SCHEMES);
+        WORD newRandomBG = generateRandomInt(0, 15) << 4;
 
-    if (generateRandomInt(0, 1001) % 2 == 0) {
-        randomScheme = colorSchemes[g_currentColorScheme];
-    }
-    else {
-        g_currentColorScheme = -1;
-    }
+        static ColorScheme randomScheme;
+        randomScheme = createRandomScheme();
+        g_currentColorScheme = generateRandomInt(0, NUM_COLOR_SCHEMES);
 
+        /*
+        if (generateRandomInt(0, 1001) % 2 == 0) {
+            randomScheme = colorSchemes[g_currentColorScheme];
+        }
+        else {
+            g_currentColorScheme = -1;
+        }
+        */
 
-    // force watermelon scheme for now
-    g_currentColorScheme = 16;
-    randomScheme = colorSchemes[16];
-    newRandomBG = BRIGHT_BLUE AS_BG;
+        // force watermelon scheme for now
+        //g_currentColorScheme = 16;
+        //randomScheme = colorSchemes[16];
+        //newRandomBG = BRIGHT_BLUE AS_BG;
     
-    // update global background for universal color consistency
-    g_BG_COLOR = newRandomBG | randomScheme.outlineColor;
+        // update global background for universal color consistency
+        g_BG_COLOR = newRandomBG | randomScheme.outlineColor;
+
+        if (drawMode != g_mode) {
+            drawMode = g_mode;
+            if (drawMode == 2) {
+                BuildDS4Face();
+                quitButton.SetPosition(consoleWidth / 2 - 5, DS4_QUIT_LINE);
+            }
+            else {
+                BuildXboxFace();
+                quitButton.SetPosition(consoleWidth / 2 - 5, XBOX_QUIT_LINE);
+            }
+            SetControllerButtonPositions(drawMode);
+        }
+
+        // Draw Controller
+        DrawControllerFace(g_screen, randomScheme, newRandomBG, drawMode);
+
+        // Just the BG
+        //DrawControllerFace(g_screen, colorSchemes[g_currentColorScheme], g_BG_COLOR, drawMode);
+
+        tUIColorPkg buttonColors(
+            g_screen.GetBackdropColor(),
+            button_Guide_highlight.getHighlightColor(),
+            button_Guide_highlight.getSelectColor(),
+            0 // unused
+        );
+        //
 
 
-    if (g_mode == 2) {
-        BuildDS4Face();
-        SetControllerButtonPositions(g_mode);
-        quitButton.SetPosition(consoleWidth / 2 - 5, 17);
+        // non controller buttons
+        restartButton[3].SetColors(buttonColors);  // mode section of restart button
+        g_screen.SetButtonsColors(buttonColors);
+        g_screen.DrawButtons();
+        restartButton[3].Draw();
     }
-    else { // testing only XBOX for now no need to redo this 
-        // BuildXboxFace();
-        // SetButtonPositions(g_mode);
-        // quitButton.SetPosition(consoleWidth / 2 - 5, 18);
-    }
-
-    // Draw Controller
-    DrawControllerFace(g_screen, randomScheme, newRandomBG, g_mode);
-
-    tUIColorPkg buttonColors(
-        g_screen.GetBackdropColor(),
-        button_Guide_highlight.getHighlightColor(),
-        button_Guide_highlight.getSelectColor(),
-        0 // unused
-    );
-    //
-
-
-    // non controller buttons
-    restartButton[3].SetColors(buttonColors);  // mode section of restart button
-    g_screen.SetButtonsColors(buttonColors);
-    g_screen.DrawButtons();
-}
 }
 
 // handles status and color changes to the UI restart button array for restartButton[1] & [2]
@@ -358,12 +402,14 @@ void mappingControlerButtonsCallback(mouseButton& button) {
     static textBox footerMsg(CONSOLE_WIDTH / 2, XBOX_QUIT_LINE - 1, 24, 1, ALIGN_CENTER, L" Click Button to Remap ", DEFAULT_TEXT);
 
     static tUIColorPkg colors(0,0,0,0);
+
     // update colors if needed
-    if (!(colorSchemeToColorPkg() == colors)) {
-        colors = colorSchemeToColorPkg();
+    if (!(fullColorSchemes[0].controllerColors == colors)) {
+        colors = fullColorSchemes[0].controllerColors;
         topMsg.SetColor(colors.col3);
         footerMsg.SetColor(colors.col1);
     }
+    
 
     // use g_extraData as a pointer to int currentHoveredButton shared with calling function 
     int* currentHoveredButton = static_cast<int*>(g_extraData);
@@ -392,7 +438,7 @@ void mappingControlerButtonsCallback(mouseButton& button) {
         --msgDisplayed;
         if (!msgDisplayed) {
             topMsg.Clear(colors.col2);
-            footerMsg.SetColor(g_BG_COLOR);
+            footerMsg.SetColor(fullColorSchemes[0].controllerBg);
             footerMsg.Draw();
             *currentHoveredButton = -1;
         }
@@ -441,32 +487,91 @@ void mappingAllButtonsCallback(mouseButton& button) {
 // ********************************
 // tUI Helper Functions
 
-std::unordered_map<std::string, int> getUIJoystickList() {
-    // Check for available joysticks
-    int numJoysticks = SDL_NumJoysticks();
-    if (numJoysticks <= 0)
-    {
-        setErrorMsg(L" No Joysticks Connected! ", 26);
+// used to display current DS4 inputs via on-screen controller face
+void buttonStatesFromDS4Report() {
+    byte shoulderRedraw = 0;  // 0x01: left, 0x08: right
+    auto updateButtonStatus = [&](mouseButton& button, bool condition, byte special = 0) {
+        if (condition && button.Status() == MOUSE_OUT) {
+            button.SetStatus(MOUSE_HOVERED | MOUSE_DOWN);
+            if (!special)
+                button.Update();
+            else
+                shoulderRedraw |= special;
+        }
+        else if (!condition && button.Status() == (MOUSE_HOVERED | MOUSE_DOWN)) {
+            button.SetStatus(MOUSE_OUT);
+            if (!special)
+                button.Update();
+            else
+                shoulderRedraw |= special;
+        }
+    };
 
-        // ## ERRORS to be handled by caller
-    }
-    // Create and Populate list
-    std::unordered_map<std::string, int> joystickList;
-    for (int i = 0; i < numJoysticks; ++i)
-    {
-        std::string joystickName = SDL_JoystickNameForIndex(i);
-        joystickList[joystickName] = i;
-    }
-    return joystickList;
-}
+    BYTE* ds4_report = ds4_InReportBuf + ds4DataOffset;
 
-// to allow for smooth animation, establish connection to host in a separate thread
-void threadedEstablishConnection(TCPConnection& client, int& retVal) {
-    while (!APP_KILLED && retVal == WSAEWOULDBLOCK)
-    {
-        retVal = client.establish_connection();
-        if (!APP_KILLED && retVal == WSAEWOULDBLOCK)
-            Sleep(50);
+
+        // Left Stick
+    updateButtonStatus(button_LStickLeft_highlight, ds4_report[0] < 100 );   // left
+    updateButtonStatus(button_LStickRight_highlight, ds4_report[0] > 156 );   // right
+
+    ds4_report++;
+    updateButtonStatus(button_LStickDown_highlight, ds4_report[0] > 156 );   // down
+    updateButtonStatus(button_LStickUp_highlight, ds4_report[0] < 100 );   // up
+    
+        // Right Stick
+    ds4_report++;
+    updateButtonStatus(button_RStickLeft_highlight, ds4_report[0] < 100);   // left
+    updateButtonStatus(button_RStickRight_highlight, ds4_report[0] > 156);   // right
+
+    ds4_report++;
+    updateButtonStatus(button_RStickDown_highlight, ds4_report[0] > 156);   // down
+    updateButtonStatus(button_RStickUp_highlight, ds4_report[0] < 100);   // up
+
+    ds4_report++;
+        // Main Face Buttons
+    updateButtonStatus(button_A_outline, ds4_report[0] & 0x20);   // A
+    updateButtonStatus(button_B_outline, ds4_report[0] & 0x40);    // B
+    updateButtonStatus(button_X_outline, ds4_report[0] & 0x10);    // X
+    updateButtonStatus(button_Y_outline, ds4_report[0] & 0x80);    // Y
+
+        // DPAD
+    int dval = ds4_report[0] & 0x0F;
+    updateButtonStatus(button_DpadUp_outline, (dval == 7 || dval == 1 || dval == 0) ); 
+    updateButtonStatus(button_DpadRight_outline, abs(dval - 2) < 2); 
+    updateButtonStatus(button_DpadDown_outline, abs(dval - 4) < 2); 
+    updateButtonStatus(button_DpadLeft_outline, abs(dval - 6) < 2); 
+
+    ds4_report++;
+        // Shoulders: L1 / R1
+    updateButtonStatus(button_L1_highlight, ds4_report[0] & 0x01, 0x01);   // left shoulder
+    updateButtonStatus(button_R1_highlight, ds4_report[0] & 0x02, 0x08);   // right shoulder
+
+        // Triggers: L2 / R2
+    updateButtonStatus(button_L2_highlight, ds4_report[0] & 0x04, 0x01);   // left trigger
+    updateButtonStatus(button_R2_highlight, ds4_report[0] & 0x08, 0x08);   // right trigger
+
+        // Share and Options buttons
+    updateButtonStatus(button_Back_highlight, ds4_report[0] & 0x10);    // back
+    updateButtonStatus(button_Start_highlight, ds4_report[0] & 0x20);   // start
+
+        // Thumbs: L3 / R3
+    updateButtonStatus(button_L3_highlight, ds4_report[0] & 0x40);   // left thumb
+    updateButtonStatus(button_R3_highlight, ds4_report[0] & 0x80);   // right thumb
+
+    ds4_report++;
+        // PS & T-Pad 
+    updateButtonStatus(button_Guide_highlight, ds4_report[0] & 0x03);  // guide
+
+
+    // must redraw both buttons in this order for highlighting to always be correct 
+    //* except there are still minor issues
+    if (shoulderRedraw & 0x01) {
+        button_L1_highlight.Update();
+        button_L2_highlight.Update();
+    }
+    if (shoulderRedraw & 0x08) {
+        button_R1_highlight.Update();
+        button_R2_highlight.Update();
     }
 }
 
@@ -477,7 +582,6 @@ void buttonStatesFromXboxReport(XUSB_REPORT& xboxReport) {
         if (condition && button.Status() == MOUSE_OUT) {
             button.SetStatus(MOUSE_HOVERED | MOUSE_DOWN);
             if (!special)
-                // newlyActive.push_back(&button);
                 button.Update();
             else
                 shoulderRedraw |= special;
@@ -492,16 +596,16 @@ void buttonStatesFromXboxReport(XUSB_REPORT& xboxReport) {
     };
 
     // Left Stick
-    updateButtonStatus(button_LStickLeft_highlight, xboxReport.sThumbLX < 0);   // left
-    updateButtonStatus(button_LStickRight_highlight, xboxReport.sThumbLX > 0);   // right
-    updateButtonStatus(button_LStickDown_highlight, xboxReport.sThumbLY < 0);   // down
-    updateButtonStatus(button_LStickUp_highlight, xboxReport.sThumbLY > 0);   // up
+    updateButtonStatus(button_LStickLeft_highlight, xboxReport.sThumbLX < -AXIS_INPUT_DEADZONE);   // left
+    updateButtonStatus(button_LStickRight_highlight, xboxReport.sThumbLX > AXIS_INPUT_DEADZONE);   // right
+    updateButtonStatus(button_LStickDown_highlight, xboxReport.sThumbLY < -AXIS_INPUT_DEADZONE);   // down
+    updateButtonStatus(button_LStickUp_highlight, xboxReport.sThumbLY > AXIS_INPUT_DEADZONE);   // up
 
     // Right Stick
-    updateButtonStatus(button_RStickLeft_highlight, xboxReport.sThumbRX < 0);   // left
-    updateButtonStatus(button_RStickRight_highlight, xboxReport.sThumbRX > 0);   // right
-    updateButtonStatus(button_RStickDown_highlight, xboxReport.sThumbRY < 0);   // down
-    updateButtonStatus(button_RStickUp_highlight, xboxReport.sThumbRY > 0);   // up
+    updateButtonStatus(button_RStickLeft_highlight, xboxReport.sThumbRX < -AXIS_INPUT_DEADZONE);   // left
+    updateButtonStatus(button_RStickRight_highlight, xboxReport.sThumbRX > AXIS_INPUT_DEADZONE);   // right
+    updateButtonStatus(button_RStickDown_highlight, xboxReport.sThumbRY < -AXIS_INPUT_DEADZONE);   // down
+    updateButtonStatus(button_RStickUp_highlight, xboxReport.sThumbRY > AXIS_INPUT_DEADZONE);   // up
 
     // Shoulders: L1 / R1
     updateButtonStatus(button_L1_highlight, xboxReport.wButtons & XUSB_GAMEPAD_LEFT_SHOULDER, 0x01);   // left shoulder
@@ -541,6 +645,75 @@ void buttonStatesFromXboxReport(XUSB_REPORT& xboxReport) {
     if (shoulderRedraw & 0x08) {
         button_R1_highlight.Update();
         button_R2_highlight.Update();
+    }
+}
+
+// returns list of connected SDL joysticks
+std::unordered_map<std::string, int> getUIJoystickList() {
+
+    int err = InitJoystickInput(); // this will update the connected joysticks recognized by SDL
+    if (err) {
+        APP_KILLED = true;
+    }
+
+    // Check for available joysticks
+    int numJoysticks = SDL_NumJoysticks();
+    if (numJoysticks <= 0)
+    {
+        setErrorMsg(L" No Joysticks Connected! ", 26);
+
+        // ## ERRORS to be handled by caller
+    }
+    // Create and Populate list
+    std::unordered_map<std::string, int> joystickList;
+    for (int i = 0; i < numJoysticks; ++i)
+    {
+        std::string joystickName = SDL_JoystickNameForIndex(i);
+        joystickList[joystickName] = i;
+    }
+    return joystickList;
+}
+
+// Attempts to open an HID connection to a ds4 device
+bool uiConnectToDS4Controller(HidDeviceInfo* selectedDev) {
+    if (selectedDev != nullptr) {
+        if (DS4manager.OpenHidDevice(selectedDev)) {
+            //std::wcout << "Connected to : " << selectedDev->manufacturer << " " << selectedDev->product << std::endl;
+            return true;
+        }
+    }
+    return false;
+}
+
+// returns a list of DS4 controllers by HidDeviceInfo info
+std::vector<HidDeviceInfo> getDS4ControllersList() {
+    std::vector<HidDeviceInfo> devList;
+
+    devList = DS4manager.scanDevices(
+        ANY,                // vendor id  // Sony:: 1356
+        ANY,                // product id // DS4 v1:: 2508
+        ANY,                // serial
+        ANY,                // manufacturer
+        L"Wireless Controller",                // product string // L"Wireless Controller"
+        ANY,                // release
+        ANY,                // usage page
+        ANY                 // usage
+    );
+
+    if (!devList.size()) {
+         setErrorMsg(L" No DS4 Devices Connected! ", 28);
+    }
+
+    return devList;
+}
+
+// to allow for smooth animation, establish connection to host in a separate thread
+void threadedEstablishConnection(TCPConnection& client, int& retVal) {
+    while (!APP_KILLED && retVal == WSAEWOULDBLOCK)
+    {
+        retVal = client.establish_connection();
+        if (!APP_KILLED && retVal == WSAEWOULDBLOCK)
+            Sleep(50);
     }
 }
 
@@ -649,6 +822,7 @@ std::vector<SDLButtonMapping::ButtonMapInput> get_sdljoystick_input_list(const S
     return inputs;
 }
 
+/*
 // should return colorScheme package for screen elements that matches current g_currentColorScheme
 tUIColorPkg colorSchemeToColorPkg(int version) {
     ColorScheme& colorsScheme = colorSchemes[g_currentColorScheme];
@@ -657,27 +831,27 @@ tUIColorPkg colorSchemeToColorPkg(int version) {
     case 1:
         bg = inverseFGColor(colorsScheme.faceColor >> 4) AS_BG;
         return tUIColorPkg( // inverted face  // normal text with new bg color
-            static_cast<WORD>(colorsScheme.buttonColor | bg),
-            static_cast<WORD>(colorsScheme.faceColor >> 4 | bg),
-            static_cast<WORD>(colorsScheme.selectColor >> 4 | bg),
-            static_cast<WORD>(colorsScheme.faceColor >> 4 | g_BG_COLOR BG_ONLY)
+            makeSafeColors((colorsScheme.buttonColor | bg)),
+            makeSafeColors((colorsScheme.faceColor >> 4 | bg)),
+            makeSafeColors((colorsScheme.selectColor >> 4 | bg)),
+            makeSafeColors((colorsScheme.faceColor >> 4 | g_BG_COLOR BG_ONLY))
         );
 
     case 2:
         bg = inverseFGColor(colorsScheme.selectColor >> 4) AS_BG;
         return tUIColorPkg( // inverted select // stand out message
-            static_cast<WORD>(colorsScheme.buttonColor | bg),
-            static_cast<WORD>(colorsScheme.faceColor >> 4 | bg),
-            static_cast<WORD>(g_BG_COLOR >> 4 | bg),
-            static_cast<WORD>(colorsScheme.outlineColor | bg) // good on watermelon
+            makeSafeColors((colorsScheme.buttonColor | bg)),
+            makeSafeColors((colorsScheme.faceColor >> 4 | bg)),
+            makeSafeColors((g_BG_COLOR >> 4 | bg)),
+            makeSafeColors((colorsScheme.outlineColor | bg))
         );
 
     case 3:
         return tUIColorPkg( // with g_BG_COLOR AS BG
-            static_cast<WORD>(colorsScheme.buttonColor | g_BG_COLOR BG_ONLY),
-            static_cast<WORD>(colorsScheme.faceColor >> 4 | g_BG_COLOR BG_ONLY),
-            static_cast<WORD>(inverseFGColor(g_BG_COLOR FG_ONLY) | g_BG_COLOR BG_ONLY),
-            static_cast<WORD>(colorsScheme.outlineColor | g_BG_COLOR BG_ONLY)
+            makeSafeColors((colorsScheme.buttonColor | g_BG_COLOR BG_ONLY)),
+            makeSafeColors((colorsScheme.faceColor >> 4 | g_BG_COLOR BG_ONLY)),
+            makeSafeColors((inverseFGColor(g_BG_COLOR FG_ONLY) | g_BG_COLOR BG_ONLY)),
+            makeSafeColors((colorsScheme.outlineColor | g_BG_COLOR BG_ONLY))
         );
 
     case 4:
@@ -706,6 +880,28 @@ tUIColorPkg colorSchemeToColorPkg(int version) {
         );
     }
 }
+*/
+
+// takes a color package representing controller button colors and converts to screen button colors for mouse hovering
+tUIColorPkg controllerButtonsToScreenButtons(tUIColorPkg& inButs) {
+    return tUIColorPkg(
+        inButs.col2,    // default
+        inButs.col3,    // highlight
+        inButs.col4,    // select
+        inButs.col3     // active // used for ip input
+    );
+}
+
+ColorScheme simpleSchemeFromFullScheme(FullColorScheme& full) {
+    return ColorScheme{
+        static_cast<WORD>(full.controllerColors.col1 FG_ONLY),
+        static_cast<WORD>(full.controllerColors.col1 BG_ONLY),
+        static_cast<WORD>(full.controllerColors.col2 FG_ONLY),
+        static_cast<WORD>(full.controllerColors.col3 FG_ONLY),
+        static_cast<WORD>(full.controllerColors.col4),
+        L" "
+    };
+}
 
 // will look for a saved controller mapping and open it or initiate the mapping process
 void uiOpenOrCreateMapping(SDLJoystickData& joystick, std::string& mapName, textUI& screen) {
@@ -729,7 +925,6 @@ void uiOpenOrCreateMapping(SDLJoystickData& joystick, std::string& mapName, text
         tUIRemapInputsScreen(joystick, screen);
     }
 }
-
 
 // used in a loop, looks for mouse input and compares to buttons on screen
 int screenLoop(textUI& screen) {
@@ -770,7 +965,6 @@ int screenLoop(textUI& screen) {
     }
     return retVal;
 }
-
 
 
 // ********************************
@@ -821,19 +1015,31 @@ int tUISelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick, textUI&
         // add the button to the screen
         screen.AddButton(&availableJoystickBtn[i]);
     }
+
+    quitButton.SetPosition(10, 17);
     screen.AddButton(&quitButton);
 
     // set colors
-    screen.SetBackdropColor(g_BG_COLOR);
-    screen.SetButtonsColors(colorSchemeToColorPkg(0));   // matches controller face buttons
-    output1.SetColor(colorSchemeToColorPkg(1).col1);    // title/heading text // inverted face color for bg
-    errorOut.SetColor(colorSchemeToColorPkg(0).col3);   // selected button colors
+   // screen.SetBackdropColor(g_BG_COLOR);
+   // screen.SetButtonsColors(colorSchemeToColorPkg(0));   // matches controller face buttons
+   // output1.SetColor(colorSchemeToColorPkg(1).col1);    // title/heading text // inverted face color for bg
+   // errorOut.SetColor(colorSchemeToColorPkg(0).col3);   // selected button colors
+   
     // alternate colors
     /*
-    screen.SetBackdropColor(colorSchemeToColorPkg(2).col1);
-    screen.SetButtonsColors(colorSchemeToColorPkg(0));
-    output1.SetColor(colorSchemeToColorPkg(3).col1);
+     screen.SetBackdropColor(colorSchemeToColorPkg(2).col1);
+     screen.SetButtonsColors(colorSchemeToColorPkg(0));
+     output1.SetColor(colorSchemeToColorPkg(3).col1);
+     errorOut.SetColor(colorSchemeToColorPkg(2).col3);
     */
+
+    // New FullColorScheme Colors
+    /**/
+    screen.SetBackdropColor(fullColorSchemes[0].menuBg);
+    screen.SetButtonsColors(controllerButtonsToScreenButtons(fullColorSchemes[0].controllerColors));
+    output1.SetColor(fullColorSchemes[0].menuColors.col1);
+    errorOut.SetColor(fullColorSchemes[0].menuColors.col2);
+    /**/
 
     // Draw the screen with the available joysticks
     screen.ReDraw();
@@ -846,7 +1052,7 @@ int tUISelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick, textUI&
     output1.Draw();
     
 
-    // Prompt the user to select a joystick
+    // set this to an invalid index
     g_joystickSelected = -1;
 
     if (numJoysticks) {
@@ -892,6 +1098,16 @@ int tUISelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick, textUI&
                 g_joystickSelected = -1;
             }
         }
+
+        // scan for new connected joysticks and recursively launch function if new joysticks are detected
+        int newConnections = getUIJoystickList().size();
+        if (newConnections != numJoysticks) {
+            setErrorMsg(L"\0", 1); // clear errors
+            cleanMemory();
+            return tUISelectJoystickDialog(newConnections, joystick, screen);
+        }
+
+        Sleep(30);
     }
 
     if (APP_KILLED) {
@@ -915,12 +1131,20 @@ int tUISelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick, textUI&
     return 1;
 }
 
-int tUISelectDS4Dialog(std::vector<HidDeviceInfo>& devList, textUI& screen) {
+int tUISelectDS4Dialog(std::vector<HidDeviceInfo> devList, textUI& screen) {
+    constexpr int START_LINE = 7;
+    constexpr int START_COL = 18;
+
     int numJoysticks = devList.size();
     g_joystickSelected = -1;
 
-    constexpr int START_LINE = 7;
-    constexpr int START_COL = 9;
+    if (!numJoysticks) {
+        //APP_KILLED = true;
+        errorOut.SetPosition(consoleWidth / 2, START_LINE + 1, 50, 0, ALIGN_CENTER);
+    }
+    else {
+        errorOut.SetPosition(consoleWidth / 2, 4, 50, 0, ALIGN_CENTER);
+    }
 
     std::vector<mouseButton> gamepadButtons;
     auto cleanMemory = [&]() {
@@ -930,43 +1154,82 @@ int tUISelectDS4Dialog(std::vector<HidDeviceInfo>& devList, textUI& screen) {
         }
     };
 
-    // populate selectable buttons and add to screen 
+    // Populate selectable buttons and add to screen 
     for (int i = 0; i < numJoysticks; ++i)
     {
+        std::wstring mfg = devList[i].vendorId == 1356 ? L"Sony" : devList[i].manufacturer.c_str();
+        std::wstring prod = devList[i].productId == 2508 ? L"DS4 Controller" : devList[i].product.c_str();
+// i can't believe this worked
+#define BUTTON_NAME_STRING L"(%d) %ls %ls :%ls ", 1 + i, mfg.c_str(), prod.c_str(), devList[i].serial.empty() ? L" Wired" : L" Wireless"
+
+
         // Calculate the length of the formatted string
-        int bufferSize = swprintf(nullptr, 0, L"%d: %ls %ls: %ls", 1 + i, devList[i].manufacturer.c_str(), devList[i].product.c_str(),
-            devList[i].serial.empty() ? L" Wired" : L" Wireless");
+        int bufferSize = swprintf(nullptr, 0, BUTTON_NAME_STRING);
 
         // Allocate memory for the wchar_t string
         wchar_t* wideStr = new wchar_t[bufferSize + 1]; // +1 for the null terminator
 
         // Format the string and store it in wideStr
-        swprintf(wideStr, bufferSize + 1, L"%d: %ls %ls: %ls", 1 + i, devList[i].manufacturer.c_str(), devList[i].product.c_str(),
-            devList[i].serial.empty() ? L" Wired" : L" Wireless");
-
+        swprintf(wideStr, bufferSize + 1, BUTTON_NAME_STRING);
 
         mouseButton btn(START_COL, START_LINE, bufferSize, wideStr);
         btn.SetId(i);
-        gamepadButtons.push_back(btn);
+        
+        // set callback function to enable selection
+        btn.setCallback(&joystickSelectCallback);
 
+        gamepadButtons.push_back(btn);
         screen.AddButton(&gamepadButtons.back());
     }
 
+    output1.SetPosition(15, 5, 50, 1, ALIGN_LEFT);
+    quitButton.SetPosition(10, 17);
+    screen.AddButton(&quitButton);
+
+    // set colors
+    
+    //screen.SetBackdropColor(g_BG_COLOR);
+    //screen.SetButtonsColors(colorSchemeToColorPkg(0));   // matches controller face buttons
+    //output1.SetColor(colorSchemeToColorPkg(1).col1);    // title/heading text // inverted face color for bg
+    //errorOut.SetColor(colorSchemeToColorPkg(0).col3);   // selected button colors
+    
+    // alternate colors
+    /*
+    screen.SetBackdropColor(colorSchemeToColorPkg(2).col1);
+    screen.SetButtonsColors(colorSchemeToColorPkg(0));
+    output1.SetColor(colorSchemeToColorPkg(3).col1);
+    errorOut.SetColor(colorSchemeToColorPkg(2).col3);
+    */
+
+    // New FullColorScheme Colors
+    /**/
+    screen.SetBackdropColor(fullColorSchemes[0].menuBg);
+    screen.SetButtonsColors(controllerButtonsToScreenButtons(fullColorSchemes[0].controllerColors));
+    output1.SetColor(fullColorSchemes[0].menuColors.col1);
+    errorOut.SetColor(fullColorSchemes[0].menuColors.col2);
+    /**/
+
     // Draw the screen with the available joysticks
     screen.ReDraw();
+
+    // show any errors to screen
+    errorOut.Draw();
+
     // add messages to screen
-    wcsncpy_s(msgPointer1, 27, L"Connected DS4 Controllers:", _TRUNCATE);
+    wcsncpy_s(msgPointer1, 29, L" Connected DS4 Controllers: ", _TRUNCATE);
     output1.SetText(msgPointer1);
     output1.Draw();
 
-
-    setCursorPosition(START_COL - 3, START_LINE + numJoysticks + 1);
-    std::wcout << "Select a joystick (1";
-    if (numJoysticks > 1) std::wcout << "-" << numJoysticks;
-    std::wcout << "): ";
+    // show select options in footer
+    if (numJoysticks) {
+        setCursorPosition(27, 17);
+        std::wcout << " (1";
+        if (numJoysticks > 1) std::wcout << "-" << numJoysticks;
+        std::wcout << ") Select  ";
+    }
 
     // scan for mouse and keyboard input
-    while (!APP_KILLED || g_joystickSelected < 0) {
+    while (!APP_KILLED && g_joystickSelected < 0) {
         if (IsAppActiveWindow()) {
             screenLoop(screen);
             checkForQuit();
@@ -994,13 +1257,24 @@ int tUISelectDS4Dialog(std::vector<HidDeviceInfo>& devList, textUI& screen) {
         // if selection has been assigned
         if (g_joystickSelected > -1) {
             // Check if the selected index is valid
-            if (g_joystickSelected < 0 || g_joystickSelected >= numJoysticks)
-            {
-                setErrorMsg(L"Invalid joystick index.", 24);
+            if (g_joystickSelected < 0 || g_joystickSelected >= numJoysticks) {
+                setErrorMsg(L" Invalid Controller Index. ", 28);
                 errorOut.Draw();
                 g_joystickSelected = -1;
             }
         }
+
+        // scan for new connected joysticks and recursively launch function if new joysticks are detected
+        auto newConnections = getDS4ControllersList();
+        if (newConnections.size() != numJoysticks) {
+            if (newConnections.size()) {
+                setErrorMsg(L"\0", 1); // clear errors
+            }
+            cleanMemory();
+            return tUISelectDS4Dialog(newConnections, screen);
+        }
+
+        Sleep(30);
     }
 
     if (APP_KILLED) {
@@ -1008,43 +1282,19 @@ int tUISelectDS4Dialog(std::vector<HidDeviceInfo>& devList, textUI& screen) {
         return -1;
     }
 
+    // Open the selected joystick
+    if (!uiConnectToDS4Controller(&devList[g_joystickSelected]))
+    {
+        setErrorMsg(L"Failed to open joystick.", 25);
+        errorOut.Draw();
+        APP_KILLED = true;
+        cleanMemory();
+        return 0;
+    }
+
     cleanMemory();
 
-    return g_joystickSelected;
-}
-
-bool tUIConnectToDS4Controller(textUI& screen) {
-    std::vector<HidDeviceInfo> devList;
-    HidDeviceInfo* selectedDev = nullptr;
-
-    devList = DS4manager.scanDevices(
-        ANY,                // vendor id  // Sony:: 1356
-        ANY,                // product id // DS4 v1:: 2508
-        ANY,                // serial
-        ANY,                // manufacturer
-        L"Wireless Controller",                // product string // L"Wireless Controller"
-        ANY,                // release
-        ANY,                // usage page
-        ANY                 // usage
-    );
-
-    if (devList.size() > 1) {
-        // User selects from connected DS4 devices
-        int idx = tUISelectDS4Dialog(devList, screen);
-        selectedDev = &devList[idx];
-    }
-    else if (devList.size()) {
-        selectedDev = &devList[0];
-    }
-
-    if (selectedDev != nullptr) {
-        if (DS4manager.OpenHidDevice(selectedDev)) {
-            //std::wcout << "Connected to : " << selectedDev->manufacturer << " " << selectedDev->product << std::endl;
-            return true;
-        }
-    }
-
-    return false;
+    return 1;
 }
 
 std::string tUIGetHostAddress(textUI& screen) {
@@ -1057,10 +1307,9 @@ std::string tUIGetHostAddress(textUI& screen) {
     std::string host_address;
 
     //set Colors values
-    tUIColorPkg ColorPack1 = colorSchemeToColorPkg(1); 
-    tUIColorPkg ColorPack2 = colorSchemeToColorPkg(2);
-    //WORD colorGood = ColorPack1.col1;
-    WORD colorError = ColorPack2.col4;;
+    WORD bg_color = fullColorSchemes[0].menuBg;
+    WORD colorError = fullColorSchemes[0].menuColors.col2;
+    tUIColorPkg screenButtonsCol = controllerButtonsToScreenButtons(fullColorSchemes[0].controllerColors);
 
     COORD octPos[4] = {
         {29, 10},
@@ -1070,10 +1319,10 @@ std::string tUIGetHostAddress(textUI& screen) {
     };
 
     textInput octet[4] = {  //int x, int y, int w, int maxLength
-        textInput(29, 10, 3, 3, ALIGN_CENTER, ColorPack1.col1),
-        textInput(33, 10, 3, 3, ALIGN_CENTER, ColorPack1.col1),
-        textInput(37, 10, 3, 3, ALIGN_CENTER, ColorPack1.col1),
-        textInput(41, 10, 3, 3, ALIGN_CENTER, ColorPack1.col1)
+        textInput(29, 10, 3, 3, ALIGN_CENTER, screenButtonsCol.col1),
+        textInput(33, 10, 3, 3, ALIGN_CENTER, screenButtonsCol.col1),
+        textInput(37, 10, 3, 3, ALIGN_CENTER, screenButtonsCol.col1),
+        textInput(41, 10, 3, 3, ALIGN_CENTER, screenButtonsCol.col1)
     };
 
     // Lambda for setting octet cursor position
@@ -1096,8 +1345,8 @@ std::string tUIGetHostAddress(textUI& screen) {
         host_address = g_converter.to_bytes(ipAddress);
 
         if (validIPAddress(host_address)) {
-            errorOut.Clear(g_BG_COLOR);
-            errorOut.SetColor(g_BG_COLOR);
+            errorOut.Clear(bg_color);
+            errorOut.SetColor(fullColorSchemes[0].menuColors.col4);
             setErrorMsg(L" Valid IP ! ", 38);
             errorOut.Draw();
             output1.Draw();
@@ -1106,11 +1355,11 @@ std::string tUIGetHostAddress(textUI& screen) {
             errorShown = true;
             return 1;
         }
-        else if(errorShown)
+        else if (errorShown)
         {
             errorShown = false;
-            errorOut.Clear(g_BG_COLOR);
-            output1.Clear(g_BG_COLOR);
+            errorOut.Clear(bg_color);
+            output1.Clear(bg_color);
             setOctetCursorPos();
         }
         return 0;
@@ -1122,27 +1371,46 @@ std::string tUIGetHostAddress(textUI& screen) {
         screen.AddInput(&octet[i]);
     }
 
+    quitButton.SetPosition(10, 17);
     screen.AddButton(&quitButton);
 
     // set colors
-    screen.SetBackdropColor(g_BG_COLOR);
+    //screen.SetBackdropColor(g_BG_COLOR);
+    //screen.SetButtonsColors(colorSchemeToColorPkg(0));
+
+    //screen.SetInputsColors(colorSchemeToColorPkg(1));
+
+    //output1.SetColor(g_BG_COLOR);           //  Press Enter to Connect
+    //errorOut.SetColor(colorError);
+
+
+    // alternate colors
+    /*
+    screen.SetBackdropColor(colorSchemeToColorPkg(2).col1);
     screen.SetButtonsColors(colorSchemeToColorPkg(0));
-
     screen.SetInputsColors(colorSchemeToColorPkg(1));
+    output1.SetColor(colorSchemeToColorPkg(3).col1);
+    errorOut.SetColor(colorSchemeToColorPkg(2).col3);
+    */
 
-    output1.SetColor(g_BG_COLOR);           //  Press Enter to Connect
-    errorOut.SetColor(colorError);
-    
+    // New FullColorScheme Colors
+    /**/
+    screen.SetBackdropColor(fullColorSchemes[0].menuBg);
+    screen.SetButtonsColors(screenButtonsCol);
+    screen.SetInputsColors(screenButtonsCol);
+    output1.SetColor(fullColorSchemes[0].menuColors.col4); // Press Enter To Connect
+    errorOut.SetColor(fullColorSchemes[0].menuColors.col2);
+    /**/
 
     screen.DrawButtons();
     errorOut.Draw();
 
     //setTextColor(makeSafeColors(g_BG_COLOR)); // was screen.getSafeColors()
-    setTextColor(ColorPack1.col1);
+    setTextColor(fullColorSchemes[0].menuColors.col1);
     setCursorPosition(12, 8);
     std::wcout << L" Enter IP Address Of Host: ";
 
-    //setTextColor(g_BG_COLOR);
+    setTextColor(screenButtonsCol.col1);
     setCursorPosition(28, 10);
     std::wcout << L"   .   .   .   ";
 
@@ -1178,8 +1446,8 @@ std::string tUIGetHostAddress(textUI& screen) {
         }
         else if (num == 'B') {
             errorShown = false;
-            errorOut.Clear(g_BG_COLOR);
-            output1.Clear(g_BG_COLOR);
+            errorOut.Clear(bg_color);
+            output1.Clear(bg_color);
             if (octet[octNum].getCursorPosition() == 0) {
                 if (!octet[octNum].getLength()) {
                     octet[octNum].insert(L'0');
@@ -1241,7 +1509,7 @@ std::string tUIGetHostAddress(textUI& screen) {
         }
         else if (warningShown && !getKeyState(VK_RETURN)) {
             warningShown = false;
-            errorOut.Clear(g_BG_COLOR);
+            errorOut.Clear(fullColorSchemes[0].menuBg);
             errorShown = false;
             setOctetCursorPos();
         }
@@ -1369,17 +1637,17 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
     otherButtons.AddButton(&saveMapButton);
 
     // Save conformation message
-    textBox saveMsg(CONSOLE_WIDTH / 2, XBOX_QUIT_LINE - 3, 24, 1, ALIGN_CENTER, L" Mapping Saved! ", colorSchemeToColorPkg(1).col1);
+    textBox saveMsg(CONSOLE_WIDTH / 2, XBOX_QUIT_LINE - 3, 24, 1, ALIGN_CENTER, L" Mapping Saved! ", fullColorSchemes[0].menuColors.col3);
 
     // create Click To Map footer highlight area
     textBox footerMsg(CONSOLE_WIDTH / 2, XBOX_QUIT_LINE - 1, 24, 1, ALIGN_CENTER, L" Click Button to Remap ", DEFAULT_TEXT);
 
     // create a # characters to redraw a portion of the controller outline
     mouseButton outlineRedraw(57, 6, 4, L"##\t\t\t##\t\t\t##");
-    outlineRedraw.SetDefaultColor(g_BG_COLOR);
+    outlineRedraw.SetDefaultColor(fullColorSchemes[0].controllerBg);
     // create a space character to redraw a portion of the controller face
     mouseButton faceRedraw(58, 8, 1, L" ");
-    faceRedraw.SetDefaultColor(colorSchemeToColorPkg(0).col1);
+    faceRedraw.SetDefaultColor(fullColorSchemes[0].controllerColors.col1);
 
     // ****************************
     
@@ -1390,7 +1658,7 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
         // get_elapsed time returns a double representing seconds
         if (timing && timer.get_elapsed_time() > 3) {
             timing = false;
-            saveMsg.Clear(g_BG_COLOR);
+            saveMsg.Clear(fullColorSchemes[0].controllerBg);
         }
     };
 
@@ -1400,16 +1668,13 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
     // Set button and controller colors
         // Sets controller to color scheme colors with some contrast correction for bg color then 
         // draws screen backdrop and face
-    DrawControllerFace(screen, colorSchemes[g_currentColorScheme], g_BG_COLOR, 1);
+    // DrawControllerFace(screen, colorSchemes[g_currentColorScheme], g_BG_COLOR, 1);
+    ColorScheme simpScheme = simpleSchemeFromFullScheme(fullColorSchemes[0]);
+    DrawControllerFace(screen, simpScheme, fullColorSchemes[0].controllerBg, 1);
         // get color package of contrast corrected button colors
-    tUIColorPkg buttonColors(
-        screen.GetBackdropColor(),
-        button_Guide_highlight.getHighlightColor(),
-        button_Guide_highlight.getSelectColor(),
-        0 // unused
-    );
+    tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[0].controllerColors);
     
-    screenTitle.SetColor(colorSchemeToColorPkg(1).col1);
+    screenTitle.SetColor(fullColorSchemes[0].menuColors.col1);
     gamepadName.SetColor(buttonColors.col1);
     footerMsg.SetColor(buttonColors.col1);
     otherButtons.SetButtonsColors(buttonColors);
@@ -1441,7 +1706,7 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
 
         // clear active input area
         if (lastInputs != activeInputs) {
-            detectedInput.Clear(g_BG_COLOR);
+            detectedInput.Clear(fullColorSchemes[0].controllerBg);
             detectedInput.SetText(L" (NONE) ");
             if (inputsListed > 3) { // after four inputs controller could get drawn over
                 outlineRedraw.Draw(); // redraw controller edge
@@ -1834,26 +2099,6 @@ void countUpDown(int& counter, int maxCount) { // * a counter value outside of (
     
     counter += dir; // count by one in direction +1 or -1
 }
-
-void countUpDownOG(int& counter, int maxCount) { // * a counter value of maxCount or higher could/will cause issues
-    static int dir = 1; // 1: up, -1: down
-
-    // this non intuitive block makes sure we always count up from 0
-    if (counter == 0) {
-        dir = -1;
-    }
-
-    // counter values of maxCount and 0 will fail
-    if (counter < maxCount && counter > 0) {
-        counter += dir; // count by one in 'direction' +1 or -1
-    }
-    // direction of counting will be reversed
-    else {
-        dir *= -1;
-        counter += dir; // count by one in new 'direction'
-    }
-}
-
 
 // function will loop from 0 to maxCount
 // for animation cyclically through frames

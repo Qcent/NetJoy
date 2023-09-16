@@ -32,8 +32,8 @@ THE SOFTWARE.
 #include <SDL/SDL.h>
 
 
-#define AXIS_INPUT_THRESHOLD 16000  // set high to prevent false positives on noisy input during mapping
-#define AXIS_INPUT_DEADZONE 3000    // like threshold but used for main loop joystick reading
+#define AXIS_INPUT_THRESHOLD 16000    // set high to prevent false positives on noisy input during mapping
+#define AXIS_INPUT_DEADZONE   3000    // like threshold but used for main loop joystick reading
 
 class SDLButtonMapping {
 public:
@@ -1052,7 +1052,7 @@ int InitJoystickInput()
     // Initialize SDL
     if (SDL_Init(SDL_INIT_JOYSTICK) < 0)
     {
-        std::cout << "SDL initialization failed: " << SDL_GetError() << std::endl;
+        // std::cout << "SDL initialization failed: " << SDL_GetError() << std::endl;
         return 1;
     }
     return 0;

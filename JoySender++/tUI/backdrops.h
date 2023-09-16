@@ -47,7 +47,7 @@ const wchar_t* XBOX_Backdrop = LR"(
 )";
 
 const wchar_t* DS4_Backdrop = LR"(                                                                         
-    <<                                          FPS:                     
+    <<                                         FPS:                      
                  ______                           ______                 
                ,/______\_     Mode: 2 (DS4)     _/______\,               
               /\________/#########(-Q-)#########\________/\              
@@ -60,8 +60,8 @@ const wchar_t* DS4_Backdrop = LR"(
         |/               {    }    [_]    {    }    |  |       \|        
         @                 '--'  /^^^^^^^\  '--'      ``         @        
         @              @'""""""'         '""""""'@              @        
-        @             @'                         '@             @        
-        @            @'     (M) Toggle Motion     '@            @        
+        @             @'    (M) Toggle Motion    '@             @        
+        @            @'                           '@            @        
          @.        .@'                             '@         ,@         
           `@@@@@@@@'                                 '@@@@@@@@`          
                                                                          
