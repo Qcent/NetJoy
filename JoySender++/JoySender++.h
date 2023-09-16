@@ -68,7 +68,7 @@ char IpInputLoop();
 int screenLoop(textUI& screen);
 int tUISelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick, textUI& screen);
 int tUISelectDS4Dialog(std::vector<HidDeviceInfo>devList, textUI& screen);
-bool tUIConnectToDS4Controller(textUI& screen);
+// bool tUIConnectToDS4Controller(textUI& screen);
 std::string tUIGetHostAddress(textUI& screen);
 void threadedEstablishConnection(TCPConnection& client, int& retVal);
 bool checkKey(int key, bool pressed);
@@ -159,7 +159,7 @@ struct FullColorScheme {
     WORD controllerBg;
 };
 
-FullColorScheme fullColorSchemes[1] = {
+FullColorScheme fullColorSchemes[2] = {
     { L"Plum",
         {
         // Menu Colors
@@ -179,7 +179,32 @@ FullColorScheme fullColorSchemes[1] = {
     WHITE | (BRIGHT_RED AS_BG),
     // Controller background
     BLACK | (MAGENTA AS_BG),
+    },
+
+
+     { L"Watermelon",
+        {
+        // Menu Colors
+        BLACK | (GREEN AS_BG),			// Header
+        WHITE | (RED AS_BG),		        // Error
+        BLACK | (BRIGHT_CYAN AS_BG),				// message 1
+        BLUE | (BRIGHT_GREEN AS_BG)			// message 2
+    },
+    {
+        // Controller Colors
+        BRIGHT_GREEN | (BRIGHT_RED AS_BG),	// outline | faceColor 
+        BLACK | (BRIGHT_RED AS_BG),		    // buttonColor
+        BRIGHT_GREEN | (BRIGHT_RED AS_BG),  // highlightColor
+        BLACK | (BRIGHT_GREEN AS_BG)        // selectColor
+    },
+    // Menu background
+    BLACK | (CYAN AS_BG),
+    // Controller background
+    BRIGHT_GREEN | (BRIGHT_BLUE AS_BG),
     }
+
+    // { BLACK,         BRIGHT_RED AS_BG,	WHITE,		BLUE,			WHITE | CYAN AS_BG,			L"PINKY" }
+    // { BRIGHT_GREEN,	BRIGHT_RED AS_BG,	    BLACK,	    BRIGHT_GREEN,	BLACK | BRIGHT_GREEN AS_BG,	L"WATERMELON" }
 };
 
 
@@ -404,8 +429,8 @@ void mappingControlerButtonsCallback(mouseButton& button) {
     static tUIColorPkg colors(0,0,0,0);
 
     // update colors if needed
-    if (!(fullColorSchemes[0].controllerColors == colors)) {
-        colors = fullColorSchemes[0].controllerColors;
+    if (!(fullColorSchemes[g_currentColorScheme].controllerColors == colors)) {
+        colors = fullColorSchemes[g_currentColorScheme].controllerColors;
         topMsg.SetColor(colors.col3);
         footerMsg.SetColor(colors.col1);
     }
@@ -438,7 +463,7 @@ void mappingControlerButtonsCallback(mouseButton& button) {
         --msgDisplayed;
         if (!msgDisplayed) {
             topMsg.Clear(colors.col2);
-            footerMsg.SetColor(fullColorSchemes[0].controllerBg);
+            footerMsg.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg);
             footerMsg.Draw();
             *currentHoveredButton = -1;
         }
@@ -822,66 +847,6 @@ std::vector<SDLButtonMapping::ButtonMapInput> get_sdljoystick_input_list(const S
     return inputs;
 }
 
-/*
-// should return colorScheme package for screen elements that matches current g_currentColorScheme
-tUIColorPkg colorSchemeToColorPkg(int version) {
-    ColorScheme& colorsScheme = colorSchemes[g_currentColorScheme];
-    WORD bg;
-    switch(version){
-    case 1:
-        bg = inverseFGColor(colorsScheme.faceColor >> 4) AS_BG;
-        return tUIColorPkg( // inverted face  // normal text with new bg color
-            makeSafeColors((colorsScheme.buttonColor | bg)),
-            makeSafeColors((colorsScheme.faceColor >> 4 | bg)),
-            makeSafeColors((colorsScheme.selectColor >> 4 | bg)),
-            makeSafeColors((colorsScheme.faceColor >> 4 | g_BG_COLOR BG_ONLY))
-        );
-
-    case 2:
-        bg = inverseFGColor(colorsScheme.selectColor >> 4) AS_BG;
-        return tUIColorPkg( // inverted select // stand out message
-            makeSafeColors((colorsScheme.buttonColor | bg)),
-            makeSafeColors((colorsScheme.faceColor >> 4 | bg)),
-            makeSafeColors((g_BG_COLOR >> 4 | bg)),
-            makeSafeColors((colorsScheme.outlineColor | bg))
-        );
-
-    case 3:
-        return tUIColorPkg( // with g_BG_COLOR AS BG
-            makeSafeColors((colorsScheme.buttonColor | g_BG_COLOR BG_ONLY)),
-            makeSafeColors((colorsScheme.faceColor >> 4 | g_BG_COLOR BG_ONLY)),
-            makeSafeColors((inverseFGColor(g_BG_COLOR FG_ONLY) | g_BG_COLOR BG_ONLY)),
-            makeSafeColors((colorsScheme.outlineColor | g_BG_COLOR BG_ONLY))
-        );
-
-    case 4:
-        bg = (g_BG_COLOR FG_ONLY) AS_BG;
-        return tUIColorPkg( // different HEADDING text colors
-            static_cast<WORD>(colorsScheme.buttonColor | bg),
-            static_cast<WORD>(colorsScheme.faceColor >> 4 | bg),
-            static_cast<WORD>(inverseFGColor(g_BG_COLOR FG_ONLY) | bg),
-            static_cast<WORD>(colorsScheme.outlineColor | bg)
-        );
-
-    case 5:
-        return tUIColorPkg( // select default
-            colorsScheme.selectColor,
-            static_cast<WORD>(colorsScheme.highlightColor | colorsScheme.faceColor),
-            static_cast<WORD>(colorsScheme.buttonColor | inverseFGColor(colorsScheme.faceColor >> 4) AS_BG),
-            0x0000  // unused
-        );
-
-    default:    // same as controller face buttons
-        return tUIColorPkg(
-            static_cast<WORD>(colorsScheme.buttonColor | colorsScheme.faceColor), // default
-            static_cast<WORD>(colorsScheme.highlightColor | colorsScheme.faceColor), // highlight
-            colorsScheme.selectColor,                                               // select
-            0x0000  // unused
-        );
-    }
-}
-*/
-
 // takes a color package representing controller button colors and converts to screen button colors for mouse hovering
 tUIColorPkg controllerButtonsToScreenButtons(tUIColorPkg& inButs) {
     return tUIColorPkg(
@@ -1035,10 +1000,10 @@ int tUISelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick, textUI&
 
     // New FullColorScheme Colors
     /**/
-    screen.SetBackdropColor(fullColorSchemes[0].menuBg);
-    screen.SetButtonsColors(controllerButtonsToScreenButtons(fullColorSchemes[0].controllerColors));
-    output1.SetColor(fullColorSchemes[0].menuColors.col1);
-    errorOut.SetColor(fullColorSchemes[0].menuColors.col2);
+    screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg);
+    screen.SetButtonsColors(controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors));
+    output1.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);
+    errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2);
     /**/
 
     // Draw the screen with the available joysticks
@@ -1203,10 +1168,10 @@ int tUISelectDS4Dialog(std::vector<HidDeviceInfo> devList, textUI& screen) {
 
     // New FullColorScheme Colors
     /**/
-    screen.SetBackdropColor(fullColorSchemes[0].menuBg);
-    screen.SetButtonsColors(controllerButtonsToScreenButtons(fullColorSchemes[0].controllerColors));
-    output1.SetColor(fullColorSchemes[0].menuColors.col1);
-    errorOut.SetColor(fullColorSchemes[0].menuColors.col2);
+    screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg);
+    screen.SetButtonsColors(controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors));
+    output1.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);
+    errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2);
     /**/
 
     // Draw the screen with the available joysticks
@@ -1307,9 +1272,8 @@ std::string tUIGetHostAddress(textUI& screen) {
     std::string host_address;
 
     //set Colors values
-    WORD bg_color = fullColorSchemes[0].menuBg;
-    WORD colorError = fullColorSchemes[0].menuColors.col2;
-    tUIColorPkg screenButtonsCol = controllerButtonsToScreenButtons(fullColorSchemes[0].controllerColors);
+    WORD& bg_color = fullColorSchemes[g_currentColorScheme].menuBg;
+    tUIColorPkg screenButtonsCol = controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
 
     COORD octPos[4] = {
         {29, 10},
@@ -1346,11 +1310,11 @@ std::string tUIGetHostAddress(textUI& screen) {
 
         if (validIPAddress(host_address)) {
             errorOut.Clear(bg_color);
-            errorOut.SetColor(fullColorSchemes[0].menuColors.col4);
+            errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
             setErrorMsg(L" Valid IP ! ", 38);
             errorOut.Draw();
             output1.Draw();
-            errorOut.SetColor(colorError);
+            errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2);
             setOctetCursorPos();
             errorShown = true;
             return 1;
@@ -1395,18 +1359,18 @@ std::string tUIGetHostAddress(textUI& screen) {
 
     // New FullColorScheme Colors
     /**/
-    screen.SetBackdropColor(fullColorSchemes[0].menuBg);
+    screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg);
     screen.SetButtonsColors(screenButtonsCol);
     screen.SetInputsColors(screenButtonsCol);
-    output1.SetColor(fullColorSchemes[0].menuColors.col4); // Press Enter To Connect
-    errorOut.SetColor(fullColorSchemes[0].menuColors.col2);
+    output1.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4); // Press Enter To Connect
+    errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2);
     /**/
 
     screen.DrawButtons();
     errorOut.Draw();
 
     //setTextColor(makeSafeColors(g_BG_COLOR)); // was screen.getSafeColors()
-    setTextColor(fullColorSchemes[0].menuColors.col1);
+    setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);
     setCursorPosition(12, 8);
     std::wcout << L" Enter IP Address Of Host: ";
 
@@ -1509,7 +1473,7 @@ std::string tUIGetHostAddress(textUI& screen) {
         }
         else if (warningShown && !getKeyState(VK_RETURN)) {
             warningShown = false;
-            errorOut.Clear(fullColorSchemes[0].menuBg);
+            errorOut.Clear(fullColorSchemes[g_currentColorScheme].menuBg);
             errorShown = false;
             setOctetCursorPos();
         }
@@ -1637,17 +1601,17 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
     otherButtons.AddButton(&saveMapButton);
 
     // Save conformation message
-    textBox saveMsg(CONSOLE_WIDTH / 2, XBOX_QUIT_LINE - 3, 24, 1, ALIGN_CENTER, L" Mapping Saved! ", fullColorSchemes[0].menuColors.col3);
+    textBox saveMsg(CONSOLE_WIDTH / 2, XBOX_QUIT_LINE - 3, 24, 1, ALIGN_CENTER, L" Mapping Saved! ", fullColorSchemes[g_currentColorScheme].menuColors.col3);
 
     // create Click To Map footer highlight area
     textBox footerMsg(CONSOLE_WIDTH / 2, XBOX_QUIT_LINE - 1, 24, 1, ALIGN_CENTER, L" Click Button to Remap ", DEFAULT_TEXT);
 
     // create a # characters to redraw a portion of the controller outline
     mouseButton outlineRedraw(57, 6, 4, L"##\t\t\t##\t\t\t##");
-    outlineRedraw.SetDefaultColor(fullColorSchemes[0].controllerBg);
+    outlineRedraw.SetDefaultColor(fullColorSchemes[g_currentColorScheme].controllerBg);
     // create a space character to redraw a portion of the controller face
     mouseButton faceRedraw(58, 8, 1, L" ");
-    faceRedraw.SetDefaultColor(fullColorSchemes[0].controllerColors.col1);
+    faceRedraw.SetDefaultColor(fullColorSchemes[g_currentColorScheme].controllerColors.col1);
 
     // ****************************
     
@@ -1658,7 +1622,7 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
         // get_elapsed time returns a double representing seconds
         if (timing && timer.get_elapsed_time() > 3) {
             timing = false;
-            saveMsg.Clear(fullColorSchemes[0].controllerBg);
+            saveMsg.Clear(fullColorSchemes[g_currentColorScheme].controllerBg);
         }
     };
 
@@ -1669,12 +1633,12 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
         // Sets controller to color scheme colors with some contrast correction for bg color then 
         // draws screen backdrop and face
     // DrawControllerFace(screen, colorSchemes[g_currentColorScheme], g_BG_COLOR, 1);
-    ColorScheme simpScheme = simpleSchemeFromFullScheme(fullColorSchemes[0]);
-    DrawControllerFace(screen, simpScheme, fullColorSchemes[0].controllerBg, 1);
+    ColorScheme simpScheme = simpleSchemeFromFullScheme(fullColorSchemes[g_currentColorScheme]);
+    DrawControllerFace(screen, simpScheme, fullColorSchemes[g_currentColorScheme].controllerBg, 1);
         // get color package of contrast corrected button colors
-    tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[0].controllerColors);
+    tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
     
-    screenTitle.SetColor(fullColorSchemes[0].menuColors.col1);
+    screenTitle.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);
     gamepadName.SetColor(buttonColors.col1);
     footerMsg.SetColor(buttonColors.col1);
     otherButtons.SetButtonsColors(buttonColors);
@@ -1706,7 +1670,7 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
 
         // clear active input area
         if (lastInputs != activeInputs) {
-            detectedInput.Clear(fullColorSchemes[0].controllerBg);
+            detectedInput.Clear(fullColorSchemes[g_currentColorScheme].controllerBg);
             detectedInput.SetText(L" (NONE) ");
             if (inputsListed > 3) { // after four inputs controller could get drawn over
                 outlineRedraw.Draw(); // redraw controller edge
@@ -1745,9 +1709,9 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
 
         // display current mapping for hovered button
         if (hoveredButton != lastHovered) {
-            currentInput.Clear(g_BG_COLOR);
+            currentInput.Clear(fullColorSchemes[g_currentColorScheme].controllerBg);
             if (hoveredButton > -1) {
-                
+
                 auto txt = SDLButtonMapping::displayInput(
                     joystick.mapping.buttonMaps[static_cast<SDLButtonMapping::ButtonName>(hoveredButton - (hoveredButton > MAP_BUTTON_CLICKED - 1) * MAP_BUTTON_CLICKED)]
                 );
@@ -1829,7 +1793,7 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
         }
 
         // Map the clicked button
-        if (MAPPING_FLAG && mouseState == MOUSE_UP && hoveredButton > MAP_BUTTON_CLICKED -1) {
+        if (MAPPING_FLAG && mouseState == MOUSE_UP && hoveredButton > MAP_BUTTON_CLICKED - 1) {
             saveMapButton.Clear();
             cancelButton.Clear();
 
@@ -1840,7 +1804,7 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
             tUIMapTheseInputs(joystick, inputList);
 
             // re draw everything
-            ReDrawControllerFace(screen, colorSchemes[g_currentColorScheme], g_BG_COLOR, 1);
+            ReDrawControllerFace(screen, colorSchemes[g_currentColorScheme], fullColorSchemes[g_currentColorScheme].controllerBg, 1);
             screen.DrawButtons();
             otherButtons.DrawButtons();
 
@@ -1866,14 +1830,14 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
             inputList.insert(inputList.end(), joystick.mapping.thumbButtonNames.begin(), joystick.mapping.thumbButtonNames.end());
             inputList.insert(inputList.end(), joystick.mapping.dpadButtonNames.begin(), joystick.mapping.dpadButtonNames.end());
             inputList.insert(inputList.end(), joystick.mapping.genericButtonNames.begin(), joystick.mapping.genericButtonNames.end());
-            
+
             tUIMapTheseInputs(joystick, inputList);
 
             // turn down the mapping flag to indicate not to map all inputs again
             MAPPING_FLAG = 1;
 
             // re draw everything
-            ReDrawControllerFace(screen, colorSchemes[g_currentColorScheme], g_BG_COLOR, 1);
+            ReDrawControllerFace(screen, colorSchemes[g_currentColorScheme], fullColorSchemes[g_currentColorScheme].controllerBg, 1);
             screen.DrawButtons();
             otherButtons.DrawButtons();
 
@@ -1920,7 +1884,7 @@ void tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::
         button_Guide_highlight.getDefaultColor(),
         button_Guide_highlight.getHighlightColor(),
         button_Guide_highlight.getSelectColor(),
-        (g_BG_COLOR FG_ONLY) | (button_Guide_highlight.getDefaultColor() BG_ONLY)
+        (fullColorSchemes[g_currentColorScheme].controllerBg FG_ONLY) | (button_Guide_highlight.getDefaultColor() BG_ONLY)
     );
 
     tUIColorPkg buttonColors(
@@ -1946,9 +1910,9 @@ void tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::
     mouseButton MapScreen_Overlay_body(OVERLAY_START_COL, OVERLAY_START_LINE + 1, 25, L"\t\t\t   Set Input For   \t\t\t\t\t                     \t\t\t                       \t");
     mouseButton MapScreen_Overlay_bodyBottom(OVERLAY_START_COL, OVERLAY_START_LINE + 4, 25, L"                                                  ");
     MapScreen_Overlay_outlineTop.SetDefaultColor(UIcolors.col4);
-    MapScreen_Overlay_outline.SetDefaultColor(g_BG_COLOR);
+    MapScreen_Overlay_outline.SetDefaultColor(fullColorSchemes[g_currentColorScheme].controllerBg);
     MapScreen_Overlay_body.SetDefaultColor(UIcolors.col1);
-    MapScreen_Overlay_bodyBottom.SetDefaultColor(g_BG_COLOR);
+    MapScreen_Overlay_bodyBottom.SetDefaultColor(fullColorSchemes[g_currentColorScheme].controllerBg);
 
     // areas for inputToMap name to be displayed
     textInput inputID(CONSOLE_WIDTH / 2, OVERLAY_START_LINE + 2, 25, 25, ALIGN_CENTER, UIcolors.col3);

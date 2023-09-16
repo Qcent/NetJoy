@@ -227,13 +227,21 @@ int joySender(Arguments& args) {
     _setmode(_fileno(stdout), _O_U8TEXT);
        
         // establish a color scheme
-     g_currentColorScheme = 2;
-     g_BG_COLOR = makeSafeColors(MAGENTA AS_BG | colorSchemes[g_currentColorScheme].outlineColor) ;
-    //mouseButton dummyBtn;
+        
+        // new SCHOOL
+    g_currentColorScheme = 1;       // will be used as index for fullColorSchemes
+
+    /*
+     // old SCHOOL
+     //g_currentColorScheme = 2;
+     //g_BG_COLOR = makeSafeColors(MAGENTA AS_BG | colorSchemes[g_currentColorScheme].outlineColor) ;
+    
+    // older and random
+     //mouseButton dummyBtn;
     //dummyBtn.SetStatus(MOUSE_UP);
     //newControllerColorsCallback(dummyBtn); // will generate a random color scheme //and also draw the controller to the screen
 
-     /*
+     //  also OLD
         // inverted controller face bg color
     tUIColorPkg ColorPack1 = colorSchemeToColorPkg(1); 
         // same background color
@@ -245,11 +253,12 @@ int joySender(Arguments& args) {
     WORD ERROR_COLOR = ColorPack3.col4;
 
     */
+
         // set element properties
     textUI& screen = g_screen;
     CoupleControllerButtons(); // sets up controller outline/highlight coupling for nice looks & button ids
     screen.SetBackdrop(JoySendMain_Backdrop);
-    screen.SetBackdropColor(g_BG_COLOR);
+    screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg);
     output1.SetPosition(15, 5, 50, 1, ALIGN_LEFT); // output1 is a textarea used for screen headers/titles
     errorOut.SetPosition(consoleWidth/2, 4, 50, 0, ALIGN_CENTER); // used for error messaging
     fpsMsg.SetPosition(51, 1, 7, 1, ALIGN_LEFT);                // fps output
@@ -380,7 +389,7 @@ int joySender(Arguments& args) {
     while (!APP_KILLED) {
 
         screen.ReDraw();
-        setTextColor(fullColorSchemes[0].menuColors.col3);
+        setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
         printCurrentController(activeGamepad);
         
         //
@@ -401,12 +410,12 @@ int joySender(Arguments& args) {
         // Establish connection to host
         {           
             // Load Connecting Screen
-            output1.SetColor(fullColorSchemes[0].menuColors.col1);    // title/heading text
-            errorOut.SetColor(fullColorSchemes[0].menuColors.col2);
+            output1.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);    // title/heading text
+            errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2);
             errorOut.SetPosition(consoleWidth / 2, 7, 50, 0, ALIGN_CENTER);
             
             screen.AddButton(&quitButton);
-            screen.SetButtonsColors(controllerButtonsToScreenButtons(fullColorSchemes[0].controllerColors)); 
+            screen.SetButtonsColors(controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors)); 
             
             // set up connecting message
             int len = args.host.size() + 18;
@@ -416,13 +425,13 @@ int joySender(Arguments& args) {
 
             // Draw Screen
             screen.ReDraw();
-            setTextColor(fullColorSchemes[0].menuColors.col3);
+            setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
             printCurrentController(activeGamepad);
             errorOut.Draw();
             output1.Draw();
 
             // set up connecting animation
-            output2.SetColor(fullColorSchemes[0].menuColors.col4);
+            output2.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
             output2.SetPosition(consoleWidth / 2, 10, 38, 0, ALIGN_CENTER);   
 
             // ### establish the connection in separate thread to animate connecting dialog
@@ -487,21 +496,10 @@ int joySender(Arguments& args) {
 
                 // Set button and controller colors
                     // Sets controller to color scheme colors with some contrast correction for bg color then draws the controller face
-                //DrawControllerFace(screen, colorSchemes[g_currentColorScheme], g_BG_COLOR, args.mode);
+                ColorScheme simpScheme = simpleSchemeFromFullScheme(fullColorSchemes[g_currentColorScheme]);
+                DrawControllerFace(screen, simpScheme, fullColorSchemes[g_currentColorScheme].controllerBg, args.mode);        
 
-                ColorScheme simpScheme = simpleSchemeFromFullScheme(fullColorSchemes[0]);
-                DrawControllerFace(screen, simpScheme, fullColorSchemes[0].controllerBg, args.mode);
-                
-                /*
-                    // get color package of contrast corrected button colors
-                tUIColorPkg buttonColors(
-                    screen.GetBackdropColor(),
-                    button_Guide_highlight.getHighlightColor(),
-                    button_Guide_highlight.getSelectColor(),
-                    0 // unused
-                );
-                */
-                tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[0].controllerColors);
+                tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
 
                     // color non controller buttons and draw them
                 restartButton[3].SetColors(buttonColors);  // mode section of restart button
@@ -517,14 +515,14 @@ int joySender(Arguments& args) {
                 wcsncpy_s(msgPointer1, 40, g_converter.from_bytes(" << Connected to: " + args.host + "  >> ").c_str(), _TRUNCATE);
                 output1.SetText(msgPointer1);
                 output1.SetPosition(3, 1, 40, 1, ALIGN_LEFT);
-                output1.SetColor(g_BG_COLOR);
+                output1.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg);
 
                 wcsncpy_s(hostPointer, 18, g_converter.from_bytes(" "+args.host+" ").c_str(), _TRUNCATE);
                 hostMsg.SetText(hostPointer);
                 hostMsg.SetPosition(20, 1, 38, 1, ALIGN_LEFT);
-                hostMsg.SetColor(fullColorSchemes[0].menuColors.col4);
+                hostMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
 
-                fpsMsg.SetColor(fullColorSchemes[0].menuColors.col3);
+                fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
 
                 restartButton[3].Draw();
                 output1.Draw();
