@@ -249,8 +249,8 @@ int joySender(Arguments& args) {
     quitButton.SetPosition(10, 17);
     
 
-    //###########################################################################
-    //# User or auto select gamepad 
+    //############################################################
+    //# User or Auto Select Gamepad 
     switch (args.mode) {
     case 1: {   // SDL MODE
         if (!args.select) { // not auto select
@@ -294,8 +294,8 @@ int joySender(Arguments& args) {
         return -1;
     }
         
-    //###########################################################################
-    // Init Settings for Operating Mode:  DS4 / XBOX
+    //############################################################
+    // Initial Settings for Operating Mode:  DS4 / XBOX
     if (args.mode == 2) {         
         // Get a report from the device to determine what type of connection it has
         GetDS4Report();
@@ -357,13 +357,11 @@ int joySender(Arguments& args) {
         activeInputs = activeGamepad.mapping.getSetButtonNames();
     }
 
-    //###########################################################################
-
-
     // UI resets
     screen.SetBackdrop(JoySendMain_Backdrop); // i think this is only need if a mapping occurred
     setErrorMsg(L"\0", 1); // clear error output in memory
 
+    //############################################################
     //# Main Loop keeps client running
     //# asks for new host if, inner Connection Loop, fails 3 times
     while (!APP_KILLED) {
@@ -430,11 +428,11 @@ int joySender(Arguments& args) {
                 if (!APP_KILLED && allGood == WSAEWOULDBLOCK)
                     Sleep(100);
             }
-            connectThread.join();
+            connectThread.detach();
             // ###
         }
 
-            // failed to make connection
+            // failed to make connectionS
         if (!APP_KILLED && allGood < 0) {
             int len = args.host.size() + 33;
             swprintf(errorPointer, len, L" << Connection To %s Failed: %d >> ", std::wstring(args.host.begin(), args.host.end()).c_str(), failed_connections+1);
@@ -534,8 +532,8 @@ int joySender(Arguments& args) {
         }
 
 
-        // ******************
-        // Connection Loop
+        // //############################################################  //
+        // Connection Loop  //##########################################  //
         fps_counter.reset();
         while (inConnection){
 
@@ -580,6 +578,7 @@ int joySender(Arguments& args) {
                 wcsncpy_s(msgPointer1, 40, g_converter.from_bytes(" << Connected to: " + args.host + "  >> ").c_str(), _TRUNCATE);
                 output1.SetText(msgPointer1);
                 output1.SetPosition(3, 1, 40, 1, ALIGN_LEFT);
+                output1.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg);
 
                 // re add screen buttons
                 screen.AddButton(&mappingButton);
@@ -588,9 +587,13 @@ int joySender(Arguments& args) {
                 screen.AddButton(&restartButton[0]);  // main restart
                 screen.AddButton(&quitButton);
 
-                // redraw everything
+                // reset quit button
+                quitButton.setCallback(&exitAppCallback);
                 quitButton.SetPosition(consoleWidth / 2 - 5, XBOX_QUIT_LINE);
-                g_screen.ReDraw();
+
+                // redraw everything
+                DrawControllerFace(screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, args.mode);
+                g_screen.DrawButtons();
                 restartButton[3].Draw();
                 output1.Draw();
                 hostMsg.Draw();
@@ -685,8 +688,8 @@ int joySender(Arguments& args) {
                 DS4manager.Flush();
             }
         }
-        // ****************** \\
-        // Connection ended    \\
+        // ###########################################################  \\
+        // Connection Ended    ########################################  \\
 
 
         //
