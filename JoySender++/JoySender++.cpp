@@ -229,7 +229,8 @@ int joySender(Arguments& args) {
         // establish a color scheme
         
         // new SCHOOL
-    g_currentColorScheme = 1;       // will be used as index for fullColorSchemes
+    g_currentColorScheme = 3;       // will be used as index for fullColorSchemes
+    g_simpleScheme = simpleSchemeFromFullScheme(fullColorSchemes[g_currentColorScheme]);  // Set for compatibility with DrawControllerFace
 
     /*
      // old SCHOOL
@@ -259,7 +260,7 @@ int joySender(Arguments& args) {
     CoupleControllerButtons(); // sets up controller outline/highlight coupling for nice looks & button ids
     screen.SetBackdrop(JoySendMain_Backdrop);
     screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg);
-    output1.SetPosition(15, 5, 50, 1, ALIGN_LEFT); // output1 is a textarea used for screen headers/titles
+    output1.SetPosition(14, 5, 50, 1, ALIGN_LEFT); // output1 is a textarea used for screen headers/titles
     errorOut.SetPosition(consoleWidth/2, 4, 50, 0, ALIGN_CENTER); // used for error messaging
     fpsMsg.SetPosition(51, 1, 7, 1, ALIGN_LEFT);                // fps output
     quitButton.setCallback(&exitAppCallback);
@@ -496,8 +497,7 @@ int joySender(Arguments& args) {
 
                 // Set button and controller colors
                     // Sets controller to color scheme colors with some contrast correction for bg color then draws the controller face
-                ColorScheme simpScheme = simpleSchemeFromFullScheme(fullColorSchemes[g_currentColorScheme]);
-                DrawControllerFace(screen, simpScheme, fullColorSchemes[g_currentColorScheme].controllerBg, args.mode);        
+                DrawControllerFace(screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, args.mode);
 
                 tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
 

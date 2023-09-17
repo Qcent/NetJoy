@@ -110,7 +110,8 @@ std::wstring_convert<std::codecvt_utf8<wchar_t>> g_converter;
 
 int g_mode = 1;
 int g_currentColorScheme;
-WORD g_BG_COLOR = 0;
+// WORD g_BG_COLOR = 0;
+ColorScheme g_simpleScheme;
 
 wchar_t g_stringBuff[500];
 wchar_t* errorPointer = g_stringBuff;   // max length 100
@@ -159,7 +160,29 @@ struct FullColorScheme {
     WORD controllerBg;
 };
 
-FullColorScheme fullColorSchemes[2] = {
+FullColorScheme fullColorSchemes[5] = {
+    { L"Random",
+        {
+        // Menu Colors
+        WHITE | (MAGENTA AS_BG),			// Header
+        WHITE | (RED AS_BG),		        // Error
+        WHITE | (CYAN AS_BG),				// message 1
+        WHITE | (BRIGHT_RED AS_BG)			// message 2
+    },
+    {
+        // Controller Colors
+        BLACK | (BRIGHT_MAGENTA AS_BG),	    // outline | faceColor 
+        WHITE | (BRIGHT_MAGENTA AS_BG),		// buttonColor
+        BLUE | (BRIGHT_MAGENTA AS_BG),	    // highlightColor
+        WHITE | (CYAN AS_BG)	            // selectColor
+    },
+    // Menu background
+    WHITE | (BRIGHT_RED AS_BG),
+    // Controller background
+    BLACK | (MAGENTA AS_BG),
+    },
+
+
     { L"Plum",
         {
         // Menu Colors
@@ -201,12 +224,57 @@ FullColorScheme fullColorSchemes[2] = {
     BLACK | (CYAN AS_BG),
     // Controller background
     BRIGHT_GREEN | (BRIGHT_BLUE AS_BG),
+    },
+
+
+     { L"Blueberry",
+        {
+        // Menu Colors
+        WHITE | (BRIGHT_MAGENTA AS_BG),			// Header
+        WHITE | (RED AS_BG),		        // Error
+        BLUE | (BRIGHT_CYAN AS_BG),				// message 1
+        BRIGHT_CYAN | (MAGENTA AS_BG)			// message 2
+    },
+    {
+        // Controller Colors
+        CYAN | (CYAN AS_BG),	        // outline | faceColor 
+        WHITE | (CYAN AS_BG),		    // buttonColor
+        BLUE | (CYAN AS_BG),            // highlightColor
+        BRIGHT_CYAN | (BRIGHT_MAGENTA AS_BG)  // selectColor
+    },
+    // Menu background
+    CYAN | (MAGENTA AS_BG),
+    // Controller background
+    CYAN | (BLUE AS_BG),
+    },
+
+
+     { L"Emily's Bougie Baby",
+        {
+        // Menu Colors
+        BLACK | (YELLOW AS_BG),			// Header
+        WHITE | (RED AS_BG),		        // Error
+        WHITE | (BLUE AS_BG),				// message 1
+        BLUE | (BLACK AS_BG)			// message 2
+    },
+    {
+        // Controller Colors
+        YELLOW | (BLACK AS_BG),	        // outline | faceColor 
+        YELLOW | (BLACK AS_BG),		    // buttonColor
+        BRIGHT_YELLOW | (BLACK AS_BG),            // highlightColor
+        WHITE | (YELLOW AS_BG)  // selectColor
+    },
+    // Menu background
+    RED | (BLACK AS_BG),
+    // Controller background
+    YELLOW | (BLACK AS_BG),
     }
 
-    // { BLACK,         BRIGHT_RED AS_BG,	WHITE,		BLUE,			WHITE | CYAN AS_BG,			L"PINKY" }
+    // { CYAN,			CYAN AS_BG,		        WHITE,		GREY,			WHITE | BRIGHT_MAGENTA AS_BG,  L"Bberry" }
     // { BRIGHT_GREEN,	BRIGHT_RED AS_BG,	    BLACK,	    BRIGHT_GREEN,	BLACK | BRIGHT_GREEN AS_BG,	L"WATERMELON" }
 };
 
+FullColorScheme fullSchemeFromSimpleScheme(ColorScheme& simp, WORD bg);
 
 
 // ********************************
@@ -259,14 +327,12 @@ void newControllerColorsCallback(mouseButton& button) {
             g_currentColorScheme = -1;
         }
         */
-
-        // force watermelon scheme for now
-        //g_currentColorScheme = 16;
-        //randomScheme = colorSchemes[16];
-        //newRandomBG = BRIGHT_BLUE AS_BG;
     
         // update global background for universal color consistency
-        g_BG_COLOR = newRandomBG | randomScheme.outlineColor;
+        //g_BG_COLOR = newRandomBG | randomScheme.outlineColor;
+        g_simpleScheme = randomScheme;
+        fullColorSchemes[0] = fullSchemeFromSimpleScheme(randomScheme, newRandomBG);
+        g_currentColorScheme = 0;
 
         if (drawMode != g_mode) {
             drawMode = g_mode;
@@ -283,9 +349,6 @@ void newControllerColorsCallback(mouseButton& button) {
 
         // Draw Controller
         DrawControllerFace(g_screen, randomScheme, newRandomBG, drawMode);
-
-        // Just the BG
-        //DrawControllerFace(g_screen, colorSchemes[g_currentColorScheme], g_BG_COLOR, drawMode);
 
         tUIColorPkg buttonColors(
             g_screen.GetBackdropColor(),
@@ -369,7 +432,7 @@ if (button.Status() & (MOUSE_HOVERED)) {
 }
 
 else if (button.Status() == MOUSE_OUT) {
-    restartButton[3].Clear(g_BG_COLOR);
+    restartButton[3].Clear(fullColorSchemes[g_currentColorScheme].controllerBg);
     restartButton[3].SetText(L"[mode] ");
     restartButton[3].Draw(restartButton[0].getCurrentColor());
 }
@@ -857,6 +920,32 @@ tUIColorPkg controllerButtonsToScreenButtons(tUIColorPkg& inButs) {
     );
 }
 
+FullColorScheme fullSchemeFromSimpleScheme(ColorScheme& simp, WORD bg) {
+    FullColorScheme ret  = {
+        L"Random",
+        {
+            // Menu Colors
+            BLACK | (GREY AS_BG),			// Header
+            BLACK | (RED AS_BG),		        // Error
+            BLACK | (BRIGHT_GREY AS_BG),		// message 1
+            BLACK | (WHITE AS_BG)			// message 2
+        },
+        {
+            // Controller Colors
+            static_cast<WORD>(simp.outlineColor | simp.faceColor),	    // outline | faceColor 
+            static_cast<WORD>(simp.buttonColor | simp.faceColor),		// buttonColor
+            static_cast<WORD>(simp.highlightColor | simp.faceColor),	    // highlightColor
+            simp.selectColor                         // selectColor 
+        },
+        // Menu background
+        BLACK | (WHITE AS_BG),
+        // Controller background
+        static_cast<WORD>(simp.outlineColor | bg)
+    };
+
+    return ret;
+}
+
 ColorScheme simpleSchemeFromFullScheme(FullColorScheme& full) {
     return ColorScheme{
         static_cast<WORD>(full.controllerColors.col1 FG_ONLY),
@@ -1012,7 +1101,7 @@ int tUISelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick, textUI&
     // add messages to screen
     errorOut.Draw();
 
-    wcsncpy_s(msgPointer1, 19, L"Select a Joystick:", _TRUNCATE);
+    wcsncpy_s(msgPointer1, 21, L" Select a Joystick: ", _TRUNCATE);
     output1.SetText(msgPointer1);
     output1.Draw();
     
@@ -1632,9 +1721,7 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
     // Set button and controller colors
         // Sets controller to color scheme colors with some contrast correction for bg color then 
         // draws screen backdrop and face
-    // DrawControllerFace(screen, colorSchemes[g_currentColorScheme], g_BG_COLOR, 1);
-    ColorScheme simpScheme = simpleSchemeFromFullScheme(fullColorSchemes[g_currentColorScheme]);
-    DrawControllerFace(screen, simpScheme, fullColorSchemes[g_currentColorScheme].controllerBg, 1);
+    DrawControllerFace(screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, 1);
         // get color package of contrast corrected button colors
     tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
     
@@ -1804,7 +1891,7 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
             tUIMapTheseInputs(joystick, inputList);
 
             // re draw everything
-            ReDrawControllerFace(screen, colorSchemes[g_currentColorScheme], fullColorSchemes[g_currentColorScheme].controllerBg, 1);
+            ReDrawControllerFace(screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, 1);
             screen.DrawButtons();
             otherButtons.DrawButtons();
 
@@ -1837,7 +1924,7 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
             MAPPING_FLAG = 1;
 
             // re draw everything
-            ReDrawControllerFace(screen, colorSchemes[g_currentColorScheme], fullColorSchemes[g_currentColorScheme].controllerBg, 1);
+            ReDrawControllerFace(screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, 1);
             screen.DrawButtons();
             otherButtons.DrawButtons();
 
