@@ -37,8 +37,6 @@ std::string g_getenv(const char* variableName) {
     }
     return value;
 }
-// Some Console Output, ANSI helper functions
-
 // Function to detect if keyboard key is pressed
 bool getKeyState(int KEYCODE) {
     return GetAsyncKeyState(KEYCODE) & 0x8000;
@@ -208,7 +206,7 @@ int joySender(Arguments& args) {
     double latencyOutput = 0.0;
     const int latency_report_freq = 25;
 
-    // global flags used by ui and callback functions
+    // global flags set by ui and callback functions
     RESTART_FLAG = 0;
     MAPPING_FLAG = 0;
 
@@ -227,7 +225,6 @@ int joySender(Arguments& args) {
     _setmode(_fileno(stdout), _O_U8TEXT);
        
         // establish a color scheme
-    
     g_currentColorScheme = generateRandomInt(0, NUM_COLOR_SCHEMES);       // will be used as index for fullColorSchemes
     if (g_currentColorScheme == RANDOMSCHEME)
     {
@@ -251,6 +248,7 @@ int joySender(Arguments& args) {
     quitButton.setCallback(&exitAppCallback);
     quitButton.SetPosition(10, 17);
     
+
     //###########################################################################
     //# User or auto select gamepad 
     switch (args.mode) {
@@ -258,10 +256,6 @@ int joySender(Arguments& args) {
         if (!args.select) { // not auto select
            allGood = tUISelectJoystickDialog(getUIJoystickList().size(), activeGamepad, screen);
            if (!allGood) {
-               // the error output is handled inside function
-               //setErrorMsg(L"Failed to open joystick.", 25);
-               //errorOut.Draw();
-
                SDL_Quit();
                return -1;
            }
@@ -388,7 +382,6 @@ int joySender(Arguments& args) {
             }
             setErrorMsg(L"\0", 1); // clear errors in memory
         }
-
      
         TCPConnection client(args.host, args.port);
         client.set_silence(true);
@@ -441,7 +434,7 @@ int joySender(Arguments& args) {
             // ###
         }
 
-        // failed to make connection
+            // failed to make connection
         if (!APP_KILLED && allGood < 0) {
             int len = args.host.size() + 33;
             swprintf(errorPointer, len, L" << Connection To %s Failed: %d >> ", std::wstring(args.host.begin(), args.host.end()).c_str(), failed_connections+1);
@@ -449,7 +442,8 @@ int joySender(Arguments& args) {
             errorOut.SetText(errorPointer);
         }
 
-        // set up UI and timing/mode handshake with host
+        //
+        // Set up UI and do timing/mode handshake with host
         else if(!APP_KILLED){
             // Set up screen for main connection loop
             {
@@ -516,27 +510,27 @@ int joySender(Arguments& args) {
             }
 
             //
-            // Attempt timing and mode setting handshake
-
-            std::string txSettings = std::to_string(args.fps) + ":" + std::to_string(args.mode);
+            // Attempt timing and mode setting handshake * sets inConnection true
+            {
+                std::string txSettings = std::to_string(args.fps) + ":" + std::to_string(args.mode);
                 // tx
-            allGood = client.send_data(txSettings.c_str(), static_cast<int>(txSettings.length()));
-            if (allGood < 1) {              
-                setErrorMsg(g_converter.from_bytes(" << Connection To: " + args.host + " Failed >> ").c_str(), 48);
-                client.~TCPConnection();
-                break;
-            }
+                allGood = client.send_data(txSettings.c_str(), static_cast<int>(txSettings.length()));
+                if (allGood < 1) {
+                    setErrorMsg(g_converter.from_bytes(" << Connection To: " + args.host + " Failed >> ").c_str(), 48);
+                    client.~TCPConnection();
+                    break;
+                }
                 // rx
-            bytesReceived = client.receive_data(buffer, buffer_size);
-            if (bytesReceived > 0) {
-                inConnection = true;
+                bytesReceived = client.receive_data(buffer, buffer_size);
+                if (bytesReceived > 0) {
+                    inConnection = true;
+                }
+                else {
+                    setErrorMsg(g_converter.from_bytes(" << Connection To: " + args.host + " Lost >> ").c_str(), 46);
+                    client.~TCPConnection();
+                    break;
+                }
             }
-            else{
-                setErrorMsg(g_converter.from_bytes(" << Connection To: " + args.host + " Lost >> ").c_str(), 46);         
-                client.~TCPConnection();
-                break;
-            }
-
         }
 
 
@@ -548,17 +542,8 @@ int joySender(Arguments& args) {
             screenLoop(screen);
 
             //
-            // Catch if Restart or Mapping button was pressed
-            if (RESTART_FLAG || MAPPING_FLAG) {
-                client.~TCPConnection();
-                inConnection = false;
-            }
-
-                // Shift + R will Reset program allowing joystick reconnection / selection
-                // Shift + M will reMap all buttons on an SDL device
-                // Shift + Q will Quit the program
-                // Shift + G will ...
-            if (inConnection && IsAppActiveWindow() && getKeyState(VK_SHIFT)) {
+            // Catch hot key button presses
+            if (IsAppActiveWindow() && !MAPPING_FLAG && getKeyState(VK_SHIFT)) {
                 if (checkKey('G', IS_PRESSED)) {
                     // maybe change colors or something
                     button_Guide_highlight.SetStatus(MOUSE_UP);
@@ -566,19 +551,51 @@ int joySender(Arguments& args) {
                     output1.Draw();
                     hostMsg.Draw();
                 }
-                if (getKeyState('R') || getKeyState('M') || getKeyState('Q')) {
-                        client.~TCPConnection();
-                        inConnection = false;
+                if (getKeyState('M') && args.mode == 1) {
+                    MAPPING_FLAG = 1;                    
+                }
+                if (getKeyState('R') || getKeyState('Q')) {
+                    if (getKeyState('R'))
+                        RESTART_FLAG = 1;
 
-                        if (getKeyState('R'))
-                            RESTART_FLAG = 1;
-
-                        if (getKeyState('M'))
-                            MAPPING_FLAG = 1;
+                    if (getKeyState('Q'))
+                        APP_KILLED = true;
                 }
             }
-            if (!inConnection || APP_KILLED) {
-                break; // Break out of the loop if inConnection is false
+            if (RESTART_FLAG || APP_KILLED) {
+                client.~TCPConnection();
+                inConnection = false;
+                break; // Break out of the loop
+            }
+
+            // Do remapping if triggered
+            if (MAPPING_FLAG) {
+                // REMAP STUFF ** pauses communication with host till finished
+                tUIRemapInputsScreen(activeGamepad, screen);
+
+                // sets new input scheme
+                activeInputs = activeGamepad.mapping.getSetButtonNames(); 
+
+                // reset output1
+                wcsncpy_s(msgPointer1, 40, g_converter.from_bytes(" << Connected to: " + args.host + "  >> ").c_str(), _TRUNCATE);
+                output1.SetText(msgPointer1);
+                output1.SetPosition(3, 1, 40, 1, ALIGN_LEFT);
+
+                // re add screen buttons
+                screen.AddButton(&mappingButton);
+                screen.AddButton(&restartButton[1]);  // mode 1
+                screen.AddButton(&restartButton[2]);  // mode 2
+                screen.AddButton(&restartButton[0]);  // main restart
+                screen.AddButton(&quitButton);
+
+                // redraw everything
+                quitButton.SetPosition(consoleWidth / 2 - 5, XBOX_QUIT_LINE);
+                g_screen.ReDraw();
+                restartButton[3].Draw();
+                output1.Draw();
+                hostMsg.Draw();
+                
+                MAPPING_FLAG = 0;
             }
 
 
@@ -605,7 +622,7 @@ int joySender(Arguments& args) {
                 // activate buttons from xbox report
                 buttonStatesFromXboxReport(xbox_report);
             }
-           
+
                 
             // 
             //  Send joystick input to server
@@ -624,6 +641,7 @@ int joySender(Arguments& args) {
                 break;
             }
 
+
             //
             // Wait for server response
             allGood = client.receive_data(buffer, buffer_size);                
@@ -633,6 +651,7 @@ int joySender(Arguments& args) {
                 inConnection = false;
                 break;
             }
+
 
 
             // **  Process Rumble Feedback data
@@ -651,7 +670,7 @@ int joySender(Arguments& args) {
                 }
             }
 
-            // let's calculate some timing
+            // calculate timing
             fpsOutput = do_fps_counting();
             if (!fpsOutput.empty()) {
                 updateFPS(g_converter.from_bytes(fpsOutput + "   ").c_str(), 8);
@@ -672,13 +691,12 @@ int joySender(Arguments& args) {
 
         //
         // Catch mouse/key presses that could have terminated connection
-            // Shift + Q  will Quit
-        if (getKeyState('Q') || APP_KILLED) {
+        if (APP_KILLED) {
             return 0;
         }
-            // Shift + R  Resets program allowing joystick reconnection / selection, holding a number will change op mode
-        if (RESTART_FLAG) {
-            //g_outputText += "<< Restarted >>\r\n";
+            // Shift + R  Resets program, holding 1 or 2 will change mode
+        if (RESTART_FLAG)  {
+
             while (RESTART_FLAG < 2 && getKeyState('R')) {
                 if (getKeyState('1'))
                     RESTART_FLAG = 2;
@@ -691,21 +709,7 @@ int joySender(Arguments& args) {
 
             return RESTART_FLAG;
         }
-            // Shift + M  reMaps all inputs
-        if (MAPPING_FLAG) {
-            if (args.mode == 1) {
-                // REMAP STUFF
-                //activeGamepad.mapping = SDLButtonMapping();
-                std::vector<SDLButtonMapping::ButtonName> blankList;
-                tUIRemapInputsScreen(activeGamepad, screen);
-                activeInputs = activeGamepad.mapping.getSetButtonNames();
-                --failed_connections;
-            }
-            else {
-                MAPPING_FLAG = 0;
-            }
-        }
-        
+
         
         //
         // Connection has failed or been aborted
