@@ -29,7 +29,7 @@ void BuildXboxFace() {
 	ControllerFace[13] = textBox(9, 16, 8, 1, ALIGN_LEFT, L"        ", GREY AS_BG);
 	ControllerFace[14] = textBox(56, 16, 8, 1, ALIGN_LEFT, L"        ", GREY AS_BG);
 
-	ControllerFace[15] = textBox(9, 17, 7, 1, ALIGN_LEFT, L",     .", GREY AS_BG);
+	ControllerFace[15] = textBox(9, 17, 7, 1, ALIGN_LEFT, L".     ,", GREY AS_BG);
 	ControllerFace[16] = textBox(57, 17, 7, 1, ALIGN_LEFT, L".     ,", GREY AS_BG);
 }
 

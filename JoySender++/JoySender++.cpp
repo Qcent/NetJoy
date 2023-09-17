@@ -227,33 +227,18 @@ int joySender(Arguments& args) {
     _setmode(_fileno(stdout), _O_U8TEXT);
        
         // establish a color scheme
-        
-        // new SCHOOL
-    g_currentColorScheme = 3;       // will be used as index for fullColorSchemes
-    g_simpleScheme = simpleSchemeFromFullScheme(fullColorSchemes[g_currentColorScheme]);  // Set for compatibility with DrawControllerFace
-
-    /*
-     // old SCHOOL
-     //g_currentColorScheme = 2;
-     //g_BG_COLOR = makeSafeColors(MAGENTA AS_BG | colorSchemes[g_currentColorScheme].outlineColor) ;
     
-    // older and random
-     //mouseButton dummyBtn;
-    //dummyBtn.SetStatus(MOUSE_UP);
-    //newControllerColorsCallback(dummyBtn); // will generate a random color scheme //and also draw the controller to the screen
+    g_currentColorScheme = generateRandomInt(0, NUM_COLOR_SCHEMES);       // will be used as index for fullColorSchemes
+    if (g_currentColorScheme == RANDOMSCHEME)
+    {
+        WORD newRandomBG = generateRandomInt(0, 15) AS_BG;
 
-     //  also OLD
-        // inverted controller face bg color
-    tUIColorPkg ColorPack1 = colorSchemeToColorPkg(1); 
-        // same background color
-    tUIColorPkg ColorPack2 = colorSchemeToColorPkg(3);
-        // inverted select background color
-    tUIColorPkg ColorPack3 = colorSchemeToColorPkg(2); 
+        static ColorScheme randomScheme;
+        randomScheme = createRandomScheme();
 
-    WORD HEADING_COLOR = ColorPack1.col1;
-    WORD ERROR_COLOR = ColorPack3.col4;
-
-    */
+        fullColorSchemes[RANDOMSCHEME] = fullSchemeFromSimpleScheme(randomScheme, newRandomBG);
+    }
+    g_simpleScheme = simpleSchemeFromFullScheme(fullColorSchemes[g_currentColorScheme]);  // Set for compatibility with DrawControllerFace
 
         // set element properties
     textUI& screen = g_screen;
@@ -388,14 +373,15 @@ int joySender(Arguments& args) {
     //# Main Loop keeps client running
     //# asks for new host if, inner Connection Loop, fails 3 times
     while (!APP_KILLED) {
-
-        screen.ReDraw();
-        setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
-        printCurrentController(activeGamepad);
         
         //
         // Acquire host address for connection attempt
-        if (args.host.empty()) {         
+        if (args.host.empty()) {       
+
+            screen.ReDraw();
+            setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
+            printCurrentController(activeGamepad);
+
             args.host = tUIGetHostAddress(screen);
             if (APP_KILLED) {
                 return -1;

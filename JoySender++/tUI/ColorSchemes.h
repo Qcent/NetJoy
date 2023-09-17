@@ -37,8 +37,10 @@ struct ColorScheme {
 	const wchar_t* name;
 };
 
-#define NUM_COLOR_SCHEMES 16
-// Global Collection of Controller Face/Button Color schemes
+//#define NUM_COLOR_SCHEMES 5	// used by fullColorScheme now
+
+// Global Collection of Controller Face/Button Color schemes ** Obsolete
+/*
 ColorScheme colorSchemes[NUM_COLOR_SCHEMES + 1] = {
 	//	:outline,	:face,			:buttonLine,   :buttonHover,    :buttonClicked,				:name
 	{ WHITE,		BLACK AS_BG,	WHITE,			GREY,			BRIGHT_BLUE | RED AS_BG,	L"WHITE_ON_BLACK" }, //0
@@ -59,6 +61,7 @@ ColorScheme colorSchemes[NUM_COLOR_SCHEMES + 1] = {
 	{ WHITE,		BLACK AS_BG,	WHITE,			BRIGHT_BLUE,	BRIGHT_BLUE | YELLOW AS_BG,	L"BLACK_DEFAULT" },  //15
 	{ BRIGHT_GREEN,	BRIGHT_RED AS_BG,	BLACK,	    BRIGHT_GREEN,	BLACK | BRIGHT_GREEN AS_BG,	L"WATERMELON" },  //16				// candidate
 };
+*/
 
 // Generate a random integer from r1 - r2
 int generateRandomInt(int r1, int r2) {

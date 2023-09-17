@@ -68,14 +68,11 @@ char IpInputLoop();
 int screenLoop(textUI& screen);
 int tUISelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick, textUI& screen);
 int tUISelectDS4Dialog(std::vector<HidDeviceInfo>devList, textUI& screen);
-// bool tUIConnectToDS4Controller(textUI& screen);
 std::string tUIGetHostAddress(textUI& screen);
 void threadedEstablishConnection(TCPConnection& client, int& retVal);
 bool checkKey(int key, bool pressed);
-// tUIColorPkg colorSchemeToColorPkg(int version = 0);
 void tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonName>& inputList);
 int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen);
-
 
 #define MAP_BUTTON_CLICKED 10000  // a value to add to an input index to indicate it was clicked on
 
@@ -110,10 +107,9 @@ std::wstring_convert<std::codecvt_utf8<wchar_t>> g_converter;
 
 int g_mode = 1;
 int g_currentColorScheme;
-// WORD g_BG_COLOR = 0;
 ColorScheme g_simpleScheme;
 
-wchar_t g_stringBuff[500];
+wchar_t g_stringBuff[500];      // for holding generated text data
 wchar_t* errorPointer = g_stringBuff;   // max length 100
 wchar_t* hostPointer = g_stringBuff + 100;    // max length 25
 wchar_t* fpsPointer = hostPointer + 25;   // max length 10
@@ -160,7 +156,10 @@ struct FullColorScheme {
     WORD controllerBg;
 };
 
-FullColorScheme fullColorSchemes[5] = {
+#define NUM_COLOR_SCHEMES   5
+#define RANDOMSCHEME        0
+
+FullColorScheme fullColorSchemes[NUM_COLOR_SCHEMES +1] = {
     { L"Random",
         {
         // Menu Colors
@@ -176,10 +175,10 @@ FullColorScheme fullColorSchemes[5] = {
         BLUE | (BRIGHT_MAGENTA AS_BG),	    // highlightColor
         WHITE | (CYAN AS_BG)	            // selectColor
     },
-    // Menu background
-    WHITE | (BRIGHT_RED AS_BG),
-    // Controller background
-    BLACK | (MAGENTA AS_BG),
+        // Menu background
+        WHITE | (BRIGHT_RED AS_BG),
+        // Controller background
+        BLACK | (MAGENTA AS_BG),
     },
 
 
@@ -191,17 +190,17 @@ FullColorScheme fullColorSchemes[5] = {
         WHITE | (CYAN AS_BG),				// message 1
         WHITE | (BRIGHT_RED AS_BG)			// message 2
     },
-    {
+        {
         // Controller Colors
         BLACK | (BRIGHT_MAGENTA AS_BG),	    // outline | faceColor 
         WHITE | (BRIGHT_MAGENTA AS_BG),		// buttonColor
         BLUE | (BRIGHT_MAGENTA AS_BG),	    // highlightColor
         WHITE | (CYAN AS_BG)	            // selectColor
     },
-    // Menu background
-    WHITE | (BRIGHT_RED AS_BG),
-    // Controller background
-    BLACK | (MAGENTA AS_BG),
+        // Menu background
+        WHITE | (BRIGHT_RED AS_BG),
+        // Controller background
+        BLACK | (MAGENTA AS_BG),
     },
 
 
@@ -209,72 +208,140 @@ FullColorScheme fullColorSchemes[5] = {
         {
         // Menu Colors
         BLACK | (GREEN AS_BG),			// Header
-        WHITE | (RED AS_BG),		        // Error
-        BLACK | (BRIGHT_CYAN AS_BG),				// message 1
-        BLUE | (BRIGHT_GREEN AS_BG)			// message 2
+        WHITE | (RED AS_BG),		    // Error
+        BLACK | (BRIGHT_CYAN AS_BG),	// message 1
+        BLUE | (BRIGHT_GREEN AS_BG)		// message 2
     },
-    {
+        {
         // Controller Colors
         BRIGHT_GREEN | (BRIGHT_RED AS_BG),	// outline | faceColor 
         BLACK | (BRIGHT_RED AS_BG),		    // buttonColor
         BRIGHT_GREEN | (BRIGHT_RED AS_BG),  // highlightColor
         BLACK | (BRIGHT_GREEN AS_BG)        // selectColor
     },
-    // Menu background
-    BLACK | (CYAN AS_BG),
-    // Controller background
-    BRIGHT_GREEN | (BRIGHT_BLUE AS_BG),
+        // Menu background
+        BLACK | (CYAN AS_BG),
+        // Controller background
+        BRIGHT_GREEN | (BRIGHT_BLUE AS_BG),
     },
 
 
      { L"Blueberry",
         {
         // Menu Colors
-        WHITE | (BRIGHT_MAGENTA AS_BG),			// Header
+        WHITE | (BRIGHT_MAGENTA AS_BG),		// Header
         WHITE | (RED AS_BG),		        // Error
-        BLUE | (BRIGHT_CYAN AS_BG),				// message 1
-        BRIGHT_CYAN | (MAGENTA AS_BG)			// message 2
+        BLUE | (BRIGHT_CYAN AS_BG),			// message 1
+        BRIGHT_CYAN | (MAGENTA AS_BG)		// message 2
     },
-    {
+        {
         // Controller Colors
         CYAN | (CYAN AS_BG),	        // outline | faceColor 
         WHITE | (CYAN AS_BG),		    // buttonColor
         BLUE | (CYAN AS_BG),            // highlightColor
         BRIGHT_CYAN | (BRIGHT_MAGENTA AS_BG)  // selectColor
     },
-    // Menu background
-    CYAN | (MAGENTA AS_BG),
-    // Controller background
-    CYAN | (BLUE AS_BG),
+        // Menu background
+        CYAN | (MAGENTA AS_BG),
+        // Controller background
+        CYAN | (BLUE AS_BG),
     },
 
 
-     { L"Emily's Bougie Baby",
-        {
+    { L"Citrus",
+       {
         // Menu Colors
-        BLACK | (YELLOW AS_BG),			// Header
+        BRIGHT_BLUE | (BRIGHT_GREEN AS_BG),	// Header
         WHITE | (RED AS_BG),		        // Error
-        WHITE | (BLUE AS_BG),				// message 1
-        BLUE | (BLACK AS_BG)			// message 2
+        BLACK | (BRIGHT_CYAN AS_BG),	// message 1
+        WHITE | (CYAN AS_BG)			    // message 2
     },
     {
         // Controller Colors
+        BRIGHT_GREEN | (BRIGHT_GREEN AS_BG),	// outline | faceColor 
+        BLUE | (BRIGHT_GREEN AS_BG),		    // buttonColor
+        WHITE | (BRIGHT_GREEN AS_BG),           // highlightColor
+        WHITE | (YELLOW AS_BG)      // selectColor
+    },
+        // Menu background
+        BRIGHT_BLUE | (BRIGHT_GREEN AS_BG),
+        // Controller background
+        BRIGHT_GREEN | (BRIGHT_RED AS_BG),
+    },
+
+
+    { L"Emily's Bougie Baby",
+        {
+        // Menu Colors
+        BLACK | (YELLOW AS_BG),			// Header
+        WHITE | (RED AS_BG),		    // Error
+        WHITE | (BLUE AS_BG),			// message 1
+        BLUE | (BLACK AS_BG)			// message 2
+    },
+        {
+        // Controller Colors
         YELLOW | (BLACK AS_BG),	        // outline | faceColor 
         YELLOW | (BLACK AS_BG),		    // buttonColor
-        BRIGHT_YELLOW | (BLACK AS_BG),            // highlightColor
+        BRIGHT_YELLOW | (BLACK AS_BG),  // highlightColor
         WHITE | (YELLOW AS_BG)  // selectColor
     },
-    // Menu background
-    RED | (BLACK AS_BG),
-    // Controller background
-    YELLOW | (BLACK AS_BG),
+        // Menu background
+        RED | (BLACK AS_BG),
+        // Controller background
+        YELLOW | (BLACK AS_BG),
     }
 
-    // { CYAN,			CYAN AS_BG,		        WHITE,		GREY,			WHITE | BRIGHT_MAGENTA AS_BG,  L"Bberry" }
-    // { BRIGHT_GREEN,	BRIGHT_RED AS_BG,	    BLACK,	    BRIGHT_GREEN,	BLACK | BRIGHT_GREEN AS_BG,	L"WATERMELON" }
 };
 
-FullColorScheme fullSchemeFromSimpleScheme(ColorScheme& simp, WORD bg);
+// takes a color package representing controller button colors and converts to screen button colors for mouse hovering
+tUIColorPkg controllerButtonsToScreenButtons(tUIColorPkg& inButs) {
+    return tUIColorPkg(
+        inButs.col2,    // default
+        inButs.col3,    // highlight
+        inButs.col4,    // select
+        inButs.col3     // active // used for ip input
+    );
+}
+
+// converts a simple color scheme to a full color scheme *random color scheme generation can be converted to a full scheme
+FullColorScheme fullSchemeFromSimpleScheme(ColorScheme& simp, WORD bg) {
+    FullColorScheme ret = {
+        L"Random",
+        {
+            // Menu Colors
+            BLACK | (GREY AS_BG),			// Header
+            BLACK | (RED AS_BG),		        // Error
+            BLACK | (BRIGHT_GREY AS_BG),		// message 1
+            BLACK | (WHITE AS_BG)			// message 2
+        },
+        {
+            // Controller Colors
+            static_cast<WORD>(simp.outlineColor | simp.faceColor),	    // outline | faceColor 
+            static_cast<WORD>(simp.buttonColor | simp.faceColor),		// buttonColor
+            static_cast<WORD>(simp.highlightColor | simp.faceColor),	    // highlightColor
+            simp.selectColor                         // selectColor 
+        },
+        // Menu background
+        BLACK | (WHITE AS_BG),
+        // Controller background
+        static_cast<WORD>(simp.outlineColor | bg)
+    };
+
+    return ret;
+}
+
+// converts a a full color scheme to a simple scheme *needed for draw and redraw controller face functions
+ColorScheme simpleSchemeFromFullScheme(FullColorScheme& full) {
+    return ColorScheme{
+        static_cast<WORD>(full.controllerColors.col1 FG_ONLY),
+        static_cast<WORD>(full.controllerColors.col1 BG_ONLY),
+        static_cast<WORD>(full.controllerColors.col2 FG_ONLY),
+        static_cast<WORD>(full.controllerColors.col3 FG_ONLY),
+        static_cast<WORD>(full.controllerColors.col4),
+        L" "
+    };
+}
+
 
 
 // ********************************
@@ -314,24 +381,10 @@ void newControllerColorsCallback(mouseButton& button) {
         button.SetStatus(MOUSE_OUT);
 
         WORD newRandomBG = generateRandomInt(0, 15) << 4;
-
-        static ColorScheme randomScheme;
-        randomScheme = createRandomScheme();
-        g_currentColorScheme = generateRandomInt(0, NUM_COLOR_SCHEMES);
-
-        /*
-        if (generateRandomInt(0, 1001) % 2 == 0) {
-            randomScheme = colorSchemes[g_currentColorScheme];
-        }
-        else {
-            g_currentColorScheme = -1;
-        }
-        */
     
-        // update global background for universal color consistency
-        //g_BG_COLOR = newRandomBG | randomScheme.outlineColor;
-        g_simpleScheme = randomScheme;
-        fullColorSchemes[0] = fullSchemeFromSimpleScheme(randomScheme, newRandomBG);
+        // update globals for universal color consistency
+        g_simpleScheme = createRandomScheme();
+        fullColorSchemes[RANDOMSCHEME] = fullSchemeFromSimpleScheme(g_simpleScheme, newRandomBG);
         g_currentColorScheme = 0;
 
         if (drawMode != g_mode) {
@@ -348,22 +401,28 @@ void newControllerColorsCallback(mouseButton& button) {
         }
 
         // Draw Controller
-        DrawControllerFace(g_screen, randomScheme, newRandomBG, drawMode);
-
+        DrawControllerFace(g_screen, g_simpleScheme, newRandomBG, drawMode);
+        /*
         tUIColorPkg buttonColors(
             g_screen.GetBackdropColor(),
             button_Guide_highlight.getHighlightColor(),
             button_Guide_highlight.getSelectColor(),
             0 // unused
         );
+        */
         //
-
+        tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[RANDOMSCHEME].controllerColors);
 
         // non controller buttons
         restartButton[3].SetColors(buttonColors);  // mode section of restart button
         g_screen.SetButtonsColors(buttonColors);
         g_screen.DrawButtons();
         restartButton[3].Draw();
+
+        // on screen text 
+        output1.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg);
+        hostMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
+        fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
     }
 }
 
@@ -910,53 +969,6 @@ std::vector<SDLButtonMapping::ButtonMapInput> get_sdljoystick_input_list(const S
     return inputs;
 }
 
-// takes a color package representing controller button colors and converts to screen button colors for mouse hovering
-tUIColorPkg controllerButtonsToScreenButtons(tUIColorPkg& inButs) {
-    return tUIColorPkg(
-        inButs.col2,    // default
-        inButs.col3,    // highlight
-        inButs.col4,    // select
-        inButs.col3     // active // used for ip input
-    );
-}
-
-FullColorScheme fullSchemeFromSimpleScheme(ColorScheme& simp, WORD bg) {
-    FullColorScheme ret  = {
-        L"Random",
-        {
-            // Menu Colors
-            BLACK | (GREY AS_BG),			// Header
-            BLACK | (RED AS_BG),		        // Error
-            BLACK | (BRIGHT_GREY AS_BG),		// message 1
-            BLACK | (WHITE AS_BG)			// message 2
-        },
-        {
-            // Controller Colors
-            static_cast<WORD>(simp.outlineColor | simp.faceColor),	    // outline | faceColor 
-            static_cast<WORD>(simp.buttonColor | simp.faceColor),		// buttonColor
-            static_cast<WORD>(simp.highlightColor | simp.faceColor),	    // highlightColor
-            simp.selectColor                         // selectColor 
-        },
-        // Menu background
-        BLACK | (WHITE AS_BG),
-        // Controller background
-        static_cast<WORD>(simp.outlineColor | bg)
-    };
-
-    return ret;
-}
-
-ColorScheme simpleSchemeFromFullScheme(FullColorScheme& full) {
-    return ColorScheme{
-        static_cast<WORD>(full.controllerColors.col1 FG_ONLY),
-        static_cast<WORD>(full.controllerColors.col1 BG_ONLY),
-        static_cast<WORD>(full.controllerColors.col2 FG_ONLY),
-        static_cast<WORD>(full.controllerColors.col3 FG_ONLY),
-        static_cast<WORD>(full.controllerColors.col4),
-        L" "
-    };
-}
-
 // will look for a saved controller mapping and open it or initiate the mapping process
 void uiOpenOrCreateMapping(SDLJoystickData& joystick, std::string& mapName, textUI& screen) {
     // Check for a saved Map for selected joystick
@@ -1074,19 +1086,7 @@ int tUISelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick, textUI&
     screen.AddButton(&quitButton);
 
     // set colors
-   // screen.SetBackdropColor(g_BG_COLOR);
-   // screen.SetButtonsColors(colorSchemeToColorPkg(0));   // matches controller face buttons
-   // output1.SetColor(colorSchemeToColorPkg(1).col1);    // title/heading text // inverted face color for bg
-   // errorOut.SetColor(colorSchemeToColorPkg(0).col3);   // selected button colors
-   
-    // alternate colors
-    /*
-     screen.SetBackdropColor(colorSchemeToColorPkg(2).col1);
-     screen.SetButtonsColors(colorSchemeToColorPkg(0));
-     output1.SetColor(colorSchemeToColorPkg(3).col1);
-     errorOut.SetColor(colorSchemeToColorPkg(2).col3);
-    */
-
+  
     // New FullColorScheme Colors
     /**/
     screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg);
@@ -1241,20 +1241,6 @@ int tUISelectDS4Dialog(std::vector<HidDeviceInfo> devList, textUI& screen) {
     screen.AddButton(&quitButton);
 
     // set colors
-    
-    //screen.SetBackdropColor(g_BG_COLOR);
-    //screen.SetButtonsColors(colorSchemeToColorPkg(0));   // matches controller face buttons
-    //output1.SetColor(colorSchemeToColorPkg(1).col1);    // title/heading text // inverted face color for bg
-    //errorOut.SetColor(colorSchemeToColorPkg(0).col3);   // selected button colors
-    
-    // alternate colors
-    /*
-    screen.SetBackdropColor(colorSchemeToColorPkg(2).col1);
-    screen.SetButtonsColors(colorSchemeToColorPkg(0));
-    output1.SetColor(colorSchemeToColorPkg(3).col1);
-    errorOut.SetColor(colorSchemeToColorPkg(2).col3);
-    */
-
     // New FullColorScheme Colors
     /**/
     screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg);
@@ -1428,24 +1414,6 @@ std::string tUIGetHostAddress(textUI& screen) {
     screen.AddButton(&quitButton);
 
     // set colors
-    //screen.SetBackdropColor(g_BG_COLOR);
-    //screen.SetButtonsColors(colorSchemeToColorPkg(0));
-
-    //screen.SetInputsColors(colorSchemeToColorPkg(1));
-
-    //output1.SetColor(g_BG_COLOR);           //  Press Enter to Connect
-    //errorOut.SetColor(colorError);
-
-
-    // alternate colors
-    /*
-    screen.SetBackdropColor(colorSchemeToColorPkg(2).col1);
-    screen.SetButtonsColors(colorSchemeToColorPkg(0));
-    screen.SetInputsColors(colorSchemeToColorPkg(1));
-    output1.SetColor(colorSchemeToColorPkg(3).col1);
-    errorOut.SetColor(colorSchemeToColorPkg(2).col3);
-    */
-
     // New FullColorScheme Colors
     /**/
     screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg);
@@ -1458,7 +1426,6 @@ std::string tUIGetHostAddress(textUI& screen) {
     screen.DrawButtons();
     errorOut.Draw();
 
-    //setTextColor(makeSafeColors(g_BG_COLOR)); // was screen.getSafeColors()
     setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);
     setCursorPosition(12, 8);
     std::wcout << L" Enter IP Address Of Host: ";
