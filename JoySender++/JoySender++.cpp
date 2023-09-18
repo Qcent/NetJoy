@@ -570,6 +570,11 @@ int joySender(Arguments& args) {
             if (MAPPING_FLAG) {
                 // REMAP STUFF ** pauses communication with host till finished
                 tUIRemapInputsScreen(activeGamepad, screen);
+                if (APP_KILLED) {
+                    client.~TCPConnection();
+                    inConnection = false;
+                    break; // Break out of the loop
+                }
 
                 // sets new input scheme
                 activeInputs = activeGamepad.mapping.getSetButtonNames(); 

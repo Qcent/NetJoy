@@ -71,7 +71,7 @@ int tUISelectDS4Dialog(std::vector<HidDeviceInfo>devList, textUI& screen);
 std::string tUIGetHostAddress(textUI& screen);
 void threadedEstablishConnection(TCPConnection& client, int& retVal);
 bool checkKey(int key, bool pressed);
-void tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonName>& inputList);
+int tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonName>& inputList);
 int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen);
 
 #define MAP_BUTTON_CLICKED 10000  // a value to add to an input index to indicate it was clicked on
@@ -1086,14 +1086,10 @@ int tUISelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick, textUI&
     screen.AddButton(&quitButton);
 
     // set colors
-  
-    // New FullColorScheme Colors
-    /**/
     screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg);
     screen.SetButtonsColors(controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors));
     output1.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);
     errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2);
-    /**/
 
     // Draw the screen with the available joysticks
     screen.ReDraw();
@@ -1105,7 +1101,6 @@ int tUISelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick, textUI&
     output1.SetText(msgPointer1);
     output1.Draw();
     
-
     // set this to an invalid index
     g_joystickSelected = -1;
 
@@ -1118,6 +1113,17 @@ int tUISelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick, textUI&
 
     // scan for mouse and keyboard input
     while (!APP_KILLED && g_joystickSelected < 0) {
+
+        Sleep(30);
+
+        // scan for new connected joysticks and recursively launch function if new joysticks are detected
+        int newConnections = getUIJoystickList().size();
+        if (newConnections != numJoysticks) {
+            setErrorMsg(L"\0", 1); // clear errors
+            cleanMemory();
+            return tUISelectJoystickDialog(newConnections, joystick, screen);
+        }
+
         if (IsAppActiveWindow()) {
             screenLoop(screen);
             checkForQuit();
@@ -1151,17 +1157,7 @@ int tUISelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick, textUI&
                 errorOut.Draw();
                 g_joystickSelected = -1;
             }
-        }
-
-        // scan for new connected joysticks and recursively launch function if new joysticks are detected
-        int newConnections = getUIJoystickList().size();
-        if (newConnections != numJoysticks) {
-            setErrorMsg(L"\0", 1); // clear errors
-            cleanMemory();
-            return tUISelectJoystickDialog(newConnections, joystick, screen);
-        }
-
-        Sleep(30);
+        }       
     }
 
     if (APP_KILLED) {
@@ -1855,7 +1851,10 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
             std::vector<SDLButtonMapping::ButtonName> inputList;
             inputList.push_back(static_cast<SDLButtonMapping::ButtonName>(hoveredButton - MAP_BUTTON_CLICKED));
 
-            tUIMapTheseInputs(joystick, inputList);
+            if (tUIMapTheseInputs(joystick, inputList)) {
+                // will return non zero if canceled
+                changes = false;
+            }
 
             // re draw everything
             ReDrawControllerFace(screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, 1);
@@ -1872,8 +1871,8 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
 
         // Map all inputs
         if (MAPPING_FLAG == 2) {
-            saveMapButton.Clear();
-            cancelButton.Clear();
+            saveMapButton.Clear(fullColorSchemes[g_currentColorScheme].controllerBg);
+            cancelButton.Clear(fullColorSchemes[g_currentColorScheme].controllerBg);
 
             changes = true;
             std::vector<SDLButtonMapping::ButtonName> inputList;
@@ -1885,10 +1884,20 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
             inputList.insert(inputList.end(), joystick.mapping.dpadButtonNames.begin(), joystick.mapping.dpadButtonNames.end());
             inputList.insert(inputList.end(), joystick.mapping.genericButtonNames.begin(), joystick.mapping.genericButtonNames.end());
 
-            tUIMapTheseInputs(joystick, inputList);
+            if (tUIMapTheseInputs(joystick, inputList)) {
+                // will return non zero if canceled
+                if (mapExists) {
+                    // undo any changes by reloading saved map
+                    joystick.mapping.loadMapping(filePath.string());
+                    changes = false;
+                }
+            }
 
             // turn down the mapping flag to indicate not to map all inputs again
             MAPPING_FLAG = 1;
+
+            // reset hovered button state **avoids memory fault??
+            lastHovered = hoveredButton = -1;
 
             // re draw everything
             ReDrawControllerFace(screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, 1);
@@ -1926,7 +1935,7 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
     return 1;
 }
 
-void tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonName>& inputList) {
+int tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonName>& inputList) {
 
     //
     // Set up UI elements
@@ -1935,18 +1944,13 @@ void tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::
     textUI mapOverlay;
 
     tUIColorPkg UIcolors(
-        button_Guide_highlight.getDefaultColor(),
-        button_Guide_highlight.getHighlightColor(),
-        button_Guide_highlight.getSelectColor(),
-        (fullColorSchemes[g_currentColorScheme].controllerBg FG_ONLY) | (button_Guide_highlight.getDefaultColor() BG_ONLY)
+        fullColorSchemes[g_currentColorScheme].menuBg,       // body
+        (fullColorSchemes[g_currentColorScheme].menuBg FG_ONLY) | (fullColorSchemes[g_currentColorScheme].controllerBg BG_ONLY), //outline
+        makeSafeColors( button_Guide_highlight.getSelectColor() ),        // input id & topmsg
+        (fullColorSchemes[g_currentColorScheme].menuBg FG_ONLY) | (button_Guide_highlight.getDefaultColor() BG_ONLY)  // outlineTop
     );
 
-    tUIColorPkg buttonColors(
-        g_screen.GetBackdropColor(),
-        button_Guide_highlight.getHighlightColor(),
-        button_Guide_highlight.getSelectColor(),
-        0 // unused
-    );
+    tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
 
     mouseButton cancelButton(CONSOLE_WIDTH / 2 - 6, XBOX_QUIT_LINE, 20, L" (C) Cancel  ");
     mouseButton skipButton(CONSOLE_WIDTH / 2 - 9, XBOX_QUIT_LINE - 1, 20, L" (Esc) Skip Input  ");
@@ -1964,7 +1968,7 @@ void tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::
     mouseButton MapScreen_Overlay_body(OVERLAY_START_COL, OVERLAY_START_LINE + 1, 25, L"\t\t\t   Set Input For   \t\t\t\t\t                     \t\t\t                       \t");
     mouseButton MapScreen_Overlay_bodyBottom(OVERLAY_START_COL, OVERLAY_START_LINE + 4, 25, L"                                                  ");
     MapScreen_Overlay_outlineTop.SetDefaultColor(UIcolors.col4);
-    MapScreen_Overlay_outline.SetDefaultColor(fullColorSchemes[g_currentColorScheme].controllerBg);
+    MapScreen_Overlay_outline.SetDefaultColor(UIcolors.col2);
     MapScreen_Overlay_body.SetDefaultColor(UIcolors.col1);
     MapScreen_Overlay_bodyBottom.SetDefaultColor(fullColorSchemes[g_currentColorScheme].controllerBg);
 
@@ -1982,7 +1986,7 @@ void tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::
 
     // Map all inputs in inputList
     for (const auto& inputToMap : inputList) {
-        if (APP_KILLED) return;
+        if (APP_KILLED) return 0;
         std::string inputName = SDLButtonMapping::getButtonNameString(inputToMap);
         SDLButtonMapping::ButtonType inputType = get_input_type(inputName);
 
@@ -2002,6 +2006,7 @@ void tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::
 
         // draw the button as if it were selected
         mouseButton* buttonToMap = buttonIdMap[inputToMap];
+
         buttonToMap->SetStatus(MOUSE_DOWN);
         buttonToMap->Update();
 
@@ -2027,7 +2032,7 @@ void tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::
                     topMsg.Clear(UIcolors.col1);
                     inputID.Clear(UIcolors.col1);
 
-                    return;
+                    return -1;
                 }
                 // Skip
                 else if (checkKey(VK_ESCAPE, IS_RELEASED) || skipButton.Status() & MOUSE_UP ) {
@@ -2075,7 +2080,7 @@ void tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::
 
     // ********************  
 
-    return;
+    return 0;
 }
 
 ///  
