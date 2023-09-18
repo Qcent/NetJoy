@@ -219,11 +219,13 @@ int joySender(Arguments& args) {
     g_mode = args.mode;
     DWORD mode;
     GetConsoleMode(g_hConsoleInput, &mode);                     // Disable Quick Edit Mode // working??
-    SetConsoleMode(g_hConsoleInput, mode | ENABLE_MOUSE_INPUT & ~ENABLE_QUICK_EDIT_MODE);
+    SetConsoleMode(g_hConsoleInput,   ENABLE_MOUSE_INPUT | mode & ~ENABLE_QUICK_EDIT_MODE);
 
         // Set the console to UTF-8 mode
     _setmode(_fileno(stdout), _O_U8TEXT);
-       
+    
+    SetConsoleTitleW(L"JoySender++ tUI 0.2.0.0");
+
         // establish a color scheme
     g_currentColorScheme = generateRandomInt(0, NUM_COLOR_SCHEMES);       // will be used as index for fullColorSchemes
     if (g_currentColorScheme == RANDOMSCHEME)

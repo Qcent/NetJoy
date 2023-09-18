@@ -899,25 +899,25 @@ char IpInputLoop() {
         return 'X'; 
     }
 
-    if (checkKey(0x30, IS_PRESSED) || checkKey(VK_NUMPAD0, IS_PRESSED))
+    if (checkKey('0', IS_PRESSED) || checkKey(VK_NUMPAD0, IS_PRESSED))
         return '0';
-    else if (checkKey(0x31, IS_PRESSED) || checkKey(VK_NUMPAD1, IS_PRESSED))
+    else if (checkKey('1', IS_PRESSED) || checkKey(VK_NUMPAD1, IS_PRESSED))
         return '1';
-    else if (checkKey(0x32, IS_PRESSED) || checkKey(VK_NUMPAD2, IS_PRESSED))
+    else if (checkKey('2', IS_PRESSED) || checkKey(VK_NUMPAD2, IS_PRESSED))
         return '2';
-    else if (checkKey(0x33, IS_PRESSED) || checkKey(VK_NUMPAD3, IS_PRESSED))
+    else if (checkKey('3', IS_PRESSED) || checkKey(VK_NUMPAD3, IS_PRESSED))
         return '3';
-    else if (checkKey(0x34, IS_PRESSED) || checkKey(VK_NUMPAD4, IS_PRESSED))
+    else if (checkKey('4', IS_PRESSED) || checkKey(VK_NUMPAD4, IS_PRESSED))
         return '4';
-    else if (checkKey(0x35, IS_PRESSED) || checkKey(VK_NUMPAD5, IS_PRESSED))
+    else if (checkKey('5', IS_PRESSED) || checkKey(VK_NUMPAD5, IS_PRESSED))
         return '5';
-    else if (checkKey(0x36, IS_PRESSED) || checkKey(VK_NUMPAD6, IS_PRESSED))
+    else if (checkKey('6', IS_PRESSED) || checkKey(VK_NUMPAD6, IS_PRESSED))
         return '6';
-    else if (checkKey(0x37, IS_PRESSED) || checkKey(VK_NUMPAD7, IS_PRESSED))
+    else if (checkKey('7', IS_PRESSED) || checkKey(VK_NUMPAD7, IS_PRESSED))
         return '7';
-    else if (checkKey(0x38, IS_PRESSED) || checkKey(VK_NUMPAD8, IS_PRESSED))
+    else if (checkKey('8', IS_PRESSED) || checkKey(VK_NUMPAD8, IS_PRESSED))
         return '8';
-    else if (checkKey(0x39, IS_PRESSED) || checkKey(VK_NUMPAD9, IS_PRESSED))
+    else if (checkKey('9', IS_PRESSED) || checkKey(VK_NUMPAD9, IS_PRESSED))
         return '9';
     else if (checkKey(VK_BACK, IS_PRESSED))
         return 'B';
