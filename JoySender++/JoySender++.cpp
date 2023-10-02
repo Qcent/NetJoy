@@ -818,7 +818,7 @@ int main(int argc, char **argv)
     bufferSize.Y = rect.Bottom + 1;
     SetConsoleScreenBufferSize(consoleOutput, bufferSize);
 
-    SetConsoleTitleW(L"JoySender++ tUI 0.9.0.0");
+    SetConsoleTitleW(L"JoySender++ tUI 0.9.5.0");
 
     int RUN = 1;
     while (RUN > 0) {
