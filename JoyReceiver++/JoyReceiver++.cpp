@@ -516,12 +516,11 @@ int main(int argc, char* argv[]) {
             }
 
             // FPS output
-            if (args.latency) {
-                fpsOutput = do_fps_counting();
-                if (!fpsOutput.empty()) {
-                    updateFPS(g_converter.from_bytes(fpsOutput + "   ").c_str(), 8);
-                }
+            fpsOutput = do_fps_counting();
+            if (!fpsOutput.empty()) {
+                updateFPS(g_converter.from_bytes(fpsOutput + "   ").c_str(), 8);
             }
+            
         }
         
         if (!APP_KILLED) {

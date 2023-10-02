@@ -28,7 +28,6 @@ THE SOFTWARE.
 
 struct Arguments {
     int port = 5000;
-    bool latency = false;
 };
 
 Arguments parse_arguments(int argc, char* argv[]) {
@@ -37,8 +36,7 @@ Arguments parse_arguments(int argc, char* argv[]) {
     cxxopts::Options options("JoyReceiver++", "Receive and emulate joystick data over tcp/ip");
     options.allow_unrecognised_options();
     options.add_options()
-        ("p,port", "Port to run on", cxxopts::value<int>()->default_value("5000"))
-        ("l,latency", "Show latency output", cxxopts::value<bool>()->default_value("false"))
+        ("p,port", "The Port to run and listen for connections on.", cxxopts::value<int>()->default_value("5000"))
         ("h,help", "Display this help message");
 
     options.parse_positional("port");
@@ -57,7 +55,6 @@ Arguments parse_arguments(int argc, char* argv[]) {
     }
 
     args.port = result["port"].as<int>();
-    args.latency = result["latency"].as<bool>();
  
     return args;
 }
