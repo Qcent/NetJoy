@@ -148,8 +148,6 @@ int main(int argc, char* argv[]) {
     // set element properties
     textUI& screen = g_screen;
     CoupleControllerButtons(); // sets up controller outline/highlight coupling for nice looks & button ids
-    output1.SetPosition(consoleWidth / 2 +2, 7, 50, 1, ALIGN_CENTER); // output1 is a textarea used for screen headers/titles
-    errorOut.SetPosition(consoleWidth / 2, 5, 50, 0, ALIGN_CENTER); // used for error messaging
     setErrorMsg(L"\0", 1); // initialize error message as empty string
     fpsMsg.SetPosition(51, 1, 7, 1, ALIGN_LEFT);                // fps output
     quitButton.setCallback(&exitAppCallback);
@@ -175,8 +173,10 @@ int main(int argc, char* argv[]) {
             screen.SetButtonsColors(controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors));
             screen.ReDraw();
 
+            errorOut.SetPosition(consoleWidth / 2, 5, 50, 0, ALIGN_CENTER);
             errorOut.Draw();
 
+            output1.SetPosition(consoleWidth / 2 + 2, 7, 50, 1, ALIGN_CENTER);
             output1.SetText(L" Waiting For Connection ");
             output1.SetColor(headingColor);
             output1.Draw();
@@ -197,8 +197,8 @@ int main(int argc, char* argv[]) {
             std::wcout << L" " + externalIP + L" ";
         }
 
-        ///********************************
-        // Establish a connection in separate thread
+
+        // Wait to establish a connection in separate thread while animating the screen
         {
             // set up animation variables
             int frameDelay = 0;
@@ -277,7 +277,7 @@ int main(int argc, char* argv[]) {
             connectThread.detach();
             //frameThread.detach();
         }
-        // *********************************
+ 
 
         if (APP_KILLED) break;
         if (allGood < 0) {
