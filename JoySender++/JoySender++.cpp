@@ -212,20 +212,7 @@ int joySender(Arguments& args) {
 
     //
     // Set Up for first tUI screen
-    //
-    hideConsoleCursor();
-        // Get the console input handle to enable mouse input
-    g_hConsoleInput = GetStdHandle(STD_INPUT_HANDLE);
-    g_mode = args.mode;
-    DWORD mode;
-    GetConsoleMode(g_hConsoleInput, &mode);                     // Disable Quick Edit Mode // working??
-    SetConsoleMode(g_hConsoleInput,   ENABLE_MOUSE_INPUT | mode & ~ENABLE_QUICK_EDIT_MODE);
-
-        // Set the console to UTF-8 mode
-    _setmode(_fileno(stdout), _O_U8TEXT);
     
-    SetConsoleTitleW(L"JoySender++ tUI 0.2.0.0");
-
         // establish a color scheme
     g_currentColorScheme = generateRandomInt(0, NUM_COLOR_SCHEMES);       // will be used as index for fullColorSchemes
     if (g_currentColorScheme == RANDOMSCHEME)
@@ -746,6 +733,40 @@ int main(int argc, char **argv)
     if (err) return -1;
 
     hideConsoleCursor();
+    // Get the console input handle to enable mouse input
+    g_hConsoleInput = GetStdHandle(STD_INPUT_HANDLE);
+    g_mode = args.mode;
+    DWORD mode;
+    GetConsoleMode(g_hConsoleInput, &mode);                     // Disable Quick Edit Mode // working??
+    SetConsoleMode(g_hConsoleInput, ENABLE_MOUSE_INPUT | mode & ~ENABLE_QUICK_EDIT_MODE);
+
+    // Set the console to UTF-8 mode
+    _setmode(_fileno(stdout), _O_U8TEXT);
+
+    // Set window size
+
+    // Define the new size and position for the console window
+    SMALL_RECT rect;
+    rect.Left = 200;
+    rect.Top = 100;
+    rect.Right = consoleWidth + 1;
+    rect.Bottom = consoleHeight + 3;
+
+    // Get the console screen buffer info
+    HANDLE consoleOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+    CONSOLE_SCREEN_BUFFER_INFO bufferInfo;
+    GetConsoleScreenBufferInfo(consoleOutput, &bufferInfo);
+
+    // Set the new size and position
+    SetConsoleWindowInfo(consoleOutput, TRUE, &rect);
+
+    // Adjust the buffer size to match the new window size
+    COORD bufferSize;
+    bufferSize.X = rect.Right + 1;
+    bufferSize.Y = rect.Bottom + 1;
+    SetConsoleScreenBufferSize(consoleOutput, bufferSize);
+
+    SetConsoleTitleW(L"JoySender++ tUI 0.9.0.0");
 
     int RUN = 1;
     while (RUN > 0) {
@@ -761,7 +782,7 @@ int main(int argc, char **argv)
     // Cleanup and quit
     swallowInput();
     SDL_Quit();
-    setCursorPosition(0, CONSOLE_HEIGHT);
+    setCursorPosition(0, consoleHeight);
     setTextColor(DEFAULT_TEXT);
     showConsoleCursor();
 

@@ -123,7 +123,7 @@ bool checkKey(int key, bool pressed) {
 }
 
 const int consoleWidth = 72;
-const int consoleHeight = 24;
+const int consoleHeight = 20;
 
 #pragma warning(disable : 4996)
 // Converts strings to wide strings and back again
@@ -383,10 +383,10 @@ void ShareButtonStatusCallback(mouseButton& button) {
 
 // used by quit button, sets APP_KILLED to true
 void exitAppCallback(mouseButton& button) {
-if (button.Status() & MOUSE_UP) {
-    button.SetStatus(MOUSE_OUT);
-    APP_KILLED = true;
-}
+    if (button.Status() & MOUSE_UP) {
+        button.SetStatus(MOUSE_OUT);
+        APP_KILLED = true;
+    }
 }
 
 // for selecting joystick by mouse click, will set g_joystickSelected to button._id
