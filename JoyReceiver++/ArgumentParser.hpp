@@ -39,7 +39,7 @@ Arguments parse_arguments(int argc, char* argv[]) {
         ("p,port", "The Port to run and listen for connections on.", cxxopts::value<int>()->default_value("5000"))
         ("h,help", "Display this help message");
 
-    options.parse_positional("port");
+    //options.parse_positional("port");
 
     auto result = options.parse(argc, argv);
 
