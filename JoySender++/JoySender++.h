@@ -38,6 +38,9 @@ THE SOFTWARE.
 #pragma comment(lib, "SDL2.lib")
 #pragma comment(lib, "SDL2main.lib")
 
+#define CANCELLED_FLAG      -2
+#define DISCONNECT_ERROR    -3
+
 // GLOBAL VARIABLES
 constexpr auto APP_NAME = "NetJoy";
 

@@ -445,7 +445,7 @@ int joySender(Arguments& args) {
                         cancelButton.SetStatus(MOUSE_OUT);
                         
                         // stop connection thread
-                        allGood = -2;  // -2 signals cancel obviously
+                        allGood = CANCELLED_FLAG;
                         break;
                     }
                 }
@@ -464,19 +464,16 @@ int joySender(Arguments& args) {
 
             // failed to make connection
         if (!APP_KILLED && allGood < 0) {
-            if (allGood == -2) {
-                int len = args.host.size() + 32;
+            int len = args.host.size() + 33;;
+            if (allGood == CANCELLED_FLAG) {
                 swprintf(errorPointer, len, L" << Connection To %s Canceled >> ", std::wstring(args.host.begin(), args.host.end()).c_str());
-                errorOut.SetWidth(len);
-                errorOut.SetText(errorPointer);
                 args.host = "";
             }
             else {
-                int len = args.host.size() + 33;
                 swprintf(errorPointer, len, L" << Connection To %s Failed: %d >> ", std::wstring(args.host.begin(), args.host.end()).c_str(), failed_connections + 1);
-                errorOut.SetWidth(len);
-                errorOut.SetText(errorPointer);
             }
+            errorOut.SetWidth(len);
+            errorOut.SetText(errorPointer);
         }
 
         //
@@ -583,8 +580,8 @@ int joySender(Arguments& args) {
             //
             // Catch hot key button presses
             if (IsAppActiveWindow() && !MAPPING_FLAG && getKeyState(VK_SHIFT)) {
-                if (checkKey('G', IS_PRESSED)) {
-                    // maybe change colors or something
+                if (checkKey('C', IS_PRESSED)) {
+                    // change colors
                     button_Guide_highlight.SetStatus(MOUSE_UP);
                     newControllerColorsCallback(button_Guide_highlight);
                     output1.Draw();
@@ -658,6 +655,7 @@ int joySender(Arguments& args) {
                     setErrorMsg(g_converter.from_bytes(" << Device Disconnected >> ").c_str(), 28);
                     client.~TCPConnection();
                     inConnection = false;
+                    allGood = DISCONNECT_ERROR;
                     break;
                 }
 
@@ -737,6 +735,10 @@ int joySender(Arguments& args) {
         // ###########################################################  \\
         // Connection Ended    ########################################  \\
 
+        if (allGood == DISCONNECT_ERROR) {
+            screen.ClearButtons();
+            break;
+        }
 
         //
         // Catch mouse/key presses that could have terminated connection
