@@ -236,6 +236,7 @@ int joySender(Arguments& args) {
     errorOut.SetPosition(consoleWidth/2, 4, 50, 0, ALIGN_CENTER); // used for error messaging
     fpsMsg.SetPosition(51, 1, 7, 1, ALIGN_LEFT);                // fps output
     quitButton.setCallback(&exitAppCallback);
+    newColorsButton.setCallback(&newControllerColorsCallback);
     quitButton.SetPosition(10, 17);
     
 
@@ -485,14 +486,12 @@ int joySender(Arguments& args) {
                 int QUITLINE;
                 if (args.mode == 2) {
                     screen.SetBackdrop(DS4_Backdrop);
-                    QUITLINE = DS4_QUIT_LINE;
-                    quitButton.SetPosition(consoleWidth / 2 - 5, DS4_QUIT_LINE);
+                    QUITLINE = DS4_QUIT_LINE;                    
                     BuildDS4Face();
                 }
                 else {
                     screen.SetBackdrop(XBOX_Backdrop);
                     QUITLINE = XBOX_QUIT_LINE;
-                    quitButton.SetPosition(consoleWidth / 2 - 5, XBOX_QUIT_LINE);
                     BuildXboxFace();
 
                     screen.AddButton(&mappingButton);
@@ -500,6 +499,10 @@ int joySender(Arguments& args) {
 
                 SetControllerButtonPositions(args.mode);
                
+                quitButton.SetPosition(consoleWidth / 2 - 5, QUITLINE);
+                newColorsButton.SetPosition(consoleWidth / 2 - 8, QUITLINE - 3);
+
+                screen.AddButton(&newColorsButton);
                 screen.AddButton(&quitButton);
 
                 restartButton[0].SetPosition(CONSOLE_WIDTH / 2 - 12, QUITLINE - 1);
@@ -585,8 +588,6 @@ int joySender(Arguments& args) {
                     // change colors
                     button_Guide_highlight.SetStatus(MOUSE_UP);
                     newControllerColorsCallback(button_Guide_highlight);
-                    output1.Draw();
-                    hostMsg.Draw();
                 }
                 if (getKeyState('M') && args.mode == 1) {
                     MAPPING_FLAG = 1;                    

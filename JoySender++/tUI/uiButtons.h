@@ -30,6 +30,7 @@ THE SOFTWARE.
 
 // 'Permanent' / memory persistent, on screen buttons
 mouseButton quitButton(CONSOLE_WIDTH / 2 - 5, XBOX_QUIT_LINE, 11, L" (Q) Quit  ");
+mouseButton newColorsButton(CONSOLE_WIDTH / 2 - 8, XBOX_QUIT_LINE - 3, 18, L" (C) New Color  ");
 mouseButton mappingButton(CONSOLE_WIDTH / 2 - 9, XBOX_QUIT_LINE - 2, 18, L" (M) Map Buttons  ");
 mouseButton restartButton[4] = {
     mouseButton(CONSOLE_WIDTH / 2 - 12, XBOX_QUIT_LINE - 1, 25, L" (R[\t,\t]) Restart "),

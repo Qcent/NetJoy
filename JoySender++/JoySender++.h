@@ -446,6 +446,10 @@ void newControllerColorsCallback(mouseButton& button) {
         output1.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg);
         hostMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
         fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
+
+        // redraw messages
+        output1.Draw();
+        hostMsg.Draw();
     }
 }
 
