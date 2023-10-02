@@ -722,8 +722,7 @@ void exitAppCallback(mouseButton& button) {
 
 // will generate a new color scheme for program and controller face
 void newControllerColorsCallback(mouseButton& button) {
-    static int drawMode = 0;
-
+    
     if (button.Status() & MOUSE_UP) {
         button.SetStatus(MOUSE_OUT);
 
@@ -735,7 +734,7 @@ void newControllerColorsCallback(mouseButton& button) {
         g_currentColorScheme = 0;
 
         // Draw Controller
-        DrawControllerFace(g_screen, g_simpleScheme, newRandomBG, drawMode);
+        DrawControllerFace(g_screen, g_simpleScheme, newRandomBG, g_mode);
 
         tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[RANDOMSCHEME].controllerColors);
 
