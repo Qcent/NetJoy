@@ -1177,7 +1177,7 @@ int tUISelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick, textUI&
             // Check if the selected index is invalid
             if (g_joystickSelected < 0 || g_joystickSelected >= numJoysticks)
             {
-                setErrorMsg(L"Invalid joystick index.", 24);
+                setErrorMsg(L" << Invalid Joystick Index >> ", 31);
                 errorOut.Draw();
                 g_joystickSelected = -1;
             }
@@ -1318,7 +1318,7 @@ int tUISelectDS4Dialog(std::vector<HidDeviceInfo> devList, textUI& screen) {
         if (g_joystickSelected > -1) {
             // Check if the selected index is valid
             if (g_joystickSelected < 0 || g_joystickSelected >= numJoysticks) {
-                setErrorMsg(L" Invalid Controller Index. ", 28);
+                setErrorMsg(L" << Invalid Controller Index >> ", 33);
                 errorOut.Draw();
                 g_joystickSelected = -1;
             }

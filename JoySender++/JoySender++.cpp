@@ -393,6 +393,9 @@ int joySender(Arguments& args) {
             errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2);
             errorOut.SetPosition(consoleWidth / 2, 7, 50, 0, ALIGN_CENTER);
             
+            mouseButton cancelButton(CONSOLE_WIDTH / 2 -7, 17, 13, L" (C) Cancel  ");
+            screen.AddButton(&cancelButton);
+
             quitButton.SetPosition(10, 17);
             screen.AddButton(&quitButton);
             screen.SetButtonsColors(controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors)); 
@@ -417,12 +420,35 @@ int joySender(Arguments& args) {
             // ### establish the connection in separate thread to animate connecting dialog
             allGood = WSAEWOULDBLOCK;
             std::thread connectThread(threadedEstablishConnection, std::ref(client), std::ref(allGood));
+                // animation and input loop
             while (!APP_KILLED && allGood == WSAEWOULDBLOCK) {
                 output2.SetText(ConnectAnimation[g_frameNum]);
                 output2.Draw();
                 
-                checkForQuit();
-                screenLoop(screen);
+                int mouseState = screenLoop(screen);
+
+                // check for hot keys
+                if (IsAppActiveWindow() && getKeyState(VK_SHIFT)) {
+                    if (getKeyState('Q')) {
+                        APP_KILLED = TRUE;
+                    }
+                    else if (getKeyState('C')) {
+                        mouseState = MOUSE_UP;
+                        cancelButton.SetStatus(MOUSE_UP);
+                    }
+                }
+
+                // check Cancel button
+                if (mouseState == MOUSE_UP) {
+                   if (cancelButton.Status() & MOUSE_UP)
+                    {
+                        cancelButton.SetStatus(MOUSE_OUT);
+                        
+                        // stop connection thread
+                        allGood = -2;  // -2 signals cancel obviously
+                        break;
+                    }
+                }
 
                 countUpDown(g_frameNum, CX_ANI_FRAME_COUNT);  // bounce
                 //loopCount(g_frameNum, CX_ANI_FRAME_COUNT);    // loop
@@ -430,16 +456,27 @@ int joySender(Arguments& args) {
                 if (!APP_KILLED && allGood == WSAEWOULDBLOCK)
                     Sleep(100);
             }
+                // clean up
             connectThread.detach();
+            screen.ClearButtons();
             // ###
         }
 
-            // failed to make connectionS
+            // failed to make connection
         if (!APP_KILLED && allGood < 0) {
-            int len = args.host.size() + 33;
-            swprintf(errorPointer, len, L" << Connection To %s Failed: %d >> ", std::wstring(args.host.begin(), args.host.end()).c_str(), failed_connections+1);
-            errorOut.SetWidth(len);
-            errorOut.SetText(errorPointer);
+            if (allGood == -2) {
+                int len = args.host.size() + 32;
+                swprintf(errorPointer, len, L" << Connection To %s Canceled >> ", std::wstring(args.host.begin(), args.host.end()).c_str());
+                errorOut.SetWidth(len);
+                errorOut.SetText(errorPointer);
+                args.host = "";
+            }
+            else {
+                int len = args.host.size() + 33;
+                swprintf(errorPointer, len, L" << Connection To %s Failed: %d >> ", std::wstring(args.host.begin(), args.host.end()).c_str(), failed_connections + 1);
+                errorOut.SetWidth(len);
+                errorOut.SetText(errorPointer);
+            }
         }
 
         //
@@ -465,6 +502,8 @@ int joySender(Arguments& args) {
 
                 SetControllerButtonPositions(args.mode);
                
+                screen.AddButton(&quitButton);
+
                 restartButton[0].SetPosition(CONSOLE_WIDTH / 2 - 12, QUITLINE - 1);
                 restartButton[1].SetPosition(CONSOLE_WIDTH / 2 - 8, QUITLINE - 1);
                 restartButton[2].SetPosition(CONSOLE_WIDTH / 2 - 6, QUITLINE - 1);
