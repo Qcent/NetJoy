@@ -1261,13 +1261,10 @@ int tUISelectDS4Dialog(std::vector<HidDeviceInfo> devList, textUI& screen) {
     screen.AddButton(&quitButton);
 
     // set colors
-    // New FullColorScheme Colors
-    /**/
     screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg);
     screen.SetButtonsColors(controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors));
     output1.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);
     errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2);
-    /**/
 
     // Draw the screen with the available joysticks
     screen.ReDraw();
@@ -1293,6 +1290,9 @@ int tUISelectDS4Dialog(std::vector<HidDeviceInfo> devList, textUI& screen) {
         if (IsAppActiveWindow()) {
             screenLoop(screen);
             checkForQuit();
+            if (APP_KILLED) {
+                break;
+            }
 
             if (getKeyState(0x31) || getKeyState(VK_NUMPAD1))
                 g_joystickSelected = 0;

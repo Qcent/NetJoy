@@ -282,7 +282,11 @@ int joySender(Arguments& args) {
         errorOut.Draw();
         return -1;
     }
-        
+    
+    if (APP_KILLED) { // if user has quit stop execution
+        return 0;
+    }
+
     //############################################################
     // Initial Settings for Operating Mode:  DS4 / XBOX
     if (args.mode == 2) {         
