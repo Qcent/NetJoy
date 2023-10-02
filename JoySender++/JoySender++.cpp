@@ -209,6 +209,7 @@ int joySender(Arguments& args) {
     // global flags set by ui and callback functions
     RESTART_FLAG = 0;
     MAPPING_FLAG = 0;
+    g_mode = args.mode;
 
     //
     // Set Up for first tUI screen
@@ -604,9 +605,9 @@ int joySender(Arguments& args) {
                 break; // Break out of the loop
             }
 
-            // Do remapping if triggered
+            // Do remapping if triggered (freezes host)
             if (MAPPING_FLAG) {
-                // REMAP STUFF ** pauses communication with host till finished
+                // REMAP STUFF ** pauses communication (freezing host) till finished
                 tUIRemapInputsScreen(activeGamepad, screen);
                 if (APP_KILLED) {
                     client.~TCPConnection();
@@ -659,14 +660,14 @@ int joySender(Arguments& args) {
                     break;
                 }
 
-                // activate buttons from *hid_report
+                // activate screen buttons from *hid_report
                 buttonStatesFromDS4Report();
             }
             else {
                 //# set the XBOX REPORT from SDL inputs
                 get_xbox_report_from_SDLmap(activeGamepad, activeInputs, xbox_report);
 
-                // activate buttons from xbox report
+                // activate screen buttons from xbox report
                 buttonStatesFromXboxReport(xbox_report);
             }
 

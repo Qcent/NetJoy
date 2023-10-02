@@ -402,8 +402,7 @@ if (button.Status() & MOUSE_UP) {
 
 // will generate a new color scheme for program and controller face
 void newControllerColorsCallback(mouseButton& button) {
-    static int drawMode = 0;
-
+  
     if (button.Status() & MOUSE_UP) {
         button.SetStatus(MOUSE_OUT);
 
@@ -414,21 +413,18 @@ void newControllerColorsCallback(mouseButton& button) {
         fullColorSchemes[RANDOMSCHEME] = fullSchemeFromSimpleScheme(g_simpleScheme, newRandomBG);
         g_currentColorScheme = 0;
 
-        if (drawMode != g_mode) {
-            drawMode = g_mode;
-            if (drawMode == 2) {
-                BuildDS4Face();
-                quitButton.SetPosition(consoleWidth / 2 - 5, DS4_QUIT_LINE);
-            }
-            else {
-                BuildXboxFace();
-                quitButton.SetPosition(consoleWidth / 2 - 5, XBOX_QUIT_LINE);
-            }
-            SetControllerButtonPositions(drawMode);
+
+        if (g_mode == 2) {
+            BuildDS4Face();
+            quitButton.SetPosition(consoleWidth / 2 - 5, DS4_QUIT_LINE);
+        }
+        else {
+            BuildXboxFace();
+            quitButton.SetPosition(consoleWidth / 2 - 5, XBOX_QUIT_LINE);
         }
 
         // Draw Controller
-        DrawControllerFace(g_screen, g_simpleScheme, newRandomBG, drawMode);
+        DrawControllerFace(g_screen, g_simpleScheme, newRandomBG, g_mode);
         /*
         tUIColorPkg buttonColors(
             g_screen.GetBackdropColor(),
