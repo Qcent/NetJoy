@@ -287,15 +287,19 @@ int joySender(Arguments& args) {
     // Initial Settings for Operating Mode:  DS4 / XBOX
     if (args.mode == 2) {         
         // Get a report from the device to determine what type of connection it has
+        Sleep(5); // a fresh report should be generated every 4ms from the ds4 device
         GetDS4Report();
 
         // first byte is used to determine where stick input starts
         ds4DataOffset = hid_report[0] == 0x11 ? DS4_VIA_BT : DS4_VIA_USB;
 
+        Sleep(5); // lets slow things down
         bool extReport = ActivateDS4ExtendedReports();
 
         // Set up feedback buffer with correct headers for connection mode
         InitDS4FeedbackBuffer();
+
+        Sleep(5); // lets slow things down
 
         // Set new LightBar color with update to confirm rumble/lightbar support
         switch (ds4DataOffset) {
@@ -309,6 +313,9 @@ int joySender(Arguments& args) {
         Sleep(4); // update fails if controller is bombarded with read/writes, so take a rest bud
         allGood = SendDS4Update();       
 
+        // i like this but it doesnt show up here as the screen changes too quickly
+        // it should be implemented in printControllerHeader()
+        /*
         g_outputText = "DS4 Controller"; 
         if (ds4DataOffset == DS4_VIA_BT) { g_outputText += "| Wireless | "; }
         else if (ds4DataOffset == DS4_VIA_USB) { g_outputText += "| USB | "; }
@@ -317,6 +324,7 @@ int joySender(Arguments& args) {
                 
         setCursorPosition(5, 9);
         std::wcout << g_toWide(g_outputText);
+        */
 
         reportSize = DS4_REPORT_NETWORK_DATA_SIZE;
 
@@ -381,6 +389,7 @@ int joySender(Arguments& args) {
             errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2);
             errorOut.SetPosition(consoleWidth / 2, 7, 50, 0, ALIGN_CENTER);
             
+            quitButton.SetPosition(10, 17);
             screen.AddButton(&quitButton);
             screen.SetButtonsColors(controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors)); 
             
