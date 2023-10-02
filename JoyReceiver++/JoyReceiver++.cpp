@@ -28,43 +28,25 @@ THE SOFTWARE.
 #include "FPSCounter.hpp"
 #include "JoyReceiver++.h"
 
-// for testing
-void displayBytes(BYTE* buffer, DWORD bufferSize) {
-    for (DWORD i = 0; i < bufferSize; i++) {
-        // Check if the current byte is "CC"
-        if (buffer[i] == 0xCC) {
-            // Check if the next three bytes are also "CC"
-            if (i + 3 < bufferSize && buffer[i + 1] == 0xCC && buffer[i + 2] == 0xCC && buffer[i + 3] == 0xCC) {
-                // std::cout << "\nEncountered CC sequence, exiting..." << std::endl;
-                printf("\r\n");
-                return;  // Terminate the function
-            }
-        }
-        printf("%02X ", buffer[i]);
-    }
-    printf("\r\n");
-}
 
 int main(int argc, char* argv[]) {
     Arguments args = parse_arguments(argc, argv);
     FPSCounter fps_counter;
-    FPSCounter latencyTimer;
     TCPConnection server(args.port);
     PVIGEM_TARGET gamepad;
     XUSB_REPORT xbox_report;
-    //DS4_REPORT ds4_report;
     DS4_REPORT_EX ds4_report_ex;
 
     int allGood;
-    UINT8 ErrCount = 0;
     char buffer[128];
     int buffer_size = sizeof(buffer);
     int bytesReceived;
-    double expectedFrameDelay = 0;
-    std::string externalIP;
-    std::string localIP;
+    std::wstring externalIP;
+    std::wstring localIP;
+    char connectionIP[INET_ADDRSTRLEN];
+    std::wstring clientIP;
     std::string fpsOutput;
-    auto do_fps_counting = [&fps_counter](int report_frequency = 100) {
+    auto do_fps_counting = [&fps_counter](int report_frequency = 30) {
         if (fps_counter.increment_frame_count() >= report_frequency) {
             double fps = fps_counter.get_fps();
             fps_counter.reset();
@@ -72,26 +54,15 @@ int main(int argc, char* argv[]) {
         }
         return std::string();
     };
-    double latencyOutput;
-    const int latency_report_freq = 25;
-    auto do_latency_timing = [&latencyTimer](int report_frequency = 15) {
-        if (latencyTimer.increment_frame_count() >= report_frequency) {
-            double elapsedTime = latencyTimer.get_elapsed_time();
-            latencyTimer.reset();
-            return elapsedTime / report_frequency;
-        }
-        return 0.0;
-    };
-
+   
     // Register the signal handler function
     std::signal(SIGINT, signalHandler);
-
-    hideConsoleCursor();
-
+       
     // Initialize ViGEM Bus connection
     const auto vigemClient = vigem_alloc();
     if (vigemClient == nullptr)
     {
+        //setErrorMsg(L" << Not Enough Memory To Initialize ViGEm >> ", 46);
         std::cerr << "Uh, not enough memory to initialize ViGEM gamepad?!" << std::endl;
         //return -1;
         APP_KILLED = 1;
@@ -100,85 +71,245 @@ int main(int argc, char* argv[]) {
     auto vigemErr = vigem_connect(vigemClient);
     if (!VIGEM_SUCCESS(vigemErr))
     {
+        //setErrorMsg(L" << ViGEm Bus Connection Failed >> ", 36);
         std::cerr << "ViGEm Bus connection failed with error code: 0x" << std::hex << vigemErr << std::endl;
         //return -1;
         APP_KILLED = 1;
     }
 
+    // Quit if error occurred
+    if (APP_KILLED) {
+        return -1;
+    }
 
-    externalIP = server.get_external_ip();
-    localIP = server.get_local_ip();
+    // Get IPs and start server
+    externalIP = g_converter.from_bytes(server.get_external_ip());
+    localIP = g_converter.from_bytes(server.get_local_ip());
     server.set_silence(true);
     server.start_server();
-    server.set_silence(false);
+    //server.set_silence(false); // we don't want the server talking on our tUI screens
 
-    std::system("cls");
+
+    //
+    // Set Up Console Window
+
+    hideConsoleCursor();
+    // Get the console input handle to enable mouse input
+    g_hConsoleInput = GetStdHandle(STD_INPUT_HANDLE);
+    DWORD mode;
+    GetConsoleMode(g_hConsoleInput, &mode);                     // Disable Quick Edit Mode // working??
+    SetConsoleMode(g_hConsoleInput, ENABLE_MOUSE_INPUT | mode & ~ENABLE_QUICK_EDIT_MODE);
+
+    // Set the console to UTF-8 mode
+    _setmode(_fileno(stdout), _O_U8TEXT);
+
+    // Set window size
+
+    // Define the new size and position for the console window
+    SMALL_RECT rect;
+    rect.Left = 200;
+    rect.Top = 100;
+    rect.Right = consoleWidth+1; 
+    rect.Bottom = consoleHeight+3; 
+
+    // Get the console screen buffer info
+    HANDLE consoleOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+    CONSOLE_SCREEN_BUFFER_INFO bufferInfo;
+    GetConsoleScreenBufferInfo(consoleOutput, &bufferInfo);
+
+    // Set the new size and position
+    SetConsoleWindowInfo(consoleOutput, TRUE, &rect);
+
+    // Adjust the buffer size to match the new window size
+    COORD bufferSize;
+    bufferSize.X = rect.Right + 1;
+    bufferSize.Y = rect.Bottom + 1;
+    SetConsoleScreenBufferSize(consoleOutput, bufferSize);
+
+    SetConsoleTitleW(L"JoyReciever++ tUI 1.0.0.0");
+
+
+    //
+    // Set up for tUI screen
+
+    // establish a color scheme
+    g_currentColorScheme = generateRandomInt(0, NUM_COLOR_SCHEMES);       // will be used as index for fullColorSchemes
+    if (g_currentColorScheme == RANDOMSCHEME)
+    {
+        WORD newRandomBG = generateRandomInt(0, 15) AS_BG;
+
+        static ColorScheme randomScheme;
+        randomScheme = createRandomScheme();
+
+        fullColorSchemes[RANDOMSCHEME] = fullSchemeFromSimpleScheme(randomScheme, newRandomBG);
+    }
+    g_simpleScheme = simpleSchemeFromFullScheme(fullColorSchemes[g_currentColorScheme]);  // Set for compatibility with DrawControllerFace
+
+    // set element properties
+    textUI& screen = g_screen;
+    CoupleControllerButtons(); // sets up controller outline/highlight coupling for nice looks & button ids
+    output1.SetPosition(consoleWidth / 2 +2, 7, 50, 1, ALIGN_CENTER); // output1 is a textarea used for screen headers/titles
+    errorOut.SetPosition(consoleWidth / 2, 5, 50, 0, ALIGN_CENTER); // used for error messaging
+    setErrorMsg(L"\0", 1); // initialize error message as empty string
+    fpsMsg.SetPosition(51, 1, 7, 1, ALIGN_LEFT);                // fps output
+    quitButton.setCallback(&exitAppCallback);
+    newColorsButton.setCallback(&newControllerColorsCallback);
+    
+    // colors   
+    errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2); 
+    fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
+    
     ///********************************
+
     // Make Connection Loop
     while (!APP_KILLED) {
-        ErrCount = 0;
-        std::cout << "Waiting for Connection on port : " << args.port
-            << "\n\t\t LAN : " << localIP << "\n\t\t WAN : " << externalIP << std::endl;
 
-        //
-        // Await Connection in Non Blocking Mode
-        //
-        server.set_server_blocking(false);
-        std::pair<SOCKET, sockaddr_in> connectionResult;
-        SOCKET clientSocket;
-        while (!APP_KILLED) {
-            // Attempt to accept a client connection in non Blocking mode
-            connectionResult = server.await_connection();
-            clientSocket = connectionResult.first;
-            if (clientSocket == INVALID_SOCKET) {
-                allGood = WSAGetLastError();
-                if (allGood == WSAEWOULDBLOCK) {
-                    // No client connection is immediately available
-                    Sleep(10); // Sleep for 10 milliseconds
-                }
-                else {
-                    // An error occurred during accept()
-                    std::cerr << "Failed to accept client connection: " << allGood << std::endl;
-                    ++ErrCount;
-                    if (ErrCount > 10) { 
-                        std::cout << "<< Exiting >>" << std::endl;
-                        APP_KILLED = true; 
-                    }
-                    break; // Exit the loop or handle the error condition
-                }
-            }
-            else {
-                // A client connection is established
-                // Process the connection
-                // Create a new thread or perform other operations on the clientSocket?
-                
-                // Break the loop, or this will continue attempting to accept more connections
-                break;
-            }
+        // Set and Draw connection screen
+        {
+            WORD headingColor = makeSafeColors(fullColorSchemes[g_currentColorScheme].controllerColors.col4);
+            output2.SetColor(headingColor); // for connection animation
+            screen.SetBackdrop(JoyRecvMain_Backdrop);
+            screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg);
+            quitButton.SetPosition(11, 17);
+            screen.AddButton(&quitButton);
+            screen.SetButtonsColors(controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors));
+            screen.ReDraw();
+
+            errorOut.Draw();
+
+            output1.SetText(L" Waiting For Connection ");
+            output1.SetColor(headingColor);
+            output1.Draw();
+
+            // Show PORT and IPs
+            setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
+            setCursorPosition(26, 9);
+            std::wcout << L" ";
+            std::wcout << args.port;
+            std::wcout << L" ";
+
+            setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);
+            setCursorPosition(28, 11);
+            std::wcout << L" " + localIP + L" ";
+
+            setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
+            setCursorPosition(28, 13);
+            std::wcout << L" " + externalIP + L" ";
         }
-        if (APP_KILLED) break;
 
+        ///********************************
+        // Establish a connection in separate thread
+        {
+            // set up animation variables
+            int frameDelay = 0;
+            int footFrameNum = 0;
+            mouseButton leftBorderPiece(3, 18, 2, L"\\\t\t\t \t");
+            mouseButton rightBorderPiece(68, 18, 5, L"\t/   \t\t:}-     ");
+            leftBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
+            rightBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
+
+            mouseButton ani2(3, 18, 10, FooterAnimation[footFrameNum]);
+            ani2.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
+            int lastAni1Frame = g_frameNum-1;
+            int lastAni2Frame = footFrameNum-1;
+            
+            // set up thread
+            //int runFrame = 1;
+            allGood = WSAEWOULDBLOCK;
+            std::thread connectThread(threadedAwaitConnection, std::ref(server), std::ref(allGood), std::ref(connectionIP));
+            //std::thread frameThread(threadedFrameAdvance, std::ref(runFrame), 500, std::ref(g_frameNum), CX_ANI_FRAME_COUNT);
+            
+            while (!APP_KILLED && allGood == WSAEWOULDBLOCK) {
+                // animation 1
+                    // draw
+                if (lastAni2Frame != g_frameNum) {
+                    lastAni2Frame = g_frameNum;
+                    output2.SetText(ConnectAnimationLeft[g_frameNum]);
+                    output2.SetPosition((consoleWidth / 2) - 16, 7); // left side
+                    output2.Draw();
+
+                    output2.SetText(ConnectAnimationRight[g_frameNum]);
+                    output2.SetPosition((consoleWidth / 2) + 15, 7); // right side
+                    output2.Draw();
+                }
+                    // advance frame
+                if (frameDelay % 13 == 0) {
+                    loopCount(g_frameNum, CX_ANI_FRAME_COUNT);
+                }
+
+                // animation 2
+                    // draw
+                if (lastAni2Frame != footFrameNum) {
+                    lastAni2Frame = footFrameNum;
+                    ani2.SetText(FooterAnimation[footFrameNum]);
+
+                    for (int i = 0; i < 7; ++i) {
+                        ani2.SetPosition(3+(i*10), 18);
+                        ani2.Draw();
+                    }
+
+                    // redraw border pieces
+                    leftBorderPiece.Draw();
+                    rightBorderPiece.Draw();
+                }
+                    // advance frame
+                if (frameDelay % 4 == 0) {
+                    if ((frameDelay % 600) <= 300) {
+                        revLoopCount(footFrameNum, FOOTER_ANI_FRAME_COUNT);  // reverse loop
+                    }
+                    else {
+
+                        loopCount(footFrameNum, FOOTER_ANI_FRAME_COUNT);  // loop
+                        //countUpDown(g_frameNum, CX_ANI_FRAME_COUNT);    // bounce
+                    }
+                }
+
+                // check input
+                checkForQuit();
+                screenLoop(screen);
+                
+                if (!APP_KILLED && allGood == WSAEWOULDBLOCK) {
+                    Sleep(20);
+                    ++frameDelay;
+                }
+            }
+            //runFrame = 0;
+            connectThread.detach();
+            //frameThread.detach();
+        }
+        // *********************************
+
+        if (APP_KILLED) break;
+        if (allGood < 0) {
+            setErrorMsg(L" << Error While Establishing Connection >> ", 44);
+            break;
+        }
 
         // clientSocket will have inherited non blocking mode
         // Return both sockets to blocking mode
         server.set_client_blocking(true);
         server.set_server_blocking(true);
 
+        // set wstring clientIP
+        clientIP = g_converter.from_bytes(connectionIP);
 
         //
         // Receive Operating Mode and Client Timing
         bytesReceived = server.receive_data(buffer, buffer_size);
         if (!bytesReceived) {
-            std::cout << "<< Connection Failed >>" << std::endl;
+
+            int len = clientIP.size() + 33;
+            swprintf(errorPointer, len, L" << Connection From: %s Failed >> ", clientIP);
+            errorOut.SetWidth(len);
+            errorOut.SetText(errorPointer);
+
+            //setErrorMsg(L" << Connection From:  Failed >> ", 24);
             break;
         }
         std::vector<std::string> split_settings = split(std::string(buffer, bytesReceived), ':');
         int client_timing = std::stoi(split_settings[0]);
         int op_mode = (split_settings.size() > 1) ? std::stoi(split_settings[1]) : 0;
-        expectedFrameDelay = 1000 / client_timing;
-
-        std::cout << "Client Timing: " << client_timing << "fps" << "\t\t" << "Running in Mode: " << op_mode <<   std::endl;
-        
+        g_mode = op_mode;
 
         if (op_mode == 2) { // Emulating a DS4 controller
             gamepad = vigem_target_ds4_alloc();
@@ -191,7 +322,9 @@ int main(int argc, char* argv[]) {
         vigemErr = vigem_target_add(vigemClient, gamepad);
         if (!VIGEM_SUCCESS(vigemErr))
         {
-            std::cerr << "Virtual Gamepad plugin failed with error code: 0x" << std::hex << vigemErr << std::endl;
+            setErrorMsg(L" << Virtual Gamepad Plugin Failed >> ", 38);
+            errorOut.Draw();
+            //std::cerr << "Virtual Gamepad plugin failed with error code: 0x" << std::hex << vigemErr << std::endl;
             //return -1;
             APP_KILLED = 1;
         }
@@ -225,7 +358,9 @@ int main(int argc, char* argv[]) {
             vigemErr = vigem_target_ds4_register_notification(vigemClient, gamepad, &ds4_rumble, &feedbackData);
             if (!VIGEM_SUCCESS(vigemErr))
             {
-                std::cerr << "Registering DS4 Rumble callback failed with error code: 0x" << std::hex << vigemErr << std::endl;
+                setErrorMsg(L" << Registering DS4 Rumble Callback Failed >> ", 47);
+                errorOut.Draw();
+                //std::cerr << "Registering DS4 Rumble callback failed with error code: 0x" << std::hex << vigemErr << std::endl;
                 //APP_KILLED = 1;
             }
 #endif
@@ -234,7 +369,9 @@ int main(int argc, char* argv[]) {
             vigemErr = vigem_target_x360_register_notification(vigemClient, gamepad, &xbox_rumble, &feedbackData);
             if (!VIGEM_SUCCESS(vigemErr))
             {
-                std::cerr << "Registering 360 Rumble callback failed with error code: 0x" << std::hex << vigemErr << std::endl;
+                setErrorMsg(L" << Registering 360 Rumble Callback Failed >> ", 47);
+                errorOut.Draw();
+                //std::cerr << "Registering 360 Rumble callback failed with error code: 0x" << std::hex << vigemErr << std::endl;
                 //APP_KILLED = 1;
             }
         }
@@ -245,22 +382,99 @@ int main(int argc, char* argv[]) {
         feedbackData = "Go for Joy!";
         allGood = server.send_data(feedbackData.c_str(), static_cast<int>(feedbackData.length()));
         if (!allGood) {
-            std::cout << "<< Connection Failed >>" << std::endl;
+            int len = clientIP.size() + 30;
+            swprintf(errorPointer, len, L" << Connection To: %s Failed >> ", clientIP);
+            errorOut.SetWidth(len);
+            errorOut.SetText(errorPointer);
+            //std::cout << "<< Connection Failed >>" << std::endl;
             break;
         }
         
         // prep for loop
         feedbackData = "Rumble Data";
-        std::cout << std::endl << std::endl;
+            // set UI
+        {
+            screen.ClearButtons();
+
+            // backdrop
+            int QUITLINE;
+            if (op_mode == 2) {
+                screen.SetBackdrop(DS4_Backdrop);
+                QUITLINE = DS4_QUIT_LINE;
+                BuildDS4Face();
+            }
+            else {
+                screen.SetBackdrop(XBOX_Backdrop);
+                QUITLINE = XBOX_QUIT_LINE;
+                BuildXboxFace();
+            }
+
+            // messages
+            swprintf(msgPointer1, 43, L" << Connection From: %s  >> ", clientIP);
+            output1.SetText(msgPointer1);
+            output1.SetPosition(3, 1, 43, 1, ALIGN_LEFT);
+            output1.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg);
+
+            swprintf(clientPointer, 16, L" %s ", clientIP);
+            clientMsg.SetText(clientPointer);
+            clientMsg.SetPosition(23, 1, 38, 1, ALIGN_LEFT);
+            clientMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
+
+            // buttons
+            SetControllerButtonPositions(op_mode);
+            quitButton.SetPosition(consoleWidth / 2 - 5, QUITLINE);
+            newColorsButton.SetPosition(consoleWidth / 2 - 8, QUITLINE - 2);
+            screen.AddButton(&quitButton);
+            screen.AddButton(&newColorsButton);
+            
+
+            // colors / drawing
+                // set controller to color scheme colors with some contrast correction for bg color then draws the controller face
+            DrawControllerFace(screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, op_mode);
+
+            tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
+
+                // color non controller buttons and draw them
+            screen.SetButtonsColors(buttonColors);
+            screen.DrawButtons();
+
+            output1.Draw();
+            clientMsg.Draw();
+        }
+
         fps_counter.reset();
 
         //
         // Start Receive Joystick Data Loop
         while (!APP_KILLED) {
+
+            screenLoop(screen);
+
+            //
+            // Catch hot key button presses
+            if (IsAppActiveWindow() && getKeyState(VK_SHIFT)) {
+                if (checkKey('C', IS_PRESSED)) {
+                    // change colors
+                    button_Guide_highlight.SetStatus(MOUSE_UP);
+                    newControllerColorsCallback(button_Guide_highlight);
+                }
+                if (getKeyState('Q')) {
+                    APP_KILLED = true;
+                    break;
+                }
+            }
+
+
             //*****************************
             // Receive joystick input from client to the buffer
             bytesReceived = server.receive_data(buffer, buffer_size);
-            if (!bytesReceived) break;
+            if (!bytesReceived) {
+                int len = clientIP.size() + 31;
+                swprintf(errorPointer, len, L" << Connection From: %s Lost >> ", clientIP);
+                errorOut.SetWidth(len);
+                errorOut.SetText(errorPointer);
+                break;
+            }
 #if 0
             if (op_mode == 2 && fps_counter.get_frame_count() > latency_report_freq) {
                 repositionConsoleCursor(2);
@@ -269,43 +483,49 @@ int main(int argc, char* argv[]) {
             }
 #endif
 
-            // FPS output
-            if (args.latency) {
-                fpsOutput = do_fps_counting();  
-                if (!fpsOutput.empty()) {
-                    overwriteFPS("FPS: " + fpsOutput);
-                }
-                latencyOutput = do_latency_timing(latency_report_freq);
-                if (latencyOutput) {
-                    overwriteLatency("Latency: " + formatDecimalString(std::to_string((latencyOutput * 1000)- expectedFrameDelay), 5) + " ms    ");
-                }
-            }
 
             //******************************
-            // Update virtual gamepad
+            // Update virtual gamepad and screen
             if (op_mode == 2) {
                 // Cast the buffer to an DS4_REPORT_EX pointer
                 ds4_report_ex = *reinterpret_cast<DS4_REPORT_EX*>(buffer);
                 vigem_target_ds4_update_ex(vigemClient, gamepad, ds4_report_ex);
-               /// ds4_report = *reinterpret_cast<DS4_REPORT*>(buffer);
-               /// vigem_target_ds4_update(vigemClient, gamepad, ds4_report);
+               
+                // activate screen buttons from ds4_report_ex
+                buttonStatesFromDS4Report(reinterpret_cast<BYTE*>(buffer));
             }
             else {
                 // Cast the buffer to an XUSB_REPORT pointer
                 xbox_report = *reinterpret_cast<XUSB_REPORT*>(buffer);
                 vigem_target_x360_update(vigemClient, gamepad, xbox_report);
+
+                // activate screen buttons from xbox report
+                buttonStatesFromXboxReport(xbox_report);
             }
 
 
             //*******************************
             // Send response back to client :: Rumble data
             allGood = server.send_data(feedbackData.c_str(), static_cast<int>(feedbackData.length()));
-            if (!allGood) break;
+            if (!allGood) {
+                int len = clientIP.size() + 29;
+                swprintf(errorPointer, len, L" << Connection To: %s Lost >> ", clientIP);
+                errorOut.SetWidth(len);
+                errorOut.SetText(errorPointer);
+                break;
+            }
+
+            // FPS output
+            if (args.latency) {
+                fpsOutput = do_fps_counting();
+                if (!fpsOutput.empty()) {
+                    updateFPS(g_converter.from_bytes(fpsOutput + "   ").c_str(), 8);
+                }
+            }
         }
         
         if (!APP_KILLED) {
-            std::system("cls");
-            std::cout << "<< Connection Lost >>" << std::endl;
+            screen.ClearButtons();
         }
 
         // Unregister rumble callbacks // deprecated?
@@ -325,9 +545,10 @@ int main(int argc, char* argv[]) {
     server.~TCPConnection();
 
     swallowInput();
+    setCursorPosition(0, consoleHeight);
     showConsoleCursor();
     Sleep(7);
-    std::cout << "all cleaned up! (:" << std::endl;
+
     return 1;
 }
 
@@ -335,6 +556,5 @@ void signalHandler(int signal) {
     if (signal == SIGINT) {
         APP_KILLED = 1;
         Sleep(5);
-        std::cout << "Keyboard interrupt received. Exiting gracefully." << std::endl;
     }
 }
