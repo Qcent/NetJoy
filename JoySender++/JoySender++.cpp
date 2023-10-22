@@ -822,7 +822,7 @@ int main(int argc, char **argv)
     bufferSize.Y = rect.Bottom + 1;
     SetConsoleScreenBufferSize(consoleOutput, bufferSize);
 
-    SetConsoleTitleW(L"JoySender++ tUI 0.9.5.0");
+    SetConsoleTitleW(L"JoySender++ tUI 0.9.5.1");
     
     loadIPDataFromFile();
 
