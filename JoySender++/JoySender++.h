@@ -954,6 +954,8 @@ char IpInputLoop() {
         return 'N';
     else if (checkKey(VK_OEM_PERIOD, IS_PRESSED) || checkKey(VK_DECIMAL, IS_PRESSED))
         return '.';
+    else if (checkKey(VK_UP, IS_PRESSED))
+        return '^';
 
     return 'X';
 }
@@ -1057,6 +1059,80 @@ int screenLoop(textUI& screen) {
         }
     }
     return retVal;
+}
+
+
+// ********************************
+// Previous Host IP Memories
+#define IPS_TO_REMEMBER     5
+struct previousIPData {
+    wchar_t address[IPS_TO_REMEMBER][16];
+    BYTE index;
+};
+
+previousIPData g_previousIPData;
+
+void saveIPDataToFile() {
+    std::string appdataFolder = g_getenv("APPDATA");
+    appdataFolder += "\\" + std::string(APP_NAME);
+    std::filesystem::path saveFolder = std::filesystem::path(appdataFolder);
+    std::filesystem::path filename = saveFolder / ("previous.ips");
+    std::ofstream file(filename, std::ios::out | std::ios::binary);
+
+    if (file.is_open()) {
+        file.write(reinterpret_cast<const char*>(&g_previousIPData), sizeof(previousIPData));
+        file.close();
+    }
+    else {
+        //std::cerr << "Error: Unable to open pevious.ips file for writing." << std::endl;
+    }
+}
+
+void loadIPDataFromFile() {
+    std::string appdataFolder = g_getenv("APPDATA");
+    appdataFolder += "\\" + std::string(APP_NAME);
+
+    std::filesystem::path saveFolder = std::filesystem::path(appdataFolder);
+    std::filesystem::path filename = saveFolder / ("previous.ips");
+
+    previousIPData data;
+    std::ifstream file(filename, std::ios::in | std::ios::binary);
+    if (file.is_open()) {
+        file.read(reinterpret_cast<char*>(&data), sizeof(previousIPData));
+        file.close();
+    }
+    else {
+        //std::cerr << "Error: Unable to open pevious.ips file for reading." << std::endl;
+        for (int i = 0; i < IPS_TO_REMEMBER; ++i) {
+            data.address[i][0] = '\0';  // load empty address 'strings'
+        }
+    }
+
+    data.index = 0;
+    
+    g_previousIPData = data;
+}
+
+bool isDuplicateIP(const wchar_t newData[16]) {
+    for (int i = 0; i < IPS_TO_REMEMBER; i++) {
+        if (std::wcscmp(g_previousIPData.address[i], newData) == 0) {
+            return true; // If duplicate is found, return true
+        }
+    }
+    return false; // If no duplicates found, return false
+}
+
+bool pushNewIP(const wchar_t newData[16]) {
+    if (isDuplicateIP(newData)) {
+        //std::wcout << "Duplicate entry found. Not adding." << std::endl;
+        return false;
+    }
+    for (int i = IPS_TO_REMEMBER-2; i >= 0; i--) {
+        std::memcpy(g_previousIPData.address[i + 1], g_previousIPData.address[i], sizeof(g_previousIPData.address[i]));
+    }
+    std::memcpy(g_previousIPData.address[0], newData, sizeof(g_previousIPData.address[0]));
+
+    return true;
 }
 
 
@@ -1369,6 +1445,8 @@ std::string tUIGetHostAddress(textUI& screen) {
     bool errorShown = 0;
     std::string host_address;
 
+    g_previousIPData.index = 0;
+
     //set Colors values
     WORD& bg_color = fullColorSchemes[g_currentColorScheme].menuBg;
     tUIColorPkg screenButtonsCol = controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
@@ -1427,6 +1505,55 @@ std::string tUIGetHostAddress(textUI& screen) {
         return 0;
     };
 
+    // Lambda for loading previous ip address
+    auto loadPreviousIP = [&]() {
+        // load ip into octets
+        int dotCount = 0;
+
+        octet[dotCount].Clear();
+        octet[dotCount].clearBuffer();
+        //octet[dotCount].cursorToBegin();
+
+        wchar_t* charArray = g_previousIPData.address[g_previousIPData.index];
+        for (size_t i = 0; i < 16; i++) {
+            if (charArray[i] == '\0') {
+                if(!i){
+                    octet[i].insert(L'0');
+                    octet[i].cursorToBegin();
+                    for (int j = 1; j < 4; ++j) {
+                        octet[j].Clear();
+                        octet[j].clearBuffer();
+                        octet[j].insert(L'0');
+                        octet[j].cursorToBegin();
+                        octet[j].Draw();
+                    }
+                }
+                i = 16;
+            }
+            else if (charArray[i] == '.') {
+                //octet[dotCount].insert('\0');
+                octet[dotCount].Draw();
+                dotCount++;
+                octet[dotCount].Clear();
+                octet[dotCount].clearBuffer();
+                octet[dotCount].cursorToBegin();
+            }
+            else {
+                octet[dotCount].insert(charArray[i]);
+                // need to check for end of array \0
+            }
+        }
+        octet[dotCount].Draw();
+
+        // increment index
+        if (++g_previousIPData.index > IPS_TO_REMEMBER-1) {
+            g_previousIPData.index = 0;
+        }
+      
+        return dotCount;
+    };
+
+
     for (int i = 0; i < 4; ++i) {
         octet[i].insert(L'0');
         octet[i].cursorToBegin();
@@ -1437,7 +1564,6 @@ std::string tUIGetHostAddress(textUI& screen) {
     screen.AddButton(&quitButton);
 
     // set colors
-    // New FullColorScheme Colors
     /**/
     screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg);
     screen.SetButtonsColors(screenButtonsCol);
@@ -1478,8 +1604,20 @@ std::string tUIGetHostAddress(textUI& screen) {
         setOctetCursorPos();
 
         char num = IpInputLoop();
-        // B: backspace, D: delete, N: next octet, .: dot, X: nothing
-        if (num == '.') {
+        // B: backspace, D: delete, N: next octet, .: dot, X: nothing, ^: recall recent ip
+        if (num == '^') {
+            octNum = loadPreviousIP();
+            validIP = buildAndTestIpAddress();
+
+            if (octNum) {
+                octet[octNum].cursorToEnd();
+            }
+            else {
+                octet[octNum].back();
+            }
+            setOctetCursorPos();
+        }
+        else if (num == '.') {
             if (!octet[octNum].getCursorPosition() && !firstDot) {
                 firstDot = 1;
             }
@@ -1565,6 +1703,12 @@ std::string tUIGetHostAddress(textUI& screen) {
     screen.ClearInputs();
     screen.ClearButtons();
     buildAndTestIpAddress();
+
+    
+    if (pushNewIP(g_converter.from_bytes(host_address).c_str())) {
+        saveIPDataToFile();
+    }
+
     return host_address;
 }
 

@@ -823,6 +823,8 @@ int main(int argc, char **argv)
     SetConsoleScreenBufferSize(consoleOutput, bufferSize);
 
     SetConsoleTitleW(L"JoySender++ tUI 0.9.5.0");
+    
+    loadIPDataFromFile();
 
     int RUN = 1;
     while (RUN > 0) {
