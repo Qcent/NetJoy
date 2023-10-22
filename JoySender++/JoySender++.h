@@ -42,7 +42,8 @@ THE SOFTWARE.
 #define DISCONNECT_ERROR    -3
 
 // GLOBAL VARIABLES
-constexpr auto APP_NAME = "NetJoy";
+#define APP_VERSION_NUM     L"0.9.5.1"
+constexpr auto APP_NAME =   "NetJoy";
 
 std::string g_outputText;
 int g_joystickSelected = -1;

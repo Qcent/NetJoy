@@ -822,8 +822,22 @@ int main(int argc, char **argv)
     bufferSize.Y = rect.Bottom + 1;
     SetConsoleScreenBufferSize(consoleOutput, bufferSize);
 
-    SetConsoleTitleW(L"JoySender++ tUI 0.9.5.1");
-    
+    // Set Version into window title
+    wchar_t winTitle[30];
+    wcscpy(winTitle, L"JoySender++ tUI ");
+    wcscat(winTitle, APP_VERSION_NUM);
+    SetConsoleTitleW(winTitle);
+
+    // Set Version into backdrop
+    {
+        int versionStartPoint = 73 * 3 + 29;
+        const int verLength = wcslen(APP_VERSION_NUM);
+
+        for (int i = 0; i < verLength; i++) {
+            JoySendMain_BackdropSource[versionStartPoint + i] = APP_VERSION_NUM[i];
+        }
+    }
+
     loadIPDataFromFile();
 
     int RUN = 1;
