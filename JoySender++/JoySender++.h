@@ -42,7 +42,7 @@ THE SOFTWARE.
 #define DISCONNECT_ERROR    -3
 
 // GLOBAL VARIABLES
-#define APP_VERSION_NUM     L"0.9.5.1"
+#define APP_VERSION_NUM     L"0.9.5.2"
 constexpr auto APP_NAME =   "NetJoy";
 
 std::string g_outputText;
@@ -1472,7 +1472,9 @@ std::string tUIGetHostAddress(textUI& screen) {
     };
     // Lambda function for IP address validation
     auto validIPAddress = [](const std::string& ipAddress) {
-        std::regex pattern(R"(^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[1-9][0-9]?)$)");
+        //std::regex pattern(R"(^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[1-9][0-9]?)$)"); // og pattern has a bug where (100-109) in last octet will fail
+        std::regex pattern(R"(^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}$)"); // better pattern but matches all 0s and broadcast addresses
+        
         std::smatch match;
         return std::regex_match(ipAddress, match, pattern);
     };
