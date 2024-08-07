@@ -3,10 +3,10 @@ JoySender++ is a console application that enables you to send joystick data over
 It runs in two modes: 
 
 **Mode 1:** 
-- JoySender++ tUI uses user created button mapping to emulate an Xbox360 controller on host machine running JoyReceiver++. 
+- JoySender++ tUI uses user created button mapping to emulate an Xbox360 controller on host machine running JoyReceiver++ or JoyReceiver++ tUI. 
 
 **Mode 2:** 
-- JoySender++ tUI reads input reports from a DS4 controller and sends them to a host machine running JoyReceiver++. This mode will send all data associated with DS4 device i.e. gyro, accelerometer, touchpad, battery, etc
+- JoySender++ tUI reads input reports from a DS4 controller and sends them to a host machine running JoyReceiver++ or JoyReceiver++ tUI. This mode will send all data associated with DS4 device i.e. gyro, accelerometer, touchpad, battery, etc
 
 ![Connected](./../screenshots/sendConnected.gif)
 
@@ -24,7 +24,7 @@ It runs in two modes:
 To use JoySender++ tUI, follow these steps:
 - Run the JoySender++ tUI executable without any parameters.
 - JoySender++ tUI will guide you through the initial joystick mapping process. Follow the on-screen instructions to assign buttons and axes to your joystick.
-Once mapped, JoySender++ will ask for a host address to start transmitting joystick data.
+Once mapped, JoySender++ tUI will ask for a host address to start transmitting joystick data.
 - JoySender++ tUI remembers the last 5 unique IP addresses you have entered. Press the up arrow to cycle through saved addresses.
 
 ![Connecting](./../screenshots/senderConnect.gif)
@@ -41,11 +41,13 @@ JoySender++ tUI [OPTIONS] <ipaddress of host>
 
 - `-p, --port <PORT>`: Sets the port number to run JoySender++ tUI on. Specify the port number for communication with the host/server. The default port is set to `5000`.
 
+- `-f, --fps <FPS>`: Defines the communication frequency with the server in attempts per second. Set the desired frequency for communicating with the server. The default is `30` attempts per second.
+
 - `-m, --mode <MODE>`: Sets the operational mode for JoySender++ tUI. Use `1` for Xbox 360 emulation mode or `2` for DS4 emulation mode. Choose the desired mode based on your requirements. The default mode is Xbox 360 emulation.
 
 - `-a, --auto`: Automatically selects the first joystick recognized by the system. If you have multiple joysticks connected, this option will automatically choose the first one. By default, this option is disabled.
 
-- `-h, --help`: Displays the help message with information on how to use JoySender++ and its available options.
+- `-h, --help`: Displays the help message with information on how to use JoySender++ tUI and its available options.
 
 
 ## Examples
@@ -63,10 +65,10 @@ To specify the IP address and port of the host/server, type the ip and use the `
 'JoySender++ tUI' 192.168.1.100 -p 8080
 ```
 
-For DS4 emulation mode use the following command:
+For DS4 emulation mode, running at 45 fps, use the following command:
 
 ```
-'JoySender++ tUI' -m 2
+'JoySender++ tUI' -m 2 -f 45
 ```
 
 ## Mapping Joystick Inputs to an Xbox360 Controller
