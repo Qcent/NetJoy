@@ -1,7 +1,6 @@
-// JoyReceiver++.cpp : This file contains the 'main' function. Program execution begins and ends there.
 /*
 
-Copyright (c) 2023 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2024 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -28,6 +27,39 @@ THE SOFTWARE.
 #include "FPSCounter.hpp"
 #include "JoyReceiver++.h"
 
+//----------------------------------------------------------------------------
+// lifted from : https://cplusplus.com/forum/windows/10731/
+struct console
+{
+    console(unsigned width, unsigned height)
+    {
+        SMALL_RECT r;
+        COORD      c;
+        hConOut = GetStdHandle(STD_OUTPUT_HANDLE);
+        GetConsoleScreenBufferInfo(hConOut, &csbi);
+
+        r.Left = r.Top = 0;
+        r.Right = width - 1;
+        r.Bottom = height - 1;
+        SetConsoleWindowInfo(hConOut, TRUE, &r);
+
+        c.X = width;
+        c.Y = height;
+        SetConsoleScreenBufferSize(hConOut, c);
+    }
+
+    ~console()
+    {
+        SetConsoleTextAttribute(hConOut, csbi.wAttributes);
+        SetConsoleScreenBufferSize(hConOut, csbi.dwSize);
+        SetConsoleWindowInfo(hConOut, TRUE, &csbi.srWindow);
+    }
+
+    HANDLE                     hConOut;
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+};
+
+console con(consoleWidth + 2, consoleHeight + 2);
 
 int main(int argc, char* argv[]) {
     Arguments args = parse_arguments(argc, argv);
@@ -93,7 +125,6 @@ int main(int argc, char* argv[]) {
     //
     // Set Up Console Window
 
-    hideConsoleCursor();
     // Get the console input handle to enable mouse input
     g_hConsoleInput = GetStdHandle(STD_INPUT_HANDLE);
     DWORD mode;
@@ -103,31 +134,23 @@ int main(int argc, char* argv[]) {
     // Set the console to UTF-8 mode
     _setmode(_fileno(stdout), _O_U8TEXT);
 
-    // Set window size
+    // Set Version into window title
+    wchar_t winTitle[30];
+    wcscpy(winTitle, L"JoyReceiver++ tUI ");
+    wcscat(winTitle, APP_VERSION_NUM);
+    SetConsoleTitleW(winTitle);
+    
+    hideConsoleCursor();
 
-    // Define the new size and position for the console window
-    SMALL_RECT rect;
-    rect.Left = 200;
-    rect.Top = 100;
-    rect.Right = consoleWidth+1; 
-    rect.Bottom = consoleHeight+3; 
+    // Set Version into backdrop
+    {
+        int versionStartPoint = 73 * 3 + 31;
+        const int verLength = wcslen(APP_VERSION_NUM);
 
-    // Get the console screen buffer info
-    HANDLE consoleOutput = GetStdHandle(STD_OUTPUT_HANDLE);
-    CONSOLE_SCREEN_BUFFER_INFO bufferInfo;
-    GetConsoleScreenBufferInfo(consoleOutput, &bufferInfo);
-
-    // Set the new size and position
-    SetConsoleWindowInfo(consoleOutput, TRUE, &rect);
-
-    // Adjust the buffer size to match the new window size
-    COORD bufferSize;
-    bufferSize.X = rect.Right + 1;
-    bufferSize.Y = rect.Bottom + 1;
-    SetConsoleScreenBufferSize(consoleOutput, bufferSize);
-
-    SetConsoleTitleW(L"JoyReciever++ tUI 1.0.0.0");
-
+        for (int i = 0; i < verLength; i++) {
+            JoyRecvMain_Backdrop[versionStartPoint + i] = APP_VERSION_NUM[i];
+        }
+    }
 
     //
     // Set up for tUI screen
@@ -302,8 +325,6 @@ int main(int argc, char* argv[]) {
             swprintf(errorPointer, len, L" << Connection From: %s Failed >> ", clientIP);
             errorOut.SetWidth(len);
             errorOut.SetText(errorPointer);
-
-            //setErrorMsg(L" << Connection From:  Failed >> ", 24);
             break;
         }
         std::vector<std::string> split_settings = split(std::string(buffer, bytesReceived), ':');
@@ -386,7 +407,6 @@ int main(int argc, char* argv[]) {
             swprintf(errorPointer, len, L" << Connection To: %s Failed >> ", clientIP);
             errorOut.SetWidth(len);
             errorOut.SetText(errorPointer);
-            //std::cout << "<< Connection Failed >>" << std::endl;
             break;
         }
         
@@ -475,14 +495,6 @@ int main(int argc, char* argv[]) {
                 errorOut.SetText(errorPointer);
                 break;
             }
-#if 0
-            if (op_mode == 2 && fps_counter.get_frame_count() > latency_report_freq) {
-                repositionConsoleCursor(2);
-                displayBytes(static_cast<BYTE*>(static_cast<void*>(buffer)) , 61);
-                repositionConsoleCursor(-4);
-            }
-#endif
-
 
             //******************************
             // Update virtual gamepad and screen

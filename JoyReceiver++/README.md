@@ -1,5 +1,5 @@
-# JoyReceiver++
-JoyReceiver++ is a console application that receives and emulates joystick data over TCP/IP. It allows you to seamlessly control a joystick connected to a remote machine, providing an immersive gaming experience.
+# JoyReceiver++ tUI
+JoyReceiver++ tUI is a console application that receives and emulates joystick data over TCP/IP. In conjunction with JoySender++ or JoySender++ tUI, it allows you to seamlessly control a joystick connected from a remote machine on a host machine.
 
 
 ## Table of Contents
@@ -11,26 +11,27 @@ JoyReceiver++ is a console application that receives and emulates joystick data 
 
 ## Requirements
 
-Before using JoyReceiver++, make sure you have installed the ViGEm Bus Driver:
+Before using JoyReceiver++ tUI, make sure you have installed the ViGEm Bus Driver:
 
-- ViGEm Bus Driver: JoyReceiver++ requires the ViGEm Bus driver to enable joystick emulation. Ensure you have the ViGEm Bus driver installed on your system before using JoyReceiver++. You can download and install the ViGEm Bus driver from the official ViGEm GitHub repository or website.
+- ViGEm Bus Driver: JoyReceiver++ tUI requires the ViGEm Bus driver to enable joystick emulation. Ensure you have the ViGEm Bus driver installed on your system before using JoyReceiver++ tUI. You can download and install the ViGEm Bus driver from the official ViGEm GitHub repository or website.
         [ViGEmBus Driver](https://github.com/ViGEm/ViGEmBus)
 
 ## Usage
 
-To use JoyReceiver++:
-- Simply run the JoyReceiver++ executable.
-- JoyReceiver++ will start listening for incoming joystick data on the default port (5000).
-- Once a connection is received, gamepad emulation will begin using the ViGEm driver.
+To use JoyReceiver++ tUI:
+- Simply run the JoyReceiver++ tUI executable.
+- JoyReceiver++ will start listening for incoming joystick data on the default port (5000). As well as provide you with a LAN and WAN ip address for your machine to make it easy to set up the connection. \
+![Start Up](./../screenshots/recvStart.gif)
+- Once a connection is received, gamepad emulation will begin using the ViGEm driver. \
+![Connection Received](./../screenshots/recvConnected.gif)
 
 ### With Command-Line Parameters
-JoyReceiver++ provides command-line parameters for advanced settings and customization. Here are the available options:
+JoyReceiver++ tUI provides command-line parameters for advanced settings and customization. Here are the available options:
 
-    -p, --port <PORT>: Sets the port number to run JoyReceiver++ on for communication with the client/sender.
-    -l, --latency: Enables the display of latency output during communication.
-    -h, --help: Displays the help message with information on how to use JoyReceiver++ and its available options.
+    -p, --port <PORT>: Sets the port number to run JoyReceiver++ tUI on for communication with the client/sender.
+    -h, --help: Displays the help message with information on how to use JoyReceiver++ tUI and its available options.
 
-By default, JoyReceiver++ uses port 5000 for communication. If you wish to use a different port, specify it using the -p/--port option.
+By default, JoyReceiver++ tUI uses port 5000 for communication. If you wish to use a different port, specify it using the -p/--port option.
 
 ```
 JoyReceiver++ [OPTIONS]
@@ -39,16 +40,16 @@ JoyReceiver++ [OPTIONS]
 ## Examples
 **Example Usage:**
 
-To run JoyReceiver++ with default settings, simply execute the following command:
+To run JoyReceiver++ tUI with default settings, simply execute the following command:
 
 ```
-JoyReceiver++
+'JoyReceiver++ tUI'
 ```
 
-To specify the port to listen on and output latency, use the `-p/--port` and '-l/--latency' options:
+To specify the port to listen on, use the `-p/--port`option:
 
 ```
-JoyReceiver++ -p 8080 -l
+'JoyReceiver++ tUI' -p 8080
 ```
 
 **Note:** You can safely quit the program at any time by pressing `Ctrl + C` in the console window.
@@ -57,7 +58,7 @@ JoyReceiver++ -p 8080 -l
 ## License
 MIT Licence
 
-Copyright (c) 2023 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2024 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2023 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2024 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -35,10 +35,10 @@ std::string feedbackData; // For sending rumble data back to joySender
 #pragma comment(lib, "setupapi.lib")
 #pragma comment(lib, "VIGEmClient.lib")
 
-//constexpr auto APP_NAME = "NetJoy";
+#define APP_VERSION_NUM     L"1.0.0.1"
+
 volatile sig_atomic_t APP_KILLED = 0;
 std::string g_outputText;
-//int g_joystickSelected = -1;
 
 void signalHandler(int signal);
 std::vector<std::string> split(const std::string& str, char delimiter);
