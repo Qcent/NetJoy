@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2023 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2024 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -42,12 +42,12 @@ struct HidDeviceInfo {
     std::wstring      serial;
     std::wstring      manufacturer;
     std::wstring      product;
-    unsigned short    vendorId;
-    unsigned short    productId;
-    unsigned short    release;
-    unsigned short    usagePage;
-    unsigned short    usage;
-    int               interfaceNumber;
+    unsigned short    vendorId = 0;
+    unsigned short    productId = 0;
+    unsigned short    release = 0;
+    unsigned short    usagePage = 0;
+    unsigned short    usage = 0;
+    int               interfaceNumber = 0;
 };
 
 class HidDeviceManager
@@ -55,10 +55,12 @@ class HidDeviceManager
 public:
     HANDLE selectedDevice;
     HidDeviceInfo Info;
+    bool silent;
 
     HidDeviceManager()
     {
         selectedDevice = nullptr;
+        silent = true;
     }
 
     ~HidDeviceManager()
@@ -122,13 +124,17 @@ public:
     {
         if (selectedDevice == INVALID_HANDLE_VALUE)
         {
-            std::cerr << "No HID device is currently open." << std::endl;
+            if (!silent) {
+                std::cerr << "No HID device is currently open." << std::endl;
+            }
             return false;
         }
         buffer[0] = id;
         if (!HidD_GetInputReport(selectedDevice, buffer, bufferSize))
         {
-            std::cerr << "Failed to read input report: " << id << " from the selected HID device." << std::endl;
+            if (!silent) {
+                std::cerr << "Failed to read input report: " << id << " from the selected HID device." << std::endl;
+            }
             return false;
         }
 
@@ -139,13 +145,17 @@ public:
     {
         if (selectedDevice == INVALID_HANDLE_VALUE)
         {
-            std::cerr << "No HID device is currently open." << std::endl;
+            if (!silent) {
+                std::cerr << "No HID device is currently open." << std::endl;
+            }
             return false;
         }
 
         if (!HidD_SetOutputReport(selectedDevice, const_cast<PVOID>(static_cast<const void*>(buffer)), bufferSize))
         {
-            std::cerr << "Failed to write output report to the selected HID device." << std::endl;
+            if (!silent) {
+                std::cerr << "Failed to write output report to the selected HID device." << std::endl;
+            }
             return false;
         }
 
@@ -157,7 +167,9 @@ public:
         // Ensure the device handle is valid
         if (selectedDevice == INVALID_HANDLE_VALUE)
         {
-            std::cerr << "Invalid device handle." << std::endl;
+            if (!silent) {
+                std::cerr << "Invalid device handle." << std::endl;
+            }
             return false;
         }
 
@@ -167,8 +179,10 @@ public:
         // Read the Feature report from the device
         if (!HidD_GetFeature(selectedDevice, buffer, bufferSize))
         {
-            DWORD error = GetLastError();
-            std::cerr << "Failed to read Feature report from the HID device. Error: " << error << std::endl;
+            if (!silent) {
+                DWORD error = GetLastError();
+                std::cerr << "Failed to read Feature report from the HID device. Error: " << error << std::endl;
+            }
             return false;
         }
 
@@ -179,7 +193,9 @@ public:
     {
         if (selectedDevice == INVALID_HANDLE_VALUE)
         {
-            std::cerr << "No HID device is currently open." << std::endl;
+            if (!silent) {
+                std::cerr << "No HID device is currently open." << std::endl;
+            }
             return false;
         }
 
@@ -188,7 +204,9 @@ public:
         overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
         if (overlapped.hEvent == NULL)
         {
-            std::cerr << "Failed to create event for overlapped I/O." << std::endl;
+            if (!silent) {
+                std::cerr << "Failed to create event for overlapped I/O." << std::endl;
+            }
             return false;
         }
 
@@ -215,19 +233,25 @@ public:
                     else
                     {
                         // Read operation failed
-                        std::cerr << "Failed to read input report: " << id << " from the selected HID device." << std::endl;
+                        if (!silent) {
+                            std::cerr << "Failed to read input report: " << id << " from the selected HID device." << std::endl;
+                        }
                     }
                 }
                 else
                 {
                     // Wait for single object failed
-                    std::cerr << "Failed to wait for overlapped I/O operation to complete." << std::endl;
+                    if (!silent) {
+                        std::cerr << "Failed to wait for overlapped I/O operation to complete." << std::endl;
+                    }
                 }
             }
             else
             {
                 // Read operation failed immediately
-                std::cerr << "Failed to read input report: " << id << " from the selected HID device." << std::endl;
+                if (!silent) {
+                    std::cerr << "Failed to read input report: " << id << " from the selected HID device." << std::endl;
+                }
             }
 
             // Close the event handle
@@ -246,7 +270,9 @@ public:
 
         if (selectedDevice == INVALID_HANDLE_VALUE)
         {
-            std::cerr << "No HID device is currently open." << std::endl;
+            if (!silent) {
+                std::cerr << "No HID device is currently open." << std::endl;
+            }
             return false;
         }
 
@@ -255,7 +281,9 @@ public:
         overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
         if (overlapped.hEvent == NULL)
         {
-            std::cerr << "Failed to create event for overlapped I/O." << std::endl;
+            if (!silent) {
+                std::cerr << "Failed to create event for overlapped I/O." << std::endl;
+            }
             return false;
         }
 
@@ -280,20 +308,26 @@ public:
                     else
                     {
                         // Write operation failed
-                        std::cerr << "Failed to write output report to the selected HID device." << std::endl;
+                        if (!silent) {
+                            std::cerr << "Failed to write output report to the selected HID device." << std::endl;
+                        }
                         //PrintErrorMessage(GetLastError());
                     }
                 }
                 else
                 {
                     // Wait for single object failed
-                    std::cerr << "Failed to wait for overlapped I/O operation to complete." << std::endl;
+                    if (!silent) {
+                        std::cerr << "Failed to wait for overlapped I/O operation to complete." << std::endl;
+                    }
                 }
             }
             else
             {
                 // Write operation failed immediately
-                std::cerr << "Failed to write output report to the selected HID device." << std::endl;
+                if (!silent) {
+                    std::cerr << "Failed to write output report to the selected HID device." << std::endl;
+                }
                 //PrintErrorMessage(errorCode);
             }
 

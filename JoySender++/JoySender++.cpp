@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2023 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2024 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -292,6 +292,7 @@ int joySender(Arguments& args) {
     //############################################################
     // Initial Settings for Operating Mode:  DS4 / XBOX
     if (args.mode == 2) {         
+
         // Get a report from the device to determine what type of connection it has
         Sleep(5); // a fresh report should be generated every 4ms from the ds4 device
         GetDS4Report();
@@ -299,53 +300,65 @@ int joySender(Arguments& args) {
         // first byte is used to determine where stick input starts
         ds4DataOffset = hid_report[0] == 0x11 ? DS4_VIA_BT : DS4_VIA_USB;
 
-        Sleep(5); // lets slow things down
-        bool extReport = ActivateDS4ExtendedReports();
+        int attempts = 0;   // DS4 fails to properly initialize when connecting to pc (after power up) via BT so lets hack in multiple attempts
+        while (attempts < 2) {
+            attempts++;
 
-        // Set up feedback buffer with correct headers for connection mode
-        InitDS4FeedbackBuffer();
+            Sleep(5); // lets slow things down
+            bool extReport = ActivateDS4ExtendedReports();
 
-        Sleep(5); // lets slow things down
+            // Set up feedback buffer with correct headers for connection mode
+            InitDS4FeedbackBuffer();
 
-        // Set new LightBar color with update to confirm rumble/lightbar support
-        switch (ds4DataOffset) {
-        case(DS4_VIA_BT):
-            SetDS4LightBar(105, 4, 32); // hot pink
-            break;
-        case(DS4_VIA_USB):
-            SetDS4LightBar(180, 188, 5); // citrus yellow-green
-        }
+            // Set new LightBar color with update to confirm rumble/lightbar support
+            switch (ds4DataOffset) {
+            case(DS4_VIA_BT):
+                SetDS4LightBar(105, 4, 32); // hot pink
+                break;
+            case(DS4_VIA_USB):
+                SetDS4LightBar(180, 188, 5); // citrus yellow-green
+            }
 
-        Sleep(4); // update fails if controller is bombarded with read/writes, so take a rest bud
-        allGood = SendDS4Update();       
+            Sleep(5); // update fails if controller is bombarded with read/writes, so take a rest bud
+            allGood = SendDS4Update();
 
-        // i like this but it doesnt show up here as the screen changes too quickly
-        // it should be implemented in printControllerHeader()
-        /*
-        g_outputText = "DS4 Controller"; 
-        if (ds4DataOffset == DS4_VIA_BT) { g_outputText += "| Wireless | "; }
-        else if (ds4DataOffset == DS4_VIA_USB) { g_outputText += "| USB | "; }
-        if (extReport) { g_outputText += "Gyro/Accel | "; }
-        if (allGood) {g_outputText += "Rumble | "; }
-                
-        setCursorPosition(5, 9);
-        std::wcout << g_toWide(g_outputText);
-        */
+            // i like this but it doesnt show up here as the screen changes too quickly
+            // it should be implemented in printControllerHeader()
+            /*
+            g_outputText = "DS4 Controller";
+            if (ds4DataOffset == DS4_VIA_BT) { g_outputText += "| Wireless | "; }
+            else if (ds4DataOffset == DS4_VIA_USB) { g_outputText += "| USB | "; }
+            if (extReport) { g_outputText += "Gyro/Accel | "; }
+            if (allGood) {g_outputText += "Rumble | "; }
 
-        reportSize = DS4_REPORT_NETWORK_DATA_SIZE;
+            setCursorPosition(5, 9);
+            std::wcout << g_toWide(g_outputText);
+            */
 
-        // Rumble the Controller
-        if (allGood) {
-            // jiggle it
-            SetDS4RumbleValue(12, 200);
-            SendDS4Update();
-            Sleep(110);
-            SetDS4RumbleValue(165, 12);
-            SendDS4Update();
-            // stop the rumble
-            SetDS4RumbleValue(0, 0);
-            Sleep(130);
-            SendDS4Update();
+            reportSize = DS4_REPORT_NETWORK_DATA_SIZE;
+
+            // Rumble the Controller
+            if (allGood) {
+                // jiggle it
+                SetDS4RumbleValue(12, 200);
+                SendDS4Update();
+                Sleep(110);
+                SetDS4RumbleValue(165, 12);
+                SendDS4Update();
+                // stop the rumble
+                SetDS4RumbleValue(0, 0);
+                Sleep(130);
+                SendDS4Update();
+                break; // break out of attempt loop
+            }
+                // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+            // Problem is probably related to not getting the correct report and assigning ds4DataOffset = DS4_VIA_USB
+            // taking the lazy route and just set ds4DataOffset = DS4_VIA_BT this works for me 100% of the time and hasn't led to problems yet ...
+            Sleep(10);
+            if (ds4DataOffset == DS4_VIA_USB)
+                ds4DataOffset = DS4_VIA_BT;
+            else
+                ds4DataOffset = DS4_VIA_USB;
         }
     }
     else {
@@ -778,6 +791,42 @@ int joySender(Arguments& args) {
     return !APP_KILLED;
 }
 
+
+
+//----------------------------------------------------------------------------
+// lifted from : https://cplusplus.com/forum/windows/10731/
+struct console
+{
+    console(unsigned width, unsigned height)
+    {
+        SMALL_RECT r;
+        COORD      c;
+        hConOut = GetStdHandle(STD_OUTPUT_HANDLE);
+        GetConsoleScreenBufferInfo(hConOut, &csbi);
+
+        r.Left = r.Top = 0;
+        r.Right = width - 1;
+        r.Bottom = height - 1;
+        SetConsoleWindowInfo(hConOut, TRUE, &r);
+
+        c.X = width;
+        c.Y = height;
+        SetConsoleScreenBufferSize(hConOut, c);
+    }
+
+    ~console()
+    {
+        SetConsoleTextAttribute(hConOut, csbi.wAttributes);
+        SetConsoleScreenBufferSize(hConOut, csbi.dwSize);
+        SetConsoleWindowInfo(hConOut, TRUE, &csbi.srWindow);
+    }
+
+    HANDLE                     hConOut;
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+};
+
+console con(consoleWidth+2, consoleHeight+2);
+
 int main(int argc, char **argv)
 {
     Arguments args = parse_arguments(argc, argv);
@@ -788,7 +837,6 @@ int main(int argc, char **argv)
     int err = InitJoystickInput();
     if (err) return -1;
 
-    hideConsoleCursor();
     // Get the console input handle to enable mouse input
     g_hConsoleInput = GetStdHandle(STD_INPUT_HANDLE);
     g_mode = args.mode;
@@ -798,29 +846,6 @@ int main(int argc, char **argv)
 
     // Set the console to UTF-8 mode
     _setmode(_fileno(stdout), _O_U8TEXT);
-
-    // Set window size
-
-    // Define the new size and position for the console window
-    SMALL_RECT rect;
-    rect.Left = 200;
-    rect.Top = 100;
-    rect.Right = consoleWidth + 1;
-    rect.Bottom = consoleHeight + 3;
-
-    // Get the console screen buffer info
-    HANDLE consoleOutput = GetStdHandle(STD_OUTPUT_HANDLE);
-    CONSOLE_SCREEN_BUFFER_INFO bufferInfo;
-    GetConsoleScreenBufferInfo(consoleOutput, &bufferInfo);
-
-    // Set the new size and position
-    SetConsoleWindowInfo(consoleOutput, TRUE, &rect);
-
-    // Adjust the buffer size to match the new window size
-    COORD bufferSize;
-    bufferSize.X = rect.Right + 1;
-    bufferSize.Y = rect.Bottom + 1;
-    SetConsoleScreenBufferSize(consoleOutput, bufferSize);
 
     // Set Version into window title
     wchar_t winTitle[30];
@@ -839,6 +864,8 @@ int main(int argc, char **argv)
     }
 
     loadIPDataFromFile();
+
+    hideConsoleCursor();
 
     int RUN = 1;
     while (RUN > 0) {

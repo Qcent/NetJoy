@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2023 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2024 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -42,7 +42,7 @@ THE SOFTWARE.
 #define DISCONNECT_ERROR    -3
 
 // GLOBAL VARIABLES
-#define APP_VERSION_NUM     L"0.9.5.2"
+#define APP_VERSION_NUM     L"0.9.5.5"
 constexpr auto APP_NAME =   "NetJoy";
 
 std::string g_outputText;

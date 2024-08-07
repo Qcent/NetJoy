@@ -1,12 +1,14 @@
-# JoySender++
+# JoySender++ tUI
 JoySender++ is a console application that enables you to send joystick data over TCP/IP to a host/server. It simplifies the process of remote joystick control, allowing you to enjoy gaming experiences on a different machine within a local network or even over the internet. \
 It runs in two modes: 
 
 **Mode 1:** 
-- JoySender++ uses user created button mapping to emulate an Xbox360 controller on host machine running JoyReceiver++. 
+- JoySender++ tUI uses user created button mapping to emulate an Xbox360 controller on host machine running JoyReceiver++. 
 
 **Mode 2:** 
-- JoySender++ reads input reports from a DS4 controller and sends them to a host machine running JoyReceiver++.
+- JoySender++ tUI reads input reports from a DS4 controller and sends them to a host machine running JoyReceiver++. This mode will send all data associated with DS4 device i.e. gyro, accelerometer, touchpad, battery, etc
+
+![Connected](./../screenshots/sendConnected.gif)
 
 ## Table of Contents
 - [Usage](#usage)
@@ -17,29 +19,29 @@ It runs in two modes:
 - [Contact](#contact)
 
 ## Usage
+![Start Up](./../screenshots/senderStart.gif)
 
-To use JoySender++, follow these steps:
-- Run the JoySender++ executable without any parameters.
-- JoySender++ will guide you through the initial joystick mapping process. Follow the on-screen instructions to assign buttons and axes to your joystick.
+To use JoySender++ tUI, follow these steps:
+- Run the JoySender++ tUI executable without any parameters.
+- JoySender++ tUI will guide you through the initial joystick mapping process. Follow the on-screen instructions to assign buttons and axes to your joystick.
 Once mapped, JoySender++ will ask for a host address to start transmitting joystick data.
+- JoySender++ tUI remembers the last 5 unique IP addresses you have entered. Press the up arrow to cycle through saved addresses.
+
+![Connecting](./../screenshots/senderConnect.gif)
 
 ### With Command-Line Parameters
 
 ```
-JoySender++ [OPTIONS] <ipaddress of host>
+JoySender++ tUI [OPTIONS] <ipaddress of host>
 ```
 
 **Options:**
 
 - `-n, --host <IP>`: Specifies the IP address of the host/server. Provide the IP address where you want to send the joystick data. This flag can be omitted.
 
-- `-p, --port <PORT>`: Sets the port number to run JoySender++ on. Specify the port number for communication with the host/server. The default port is set to `5000`.
+- `-p, --port <PORT>`: Sets the port number to run JoySender++ tUI on. Specify the port number for communication with the host/server. The default port is set to `5000`.
 
-- `-f, --fps <FPS>`: Defines the communication frequency with the server in attempts per second. Set the desired frequency for communicating with the server. The default is `30` attempts per second.
-
-- `-m, --mode <MODE>`: Sets the operational mode for JoySender++. Use `1` for Xbox 360 emulation mode or `2` for DS4 emulation mode. Choose the desired mode based on your requirements. The default mode is Xbox 360 emulation.
-
-- `-l, --latency`: Enables the display of latency output. Use this option if you want to see the latency information during communication. By default, this option is disabled.
+- `-m, --mode <MODE>`: Sets the operational mode for JoySender++ tUI. Use `1` for Xbox 360 emulation mode or `2` for DS4 emulation mode. Choose the desired mode based on your requirements. The default mode is Xbox 360 emulation.
 
 - `-a, --auto`: Automatically selects the first joystick recognized by the system. If you have multiple joysticks connected, this option will automatically choose the first one. By default, this option is disabled.
 
@@ -49,27 +51,28 @@ JoySender++ [OPTIONS] <ipaddress of host>
 ## Examples
 **Example Usage:**
 
-To run JoySender++ with default settings, simply execute the following command, you will be prompted to enter a host address:
+To run JoySender++ tUI with default settings, simply execute the following command, you will be prompted to enter a host address:
 
 ```
-JoySender++
+'JoySender++ tUI'
 ```
 
 To specify the IP address and port of the host/server, type the ip and use the `-p/--port` option:
 
 ```
-JoySender++ 192.168.1.100 -p 8080
+'JoySender++ tUI' 192.168.1.100 -p 8080
 ```
 
-For DS4 emulation mode and latency output enabled, use the following command:
+For DS4 emulation mode use the following command:
 
 ```
-JoySender++ -m 2 -l 
+'JoySender++ tUI' -m 2
 ```
 
 ## Mapping Joystick Inputs to an Xbox360 Controller
+![Control Mapping Process](./../screenshots/mapping.gif)
 
-While using JoySender++ in Mode 1: 
+While using JoySender++ tUI in Mode 1: 
 - Upon selecting an unmapped joystick or initiating a re-mapping process, you will be prompted to set inputs corresponding to Xbox360 controller inputs. 
 This allows you to map the various buttons and controls on your joystick to the equivalent Xbox360 controller inputs.
 
@@ -77,18 +80,20 @@ This allows you to map the various buttons and controls on your joystick to the 
 
 - Pressing `Esc` will skip the current input. Allowing you to not set a mapping for an input.
 
-- Once you have successfully mapped all the desired inputs for your joystick, JoySender++ will be able to emulate your joystick inputs as an Xbox360 controller on a machine running JoyReceiver++. 
+- Once you have successfully mapped all the desired inputs for your joystick, JoySender++ tUI will be able to emulate your joystick inputs as an Xbox360 controller on a machine running JoyReceiver++ or JoyReceiver++ tUI. 
 
-- To remap your selected joystick inputs, simply press Shift+M within the JoySender++ application. This will initiate the remapping process and allow you to modify or update the mapping configuration.
+- To remap your selected joystick inputs, simply press Shift+M within the JoySender++ tUI application. This will initiate the remapping process and allow you to modify or update the mapping configuration.
 
-- Mappings are saved to disc, for reuse when controller is sellected in future.
+- Mappings are saved to disc, for reuse when controller is selected in the future.
 
 ## HotKeys
 Once you establish a connection with the host/server, JoySender++ provides several hotkey buttons for convenient control:
 
+- `Shift + C`: Pressing Shift and C together will generate a new random color scheme for the on-screen controller and the user interface.
+
 - `Shift + M`: Pressing Shift and M together will initiate the joystick remapping process. This allows you to reconfigure the joystick mapping on the fly.
 
-- `Shift + R`: Pressing Shift and R together will restart the JoySender++ program, resetting the connection and settings.
+- `Shift + R`: Pressing Shift and R together will restart the JoySender++ tUI program, resetting the connection and settings.
  Additionally, while holding the R key, pressing 1 or 2 will allow you to switch between different modes while in a connection. This is useful for changing the operational mode on the fly.
 
 - `Shift + Q`: Pressing Shift and Q together will quit the JoySender++ program.
@@ -99,7 +104,7 @@ Once you establish a connection with the host/server, JoySender++ provides sever
 ## License
 MIT Licence
 
-Copyright (c) 2023 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2024 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
