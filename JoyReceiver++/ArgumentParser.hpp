@@ -28,7 +28,7 @@ THE SOFTWARE.
 
 struct Arguments {
     int port = 5000;
-    bool latency = false;
+    bool latency = true;
 };
 
 Arguments parse_arguments(int argc, char* argv[]) {
@@ -38,7 +38,7 @@ Arguments parse_arguments(int argc, char* argv[]) {
     options.allow_unrecognised_options();
     options.add_options()
         ("p,port", "Port to run on", cxxopts::value<int>()->default_value("5000"))
-        ("l,latency", "Show latency output", cxxopts::value<bool>()->default_value("false"))
+        ("l,latency", "Show latency output", cxxopts::value<bool>()->implicit_value("true"))
         ("h,help", "Display this help message");
 
     options.parse_positional("port");
@@ -57,7 +57,7 @@ Arguments parse_arguments(int argc, char* argv[]) {
     }
 
     args.port = result["port"].as<int>();
-    args.latency = result["latency"].as<bool>();
+    args.latency = result["latency"].as<bool>();   
  
     return args;
 }

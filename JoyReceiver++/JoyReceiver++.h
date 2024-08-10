@@ -26,7 +26,7 @@ void overwriteLatency(const std::string& text);
 // Define the callback functions for Rumble Support 
 VOID CALLBACK xbox_rumble( PVIGEM_CLIENT Client, PVIGEM_TARGET Target, 
     UCHAR LargeMotor, UCHAR SmallMotor, UCHAR LedNumber, LPVOID UserData){
-#if 1
+#if 0
     static int count = 1;
     repositionConsoleCursor(-2, 6);
     std::cout << "Rumble Calls:" << count++ << "\t ";
@@ -44,7 +44,7 @@ VOID CALLBACK xbox_rumble( PVIGEM_CLIENT Client, PVIGEM_TARGET Target,
 
 VOID CALLBACK ds4_rumble( PVIGEM_CLIENT Client, PVIGEM_TARGET Target, UCHAR LargeMotor,
     UCHAR SmallMotor, DS4_LIGHTBAR_COLOR LightbarColor, LPVOID UserData){
-#if 1
+#if 0
     repositionConsoleCursor(-2, 3);
     std::cout << "Rumble Data: ";
     std::cout << "L:" << (int)LargeMotor << "  ";
