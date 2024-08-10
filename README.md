@@ -4,13 +4,15 @@
 
 Project NetJoy is a software solution that allows for seamless remote control of joysticks between Windows machines. It enables users to send joystick inputs over a network, facilitating remote gaming, simulations, and various applications. With NetJoy, you can emulate any joystick as an Xbox 360 controller, pass through DualShock 4 inputs (including gyro motion), customize control mappings, and experience rumble feedback for enhanced immersion.
 
-Enjoy streamlined remote joystick control with Project NetJoy. Emulate, customize, and optimize your gaming and applications across networked Windows machines.
+Available in two (2) flavours, bland and [colorful](https://github.com/Qcent/NetJoy/tree/tUI), both are cross compatible.
+For non Windows OS users there is a compatible python script (sender only for non windows) _...coming soon_
 
 ## Table of Contents
 - [Key Features](#key-features)
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Usage](#usage)
+- [Screenshots](#screenshots)
 - [License](#license)
 - [Contact](#contact)
 
@@ -22,7 +24,7 @@ JoySender++ also provides DS4 passthrough mode. When a DualShock 4 (DS4) control
 - JoyReceiver++ works in conjunction with JoySender++ on the host machine. It receives the selected mode and joystick inputs transmitted by JoySender++. Based on the mode and input received, JoyReceiver++ emulates the corresponding input on the host machine using the ViGEm driver. This integration ensures seamless and accurate input emulation, enabling smooth gameplay and application interaction.
 
 #### Customizable Control Mapping
-  Project NetJoy offers flexibility in control mapping. You can map any joystick input to any Xbox 360 input, allowing you to create personalized control schemes that suit your preferences and playstyle. Whether you require specific layouts or remapped inputs for optimal gameplay, Project NetJoy provides the versatility to accommodate your needs.
+  Project NetJoy offers flexibility in control mapping. You can map any joystick input to any Xbox 360 input, allowing you to create personalized control schemes that suit your preferences and play style. Whether you require specific layouts or remapped inputs for optimal gameplay, Project NetJoy provides the versatility to accommodate your needs.
 #### Rumble Feedback
 - To enhance the gaming experience, Project NetJoy supports rumble feedback for both Xbox 360 and DS4 modes. This feature provides tactile feedback to the user, simulating vibration effects through the connected controllers. Rumble feedback adds an extra layer of immersion, making games more engaging and interactive.
 
@@ -37,20 +39,20 @@ Before installing and using Project NetJoy, make sure you meet the following req
 
 - SDL.dll: JoySender++ requires the SDL.dll library file to function properly. This library is provided and should be placed in the same folder as the JoySender++ executable. 
 
-- Visual Studio 2019+ Community Edition: To easliy build the Project NetJoy applications. [Visual Studio](https://visualstudio.microsoft.com/vs/community/)
+- Visual Studio 2022+ Community Edition: To easily build the Project NetJoy applications. [Visual Studio](https://visualstudio.microsoft.com/vs/community/)
  
 ## Installation
-To get right at it download the win32 binaries:
-[SourceForge](https://sourceforge.net/projects/netjoy/files/NetJoy.7z/download)
+To get right at it download the win32/x64 binaries:
+[SourceForge](https://sourceforge.net/projects/netjoy/files/)
 
 To get started with customizing Project NetJoy, follow these steps:
 
 - Download the Repository: Begin by downloading the project repository to your local machine. You can do this by clicking on the "Download" button or by cloning the repository using Git.
- Project NetJoy is built using Visual Studio 2019 Community Edition.  Download Link: [Visual Studio 2019 Community Edition](https://visualstudio.microsoft.com/vs/community/)
-- JoySender++ and JoyReceiver++: NetJoy is comprised of two sister applications: JoySender++ and JoyReceiver++. Each application has its own separate folder and solution file.
+ Project NetJoy is built using Visual Studio 2022 Community Edition.  Download Link: [Visual Studio 2022 Community Edition](https://visualstudio.microsoft.com/vs/community/)
+- JoySender++ and JoyReceiver++: NetJoy comprises two sister applications: JoySender++ and JoyReceiver++. Each application has its own separate folder and solution file.
 - Open the Solution Files: Navigate to the JoySender++ / JoyReceiver++ folders and open the corresponding solution file (.sln) in Visual Studio.
 - Change the code / rewrite the code.
-- Build the Projects : In Visual Studio, build the solution by selecting the appropriate build configuration (JoyReciever++ is Release Only) and clicking on the build button. This will compile the project and generate the necessary executable files.
+- Build the Projects : In Visual Studio, build the solution by selecting the appropriate build configuration (JoyReceiver++ is Release Only) and clicking on the build button. This will compile the project and generate the necessary executable files.
     
 ## Usage
 Both JoySender++ and JoyReceiver++ are console applications that can be run without any command-line parameters in most situations. They provide a straightforward and intuitive way to enable remote joystick control and enhance gaming experiences. However, for advanced settings and customization, command-line parameters are available.
@@ -64,6 +66,14 @@ To get started, follow these steps:
     Refer to the [JoySender++ README](https://github.com/Qcent/NetJoy/blob/main/JoySender++/README.md) file for detailed instructions. \
     Refer to the [JoyReceiver++ README](https://github.com/Qcent/NetJoy/blob/main/JoyReceiver++/README.md) file for detailed instructions.
 
+## Screenshots
+### plain console
+![Send Plain](./screenshots/send1.gif)
+![Recv Plain](./screenshots/recv1.gif)
+
+### Colorful (tUI)
+![Send tUI](./screenshots/send2.gif)
+![Recv tUI](./screenshots/recv2.gif)
 
 ## License
 MIT Licence
