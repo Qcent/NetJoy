@@ -430,12 +430,12 @@ int main(int argc, char* argv[]) {
             }
 
             // messages
-            swprintf(msgPointer1, 43, L" << Connection From: %s  >> ", clientIP);
+            swprintf(msgPointer1, 43, L" << Connection From: %s  >> ", clientIP.c_str());
             output1.SetText(msgPointer1);
             output1.SetPosition(3, 1, 43, 1, ALIGN_LEFT);
             output1.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg);
 
-            swprintf(clientPointer, 16, L" %s ", clientIP);
+            swprintf(clientPointer, 16, L" %s ", clientIP.c_str());
             clientMsg.SetText(clientPointer);
             clientMsg.SetPosition(23, 1, 38, 1, ALIGN_LEFT);
             clientMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
