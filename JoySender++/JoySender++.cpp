@@ -317,43 +317,60 @@ int joySender(Arguments& args) {
         // first byte is used to determine where stick input starts
         ds4DataOffset = hid_report[0] == 0x11 ? DS4_VIA_BT : DS4_VIA_USB;
 
-        bool extReport = ActivateDS4ExtendedReports();
+        int attempts = 0;   // DS4 fails to properly initialize when connecting to pc (after power up) via BT so lets hack in multiple attempts
+        while (attempts < 2) {
+            attempts++;
 
-        // Set up feedback buffer with correct headders for connection mode
-        InitDS4FeedbackBuffer();
+            Sleep(5); // lets slow things down
+            bool extReport = ActivateDS4ExtendedReports();
 
-        // Set new LightBar color with update to confirm rumble/lightbar support
-        switch (ds4DataOffset) {
-        case(DS4_VIA_BT):
-            SetDS4LightBar(105, 4, 32); // hot pink
-            break;
-        case(DS4_VIA_USB):
-            SetDS4LightBar(180, 188, 5); // citrus yellow-green
-        }
+            // Set up feedback buffer with correct headers for connection mode
+            InitDS4FeedbackBuffer();
 
-        allGood = SendDS4Update();       
+            // Set new LightBar color with update to confirm rumble/lightbar support
+            switch (ds4DataOffset) {
+            case(DS4_VIA_BT):
+                SetDS4LightBar(105, 4, 32); // hot pink
+                break;
+            case(DS4_VIA_USB):
+                SetDS4LightBar(180, 188, 5); // citrus yellow-green
+            }
 
-        g_outputText = "DS4 "; 
-        if(extReport) g_outputText += "Full Motion ";
-        g_outputText += "Mode Activated : ";
-        if (ds4DataOffset == DS4_VIA_BT) { g_outputText += "| Wireless |"; }
-        else if (ds4DataOffset == DS4_VIA_USB) { g_outputText += "| USB |"; }
-        if (allGood) g_outputText += " Rumble On | ";
-        g_outputText += "\r\n";
+            Sleep(5); // update fails if controller is bombarded with read/writes, so take a rest bud
+            allGood = SendDS4Update();
 
-        reportSize = DS4_REPORT_NETWORK_DATA_SIZE;
+            g_outputText = "DS4 ";
+            if (extReport) g_outputText += "Full Motion ";
+            g_outputText += "Mode Activated : ";
+            if (ds4DataOffset == DS4_VIA_BT) { g_outputText += "| Wireless |"; }
+            else if (ds4DataOffset == DS4_VIA_USB) { g_outputText += "| USB |"; }
+            if (allGood) g_outputText += " Rumble On | ";
+            g_outputText += "\r\n";
 
-        if (allGood) {
-            // jiggle it
-            SetDS4RumbleValue(12, 200);
-            SendDS4Update();
-            Sleep(110);
-            SetDS4RumbleValue(165, 12);
-            SendDS4Update();
-            // stop the rumble
-            SetDS4RumbleValue(0, 0);
-            Sleep(130);
-            SendDS4Update();
+            reportSize = DS4_REPORT_NETWORK_DATA_SIZE;
+
+            // Rumble the Controller
+            if (allGood) {
+                // jiggle it
+                SetDS4RumbleValue(12, 200);
+                SendDS4Update();
+                Sleep(110);
+                SetDS4RumbleValue(165, 12);
+                SendDS4Update();
+                // stop the rumble
+                SetDS4RumbleValue(0, 0);
+                Sleep(130);
+                SendDS4Update();
+                break; // break out of attempt loop
+            }
+            // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+            // Problem is probably related to not getting the correct report and assigning ds4DataOffset = DS4_VIA_USB
+            // taking the lazy route and just set ds4DataOffset = DS4_VIA_BT this works for me 100% of the time and hasn't led to problems yet ...
+            Sleep(10);
+            if (ds4DataOffset == DS4_VIA_USB)
+                ds4DataOffset = DS4_VIA_BT;
+            else
+                ds4DataOffset = DS4_VIA_USB;
         }
     }
     else {
