@@ -1749,7 +1749,7 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
     wchar_t* gamepadName_ptr = msgPointer1 + titleLength-1;
     // convert joystick.name to wchar_t* and store in gamepadName_ptr pointer
     mbstowcs(msgPointer3, joystick.name.c_str(), joystick.name.size());
-    swprintf(gamepadName_ptr, joystick.name.size()+3, L" %s ", msgPointer3);
+    swprintf(gamepadName_ptr, joystick.name.size()+2, L" %s ", msgPointer3);
 
     // create a separate text area for the joystick name // for color change possibilities
     textBox gamepadName(consoleWidth/2 - (titleLength+joystick.name.size())/2 + titleLength-1, 1, joystick.name.size()+3, 1, ALIGN_LEFT, gamepadName_ptr, DEFAULT_TEXT);
