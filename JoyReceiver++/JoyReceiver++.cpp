@@ -64,14 +64,17 @@ int main(int argc, char* argv[]) {
     std::string externalIP;
     std::string localIP;
     std::string fpsOutput;
-    auto do_fps_counting = [&fps_counter](int report_frequency = 100) {
+    bool LIKELY_NETWORK_DISSCONNECT = false; // a hack to fix unacknowledged disconnection bug, detected via fps spike
+    auto do_fps_counting = [&fps_counter, &LIKELY_NETWORK_DISSCONNECT](int report_frequency = 30) {
         if (fps_counter.increment_frame_count() >= report_frequency) {
             double fps = fps_counter.get_fps();
+            // sometimes a network disconnect is not detected via bytesReceived but fps will skyrocket
+            if (fps > 1000) LIKELY_NETWORK_DISSCONNECT = true;
             fps_counter.reset();
             return formatDecimalString(std::to_string(fps), 2);
         }
         return std::string();
-    };
+        };
     double latencyOutput;
     const int latency_report_freq = 25;
     auto do_latency_timing = [&latencyTimer](int report_frequency = 15) {
@@ -261,13 +264,6 @@ int main(int argc, char* argv[]) {
             // Receive joystick input from client to the buffer
             bytesReceived = server.receive_data(buffer, buffer_size);
             if (!bytesReceived) break;
-#if 0
-            if (op_mode == 2 && fps_counter.get_frame_count() > latency_report_freq) {
-                repositionConsoleCursor(2);
-                displayBytes(static_cast<BYTE*>(static_cast<void*>(buffer)) , 61);
-                repositionConsoleCursor(-4);
-            }
-#endif
 
             // FPS output
             if (args.latency) {
@@ -279,6 +275,11 @@ int main(int argc, char* argv[]) {
                 if (latencyOutput) {
                     overwriteLatency("Latency: " + formatDecimalString(std::to_string((latencyOutput * 1000)- expectedFrameDelay), 5) + " ms    ");
                 }
+            }
+
+            if (LIKELY_NETWORK_DISSCONNECT) {
+                LIKELY_NETWORK_DISSCONNECT = false;
+                break;
             }
 
             //******************************
