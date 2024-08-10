@@ -560,7 +560,7 @@ int joySender(Arguments& args) {
             //##################################
             // **  Process Rumble Feedback data
             if (updateRumble('L', byte(buffer[0])) || updateRumble('R', byte(buffer[1]))) {
-#if 1
+#if 0
                 if (args.latency) {
                     repositionConsoleCursor(-2);
                     std::cout << "Feedback: " << std::to_string(byte(buffer[0])) << " : " << std::to_string(byte(buffer[1])) << "     ";
