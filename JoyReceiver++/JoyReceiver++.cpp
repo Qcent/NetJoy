@@ -69,6 +69,8 @@ int main(int argc, char* argv[]) {
     XUSB_REPORT xbox_report;
     DS4_REPORT_EX ds4_report_ex;
 
+    bool LIKELY_NETWORK_DISSCONNECT = false; // a hack to fix unacknowledged disconnection bug
+
     int allGood;
     char buffer[128];
     int buffer_size = sizeof(buffer);
@@ -78,9 +80,11 @@ int main(int argc, char* argv[]) {
     char connectionIP[INET_ADDRSTRLEN];
     std::wstring clientIP;
     std::string fpsOutput;
-    auto do_fps_counting = [&fps_counter](int report_frequency = 30) {
+    auto do_fps_counting = [&fps_counter, &LIKELY_NETWORK_DISSCONNECT](int report_frequency = 30) {
         if (fps_counter.increment_frame_count() >= report_frequency) {
             double fps = fps_counter.get_fps();
+            // sometimes a network dissconnect is not detected via bytesReceived but fps will skyrocket
+            if (fps > 1000) LIKELY_NETWORK_DISSCONNECT = true;
             fps_counter.reset();
             return formatDecimalString(std::to_string(fps), 2);
         }
@@ -132,7 +136,7 @@ int main(int argc, char* argv[]) {
     SetConsoleMode(g_hConsoleInput, ENABLE_MOUSE_INPUT | mode & ~ENABLE_QUICK_EDIT_MODE);
 
     // Set the console to UTF-8 mode
-    _setmode(_fileno(stdout), _O_U8TEXT);
+    auto _ =_setmode(_fileno(stdout), _O_U8TEXT);
 
     // Set Version into window title
     wchar_t winTitle[30];
@@ -322,7 +326,7 @@ int main(int argc, char* argv[]) {
         if (!bytesReceived) {
 
             int len = clientIP.size() + 33;
-            swprintf(errorPointer, len, L" << Connection From: %s Failed >> ", clientIP);
+            swprintf(errorPointer, len, L" << Connection From: %s Failed >> ", clientIP.c_str());
             errorOut.SetWidth(len);
             errorOut.SetText(errorPointer);
             break;
@@ -404,7 +408,7 @@ int main(int argc, char* argv[]) {
         allGood = server.send_data(feedbackData.c_str(), static_cast<int>(feedbackData.length()));
         if (!allGood) {
             int len = clientIP.size() + 30;
-            swprintf(errorPointer, len, L" << Connection To: %s Failed >> ", clientIP);
+            swprintf(errorPointer, len, L" << Connection To: %s Failed >> ", clientIP.c_str());
             errorOut.SetWidth(len);
             errorOut.SetText(errorPointer);
             break;
@@ -488,9 +492,10 @@ int main(int argc, char* argv[]) {
             //*****************************
             // Receive joystick input from client to the buffer
             bytesReceived = server.receive_data(buffer, buffer_size);
-            if (!bytesReceived) {
+            if (!bytesReceived || LIKELY_NETWORK_DISSCONNECT) {
+                LIKELY_NETWORK_DISSCONNECT = false; // reset this flag
                 int len = clientIP.size() + 31;
-                swprintf(errorPointer, len, L" << Connection From: %s Lost >> ", clientIP);
+                swprintf(errorPointer, len, L" << Connection From: %s Lost >> ", clientIP.c_str());
                 errorOut.SetWidth(len);
                 errorOut.SetText(errorPointer);
                 break;
@@ -521,7 +526,7 @@ int main(int argc, char* argv[]) {
             allGood = server.send_data(feedbackData.c_str(), static_cast<int>(feedbackData.length()));
             if (!allGood) {
                 int len = clientIP.size() + 29;
-                swprintf(errorPointer, len, L" << Connection To: %s Lost >> ", clientIP);
+                swprintf(errorPointer, len, L" << Connection To: %s Lost >> ", clientIP.c_str());
                 errorOut.SetWidth(len);
                 errorOut.SetText(errorPointer);
                 break;
