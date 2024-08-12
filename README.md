@@ -5,7 +5,7 @@
 Project NetJoy is a software solution that allows for seamless remote control of joysticks between Windows machines. It enables users to send joystick inputs over a network, facilitating remote gaming, simulations, and various applications. With NetJoy, you can emulate any joystick as an Xbox 360 controller, pass through DualShock 4 inputs (including gyro motion), customize control mappings, and experience rumble feedback for enhanced immersion.
 
 Available in two (2) flavours, bland and [colorful](https://github.com/Qcent/NetJoy/tree/tUI), both are cross compatible.
-For non Windows OS users there is a compatible python script (sender only for non windows) _...coming soon_
+For non Windows OS users there is a compatible python script (sender only for non windows) [JoySendPy](https://github.com/Qcent/JoySendPy).
 
 ## Table of Contents
 - [Key Features](#key-features)
