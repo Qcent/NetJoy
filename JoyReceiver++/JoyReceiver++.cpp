@@ -78,12 +78,9 @@ int main(int argc, char* argv[]) {
     char connectionIP[INET_ADDRSTRLEN];
     std::wstring clientIP;
     std::string fpsOutput;
-    bool LIKELY_NETWORK_DISSCONNECT = false; // a hack to fix unacknowledged disconnection bug, detected via fps spike
-    auto do_fps_counting = [&fps_counter, &LIKELY_NETWORK_DISSCONNECT](int report_frequency = 30) {
+    auto do_fps_counting = [&fps_counter](int report_frequency = 30) {
         if (fps_counter.increment_frame_count() >= report_frequency) {
             double fps = fps_counter.get_fps();
-            // sometimes a network disconnect is not detected via bytesReceived but fps will skyrocket
-            if (fps > 1000) LIKELY_NETWORK_DISSCONNECT = true;
             fps_counter.reset();
             return formatDecimalString(std::to_string(fps), 2);
         }
@@ -491,8 +488,7 @@ int main(int argc, char* argv[]) {
             //*****************************
             // Receive joystick input from client to the buffer
             bytesReceived = server.receive_data(buffer, buffer_size);
-            if (!bytesReceived || LIKELY_NETWORK_DISSCONNECT) {
-                LIKELY_NETWORK_DISSCONNECT = false; // reset this flag
+            if (bytesReceived < 1) {
                 int len = clientIP.size() + 31;
                 swprintf(errorPointer, len, L" << Connection From: %s Lost >> ", clientIP.c_str());
                 errorOut.SetWidth(len);
@@ -523,7 +519,7 @@ int main(int argc, char* argv[]) {
             //*******************************
             // Send response back to client :: Rumble data
             allGood = server.send_data(feedbackData.c_str(), static_cast<int>(feedbackData.length()));
-            if (!allGood) {
+            if (allGood < 1) {
                 int len = clientIP.size() + 29;
                 swprintf(errorPointer, len, L" << Connection To: %s Lost >> ", clientIP.c_str());
                 errorOut.SetWidth(len);
