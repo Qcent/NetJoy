@@ -63,12 +63,9 @@ int main(int argc, char* argv[]) {
     std::string externalIP;
     std::string localIP;
     std::string fpsOutput;
-    bool LIKELY_NETWORK_DISSCONNECT = false; // a hack to fix unacknowledged disconnection bug, detected via fps spike
-    auto do_fps_counting = [&fps_counter, &LIKELY_NETWORK_DISSCONNECT](int report_frequency = 30) {
+    auto do_fps_counting = [&fps_counter](int report_frequency = 30) {
         if (fps_counter.increment_frame_count() >= report_frequency) {
             double fps = fps_counter.get_fps();
-            // sometimes a network disconnect is not detected via bytesReceived but fps will skyrocket
-            if (fps > 1000) LIKELY_NETWORK_DISSCONNECT = true;
             fps_counter.reset();
             return formatDecimalString(std::to_string(fps), 2);
         }
@@ -263,7 +260,9 @@ int main(int argc, char* argv[]) {
             //*****************************
             // Receive joystick input from client to the buffer
             bytesReceived = server.receive_data(buffer, buffer_size);
-            if (!bytesReceived) break;
+            if (bytesReceived < 1) {
+                break;
+            }
 
             // FPS output
             if (args.latency) {
@@ -275,11 +274,6 @@ int main(int argc, char* argv[]) {
                 if (latencyOutput) {
                     overwriteLatency("Latency: " + formatDecimalString(std::to_string((latencyOutput * 1000)- expectedFrameDelay), 5) + " ms    ");
                 }
-            }
-
-            if (LIKELY_NETWORK_DISSCONNECT) {
-                LIKELY_NETWORK_DISSCONNECT = false;
-                break;
             }
 
             //******************************
@@ -301,7 +295,8 @@ int main(int argc, char* argv[]) {
             //*******************************
             // Send response back to client :: Rumble data
             allGood = server.send_data(feedbackData.c_str(), static_cast<int>(feedbackData.length()));
-            if (!allGood) break;
+            if (allGood < 1)
+                break;
         }
         
         if (!APP_KILLED) {
