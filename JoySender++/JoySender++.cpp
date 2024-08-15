@@ -184,7 +184,7 @@ int joySender(Arguments& args) {
     std::string fpsOutput;
     auto do_fps_counting = [&fps_counter, &TARGET_FPS, &fpsAdjustment](int report_frequency = 30) {
         // set up some static doubles we will use each frame
-        static double averageFrameTime_ms, fps, target_sleep = 1000 / (TARGET_FPS);
+        static double averageFrameTime_ms, fps, target_sleep = 1000.0 / (TARGET_FPS);
         
         int count = fps_counter.increment_frame_count();
 
@@ -557,7 +557,7 @@ int joySender(Arguments& args) {
 
                 fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
 
-                restartButton[3].Draw();
+                restartButton[3].Draw(-2); // in x64 release build the default parameter of -1 does not work??? debug show it set as 0. manually specifying value less then -1 here works
                 output1.Draw();
                 hostMsg.Draw();
             }
@@ -569,7 +569,9 @@ int joySender(Arguments& args) {
                 // tx
                 allGood = client.send_data(txSettings.c_str(), static_cast<int>(txSettings.length()));
                 if (allGood < 1) {
-                    setErrorMsg(g_converter.from_bytes(" << Connection To: " + args.host + " Failed >> ").c_str(), 48);
+                    swprintf(errorPointer, 48, L" << Connection To %S Failed >> ", args.host.c_str());
+                    errorOut.SetText(errorPointer);
+                    //setErrorMsg(g_converter.from_bytes(" << Connection To: " + args.host + " Failed >> ").c_str(), 48);
                     client.~TCPConnection();
                     break;
                 }
@@ -579,7 +581,9 @@ int joySender(Arguments& args) {
                     inConnection = true;
                 }
                 else {
-                    setErrorMsg(g_converter.from_bytes(" << Connection To: " + args.host + " Lost >> ").c_str(), 46);
+                    swprintf(errorPointer, 46, L" << Connection To: %S Lost >> ", args.host.c_str());
+                    errorOut.SetText(errorPointer);
+                    //setErrorMsg(g_converter.from_bytes(" << Connection To: " + args.host + " Lost >> ").c_str(), 46);
                     client.~TCPConnection();
                     break;
                 }
@@ -667,7 +671,9 @@ int joySender(Arguments& args) {
                 allGood = GetDS4Report(); // *hid_report will be set
 
                 if (!allGood) {
-                    setErrorMsg(g_converter.from_bytes(" << Device Disconnected >> ").c_str(), 28);
+                    swprintf(errorPointer, 28, L" << Device Disconnected >> ");
+                    errorOut.SetText(errorPointer);
+                    //setErrorMsg(g_converter.from_bytes(" << Device Disconnected >> ").c_str(), 28);
                     client.~TCPConnection();
                     inConnection = false;
                     allGood = DISCONNECT_ERROR;
@@ -697,7 +703,9 @@ int joySender(Arguments& args) {
             }
                 //  Error 
             if (allGood < 1) {
-                setErrorMsg(g_converter.from_bytes(" << Connection To: " + args.host + " Failed >> ").c_str(), 48);
+                swprintf(errorPointer, 50, L" << Connection To:  %s Failed >> ", std::wstring(args.host.begin(), args.host.end()).c_str());
+                errorOut.SetText(errorPointer);
+                //setErrorMsg(g_converter.from_bytes(" << Connection To: " + args.host + " Failed >> ").c_str(), 48);
                 client.~TCPConnection();
                 inConnection = false;
                 break;
@@ -708,7 +716,9 @@ int joySender(Arguments& args) {
             // Wait for server response
             allGood = client.receive_data(buffer, buffer_size);                
             if (allGood < 1) {
-                setErrorMsg(g_converter.from_bytes(" << Connection To: " + args.host + " Lost >> ").c_str(), 46);
+                swprintf(errorPointer, 50, L" << Connection To:  %S Failed >> ", args.host.c_str());
+                errorOut.SetText(errorPointer);
+                //setErrorMsg(g_converter.from_bytes(" << Connection To: " + args.host + " Lost >> ").c_str(), 46);
                 client.~TCPConnection();
                 inConnection = false;
                 break;
@@ -735,7 +745,10 @@ int joySender(Arguments& args) {
             // calculate timing
             fpsOutput = do_fps_counting();
             if (!fpsOutput.empty()) {
-                updateFPS(g_converter.from_bytes(fpsOutput + "   ").c_str(), 8);
+                //updateFPS(g_converter.from_bytes(fpsOutput + "   ").c_str(), 8);
+                swprintf(fpsPointer, 8, L"%S   ",fpsOutput.c_str());
+                fpsMsg.SetText(fpsPointer);
+                fpsMsg.Draw();
             }
 
 
@@ -856,7 +869,7 @@ int main(int argc, char **argv)
     // Set Version into backdrop
     {
         int versionStartPoint = 73 * 3 + 29;
-        const int verLength = wcslen(APP_VERSION_NUM);
+        const size_t verLength = wcslen(APP_VERSION_NUM);
 
         for (int i = 0; i < verLength; i++) {
             JoySendMain_BackdropSource[versionStartPoint + i] = APP_VERSION_NUM[i];

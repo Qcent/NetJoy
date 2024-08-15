@@ -85,7 +85,7 @@ int joySender(Arguments& args);
 #include "tUI/textUI.h"
 
 void setErrorMsg(const wchar_t* text, size_t length);
-void updateFPS(const wchar_t* text, size_t length);
+void updateFPS(std::string text, size_t length);
 void exitAppCallback(mouseButton& button);
 void joystickSelectCallback(mouseButton& button);
 void newControllerColorsCallback(mouseButton& button);
