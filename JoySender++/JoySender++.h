@@ -1143,6 +1143,7 @@ bool pushNewIP(const wchar_t newData[16]) {
 int tUISelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick, textUI& screen) {
     constexpr int START_LINE = 7;
     constexpr int START_COL = 20;
+    constexpr int MAX_JOYSTICKS = 9;
 
     if (!numJoysticks) {
         //APP_KILLED = true;
@@ -1152,7 +1153,9 @@ int tUISelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick, textUI&
         errorOut.SetPosition(consoleWidth / 2, 4, 50, 0, ALIGN_CENTER);
     }
 
-    mouseButton* availableJoystickBtn = new mouseButton[9];  // max of 9 joysticks can be recognized 
+    // Enforce max joysticks
+    numJoysticks = min(numJoysticks, MAX_JOYSTICKS);
+    mouseButton* availableJoystickBtn = new mouseButton[numJoysticks];
 
     auto cleanMemory = [&]() {
         screen.ClearButtons();
@@ -1164,7 +1167,7 @@ int tUISelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick, textUI&
     };
  
     // populate selectable buttons and add to screen 
-    for (int i = 0; i < numJoysticks && i < 9; ++i)
+    for (int i = 0; i < numJoysticks; ++i)
     {
         // Determine the length of the char string
         size_t charLen = strlen(SDL_JoystickNameForIndex(i));
