@@ -2286,7 +2286,7 @@ const wchar_t* ConnectAnimation[CX_ANI_FRAME_COUNT+1] = {
 
 // function will inc/dec &counter up to maxCount and down to 0
 // for animating back and forth through frames
-void countUpDown(int& counter, int maxCount) { // * a counter value outside of (0 - maxCount) will cause issues
+__declspec(noinline) void countUpDown(int& counter, int maxCount) { // * a counter value outside of (0 - maxCount) will cause issues
     static int dir = 1; // 1: up, -1: down
 
     // this non intuitive block makes sure we always count up from 0
