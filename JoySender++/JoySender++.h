@@ -42,7 +42,7 @@ THE SOFTWARE.
 #define DISCONNECT_ERROR    -3
 
 // GLOBAL VARIABLES
-#define APP_VERSION_NUM     L"1.0.0.0"
+#define APP_VERSION_NUM     L"1.0.0.2"
 constexpr auto APP_NAME =   "NetJoy";
 
 std::string g_outputText;
