@@ -272,7 +272,7 @@ int main(int argc, char* argv[]) {
                 }
                 latencyOutput = do_latency_timing(latency_report_freq);
                 if (latencyOutput) {
-                    overwriteLatency("Latency: " + formatDecimalString(std::to_string((latencyOutput * 1000)- expectedFrameDelay), 5) + " ms    ");
+                    overwriteLatency("Latency: " + formatDecimalString(std::to_string(((latencyOutput * 1000)- expectedFrameDelay) / 2), 5) + " ms    ");
                 }
             }
 

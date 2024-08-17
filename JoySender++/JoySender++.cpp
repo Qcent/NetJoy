@@ -480,11 +480,6 @@ int joySender(Arguments& args) {
                 //# Read the next HID report for DS4 Passthrough
                 allGood = GetDS4Report();
                 // *hid_report will point to most recent data
-#if 0
-                repositionConsoleCursor(2);
-                displayBytes(hid_report,61);
-                repositionConsoleCursor(-4);
-#endif
                 if (!allGood) {
                     g_outputText += "<< Device Disconnected >> \r\n";
                     displayOutputText();
@@ -506,7 +501,7 @@ int joySender(Arguments& args) {
                 }
                 latencyOutput = do_latency_timing(latency_report_freq);
                 if (latencyOutput) {
-                    overwriteLatency("Latency: " + formatDecimalString(std::to_string((latencyOutput*1000) - fpsAdjustment), 5) + " ms  ");
+                    overwriteLatency("Latency: " + formatDecimalString(std::to_string(((latencyOutput*1000) - fpsAdjustment) / 2), 5) + " ms  ");
                 }
             }
             // ###################################
@@ -515,25 +510,10 @@ int joySender(Arguments& args) {
             //# Send joystick input to server
             if (args.mode == 2) {
                 //# Shift bytearray to index of first stick value
-                allGood = client.send_data(reinterpret_cast<const char*>(hid_report+ds4DataOffset), reportSize);
-#if 0
-                    // for troubleshooting ds4 reports
-                if (fps_counter.get_frame_count() % 5 == 0) {
-                    repositionConsoleCursor(1);
-                    displayBytes(hid_report, DS4_REPORT_NETWORK_DATA_SIZE);
-                    repositionConsoleCursor(-3);
-                }
-#endif        
+                allGood = client.send_data(reinterpret_cast<const char*>(hid_report+ds4DataOffset), reportSize);     
             }
             else {
-                allGood = client.send_data(reinterpret_cast<const char*>(&xbox_report), reportSize);
-#if 0
-                // for troubleshooting xbox reports
-                if (fps_counter.get_frame_count() % 5 == 0) {
-                    displayBytes(reinterpret_cast<BYTE*>(&xbox_report), reportSize);
-                    repositionConsoleCursor(-1);
-                }
-#endif  
+                allGood = client.send_data(reinterpret_cast<const char*>(&xbox_report), reportSize); 
             }
             //  Error ?
             if (allGood < 1) {
