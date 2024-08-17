@@ -301,8 +301,8 @@ int joySender(Arguments& args) {
         std::cout << " ERROR:: Unsupported Mode !! " << std::endl;
         return -1;
     }
-    
-    
+
+
     //###########################################################################
     // Init Settings for Operating Mode
     if (args.mode == 3) {

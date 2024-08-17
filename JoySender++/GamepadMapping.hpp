@@ -1072,6 +1072,7 @@ int ConsoleSelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick) {
        std::cout << "): ";
        std::cin >> selectedJoystickIndex;
        --selectedJoystickIndex;
+       while ((getchar()) != '\n');    // Clear keyboard buffer of enter press
 
        // Check if the selected index is valid
        if (selectedJoystickIndex < 0 || selectedJoystickIndex >= numJoysticks)
