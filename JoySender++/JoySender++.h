@@ -1472,7 +1472,9 @@ std::string tUIGetHostAddress(textUI& screen) {
     };
     // Lambda function for IP address validation
     auto validIPAddress = [](const std::string& ipAddress) {
-        //std::regex pattern(R"(^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[1-9][0-9]?)$)"); // og pattern has a bug where (100-109) in last octet will fail
+        if (ipAddress == "0.0.0.0" || ipAddress == "255.255.255.255") {
+            return false;
+        }
         std::regex pattern(R"(^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}$)"); // better pattern but matches all 0s and broadcast addresses
         
         std::smatch match;
