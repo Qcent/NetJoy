@@ -571,7 +571,7 @@ if (button.Status() & MOUSE_UP) {
 }
 
 // callback for face buttons in mapping screen
-void mappingControlerButtonsCallback(mouseButton& button) {
+void mappingControllerButtonsCallback(mouseButton& button) {
     static int msgDisplayed = 0;
     static textBox topMsg(CONSOLE_WIDTH / 2, 5, 15, 1, ALIGN_CENTER, L" Click To Map ", BRIGHT_MAGENTA);
     static textBox footerMsg(CONSOLE_WIDTH / 2, XBOX_QUIT_LINE - 1, 24, 1, ALIGN_CENTER, L" Click Button to Remap ", DEFAULT_TEXT);
@@ -1802,7 +1802,7 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
     //
     // Set up and add buttons to screen
     AddControllerButtons(screen);
-    screen.SetButtonsCallback(mappingControlerButtonsCallback);
+    screen.SetButtonsCallback(mappingControllerButtonsCallback);
 
     quitButton.SetPosition(CONSOLE_WIDTH / 2 - 5, XBOX_QUIT_LINE + 1);
     screen.AddButton(&quitButton);
