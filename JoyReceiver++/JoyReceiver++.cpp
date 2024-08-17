@@ -174,10 +174,10 @@ int main(int argc, char* argv[]) {
         std::vector<std::string> split_settings = split(std::string(buffer, bytesReceived), ':');
         int client_timing = std::stoi(split_settings[0]);
         int op_mode = (split_settings.size() > 1) ? std::stoi(split_settings[1]) : 0;
-        expectedFrameDelay = 1000 / client_timing;
+        expectedFrameDelay = 1000.0 / client_timing;
 
         auto emMode = op_mode == 2 ? "DS4" : "XBOX";
-        std::cout << "Client Timing: " << client_timing << "fps" << "\t" << "Emulating " << emMode << " Controler" << std::endl;
+        std::cout << "Client Timing: " << client_timing << "fps" << "\t" << "Emulating " << emMode << " Controller" << std::endl;
         
 
         if (op_mode == 2) { // Emulating a DS4 controller
