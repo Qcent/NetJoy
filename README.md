@@ -37,7 +37,7 @@ Before installing and using Project NetJoy, make sure you meet the following req
 - ViGEm Bus Driver: JoyReceiver++ requires the ViGEm Bus driver to enable joystick emulation. Ensure you have the ViGEm Bus driver installed on your system before using JoyReceiver++. You can download and install the ViGEm Bus driver from the official ViGEm GitHub repository or website.
         [ViGEmBus Driver](https://github.com/ViGEm/ViGEmBus)
 
-- SDL.dll: JoySender++ requires the SDL.dll library file to function properly. This library is provided and should be placed in the same folder as the JoySender++ executable. 
+- SDL2.dll: JoySender++ requires the SDL2.dll library file for gamepad / joystick handling. This library is provided and should be placed in the same folder as the JoySender++ executable. 
 
 - Visual Studio 2022+ Community Edition: To easily build the Project NetJoy applications. [Visual Studio](https://visualstudio.microsoft.com/vs/community/)
  
