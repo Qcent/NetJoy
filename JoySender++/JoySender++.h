@@ -6,8 +6,7 @@
 #include "ArgumentParser.hpp"
 #include "FPSCounter.hpp"
 
-#pragma comment(lib, "SDL2.lib")
-#pragma comment(lib, "SDL2main.lib")
+#pragma comment(lib, "SDL3.lib")
 
 // GLOBAL VARIABLES
 constexpr auto APP_NAME = "NetJoy2";

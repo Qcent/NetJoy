@@ -29,7 +29,7 @@ THE SOFTWARE.
 #include <sstream>
 #include <unordered_map>
 #include <vector>
-#include <SDL/SDL.h>
+#include <SDL3/SDL.h>
 
 #define AXIS_INPUT_THRESHOLD 16000  // set high to prevent false positives on noisy input during mapping
 #define AXIS_INPUT_DEADZONE 3000    // like threshold but used for main loop joystick reading
@@ -43,7 +43,7 @@ public:
         THUMB,
         TRIGGER,
         SHOULDER,
-        BUTTON 
+        BUTTON
     };
 
     enum class ButtonName {
@@ -79,9 +79,10 @@ public:
         ButtonType input_type;
         int index;
         int value;
+        int special;
 
-        ButtonMapInput(ButtonType input_type = ButtonType::UNSET, int index = -1, int value = 0)
-            : input_type(input_type), index(index), value(value) {}
+        ButtonMapInput(ButtonType input_type = ButtonType::UNSET, int index = -1, int value = 0, int spec = -1)
+            : input_type(input_type), index(index), value(value), special(spec) {}
 
         void set(ButtonType input_type, int index, int value) {
             this->input_type = input_type;
@@ -93,12 +94,30 @@ public:
             input_type = ButtonType::UNSET;
             index = -1;
             value = 0;
+            special = -1;
         }
+
+        bool operator==(const ButtonMapInput& other) const {
+            return (this->input_type == other.input_type) &&
+                (this->index == other.index) &&
+                (this->value == other.value);
+        }
+
+        // Custom hash function for ButtonMapInput to be used as a key in unordered_map
+        struct HashFunction {
+            std::size_t operator()(const ButtonMapInput& input) const {
+                return std::hash<int>()(static_cast<int>(input.input_type)) ^
+                    std::hash<int>()(input.index) ^
+                    std::hash<int>()(input.value);
+            }
+        };
     };
 
     using ButtonMap = std::unordered_map<ButtonName, ButtonMapInput>;
+    using InverseMap = std::unordered_map<ButtonMapInput, ButtonName, ButtonMapInput::HashFunction>;
 
     ButtonMap buttonMaps;
+    InverseMap inverseMap;
     std::vector<ButtonName> stickButtonNames;
     std::vector<ButtonName> triggerButtonNames;
     std::vector<ButtonName> thumbButtonNames;
@@ -107,7 +126,7 @@ public:
     std::vector<ButtonName> genericButtonNames;
 
     SDLButtonMapping()
-        : buttonMaps({{ButtonName::DPAD_UP, ButtonMapInput()},
+        : buttonMaps({ {ButtonName::DPAD_UP, ButtonMapInput()},
                       {ButtonName::DPAD_DOWN, ButtonMapInput()},
                       {ButtonName::DPAD_LEFT, ButtonMapInput()},
                       {ButtonName::DPAD_RIGHT, ButtonMapInput()},
@@ -117,7 +136,7 @@ public:
                       {ButtonName::RIGHT_THUMB, ButtonMapInput()},
                       {ButtonName::LEFT_SHOULDER, ButtonMapInput()},
                       {ButtonName::RIGHT_SHOULDER, ButtonMapInput()},
-                      //{ButtonName::GUIDE, ButtonMapInput()}, // useless and annoying button on pc
+                      {ButtonName::GUIDE, ButtonMapInput()},
                       {ButtonName::A, ButtonMapInput()},
                       {ButtonName::B, ButtonMapInput()},
                       {ButtonName::X, ButtonMapInput()},
@@ -131,7 +150,7 @@ public:
                       {ButtonName::RIGHT_STICK_LEFT, ButtonMapInput()},
                       {ButtonName::RIGHT_STICK_UP, ButtonMapInput()},
                       {ButtonName::RIGHT_STICK_RIGHT, ButtonMapInput()},
-                      {ButtonName::RIGHT_STICK_DOWN, ButtonMapInput()}}),
+                      {ButtonName::RIGHT_STICK_DOWN, ButtonMapInput()} }),
         stickButtonNames(generateButtonList(ButtonType::STICK)),
         triggerButtonNames(generateButtonList(ButtonType::TRIGGER)),
         thumbButtonNames(generateButtonList(ButtonType::THUMB)),
@@ -159,17 +178,26 @@ public:
         return unsetButtons;
     }
 
+    void populateInverseMap() {
+        inverseMap.clear();  // Clear the inverse map before populating it
+        std::vector<ButtonName> setButtons = getSetButtonNames();
+        for (const auto& buttonName : setButtons) {
+            const auto& buttonInput = buttonMaps.at(buttonName);
+            inverseMap[buttonInput] = buttonName;
+        }
+    }
+
     int saveMapping(const std::string& filename) {
         std::ofstream file(filename, std::ios::binary);
         if (file.is_open()) {
-            std::vector<std::tuple<ButtonName, ButtonType, int, int>> buttonList;
+            std::vector<std::tuple<ButtonName, ButtonType, int, int, int>> buttonList;
             for (const auto& buttonMap : buttonMaps) {
                 const auto& buttonName = buttonMap.first;
                 const auto& buttonInput = buttonMap.second;
-                buttonList.emplace_back(buttonName, buttonInput.input_type, buttonInput.index, buttonInput.value);
+                buttonList.emplace_back(buttonName, buttonInput.input_type, buttonInput.index, buttonInput.value, buttonInput.special);
             }
 
-            const std::size_t tupleSize = sizeof(std::tuple<ButtonName, ButtonType, int, int>);
+            const std::size_t tupleSize = sizeof(std::tuple<ButtonName, ButtonType, int, int, int>);
             const std::size_t dataSize = buttonList.size() * tupleSize;
 
             file.write(reinterpret_cast<const char*>(buttonList.data()), static_cast<std::streamsize>(dataSize));
@@ -177,7 +205,7 @@ public:
             return 1; // Successfully saved button maps
         }
         else {
-            return -1; // Error: Failed to open file
+            return 0; // Error: Failed to open file
         }
     }
 
@@ -188,12 +216,12 @@ public:
             std::size_t fileSize = static_cast<std::size_t>(file.tellg());
             file.seekg(0, std::ios::beg);
 
-            if (fileSize % sizeof(std::tuple<ButtonName, ButtonType, int, int>) != 0) {
+            if (fileSize % sizeof(std::tuple<ButtonName, ButtonType, int, int, int>) != 0) {
                 file.close();
-                return -2; // Error: Invalid file size
+                return -1; // Error: Invalid file size
             }
 
-            std::vector<std::tuple<ButtonName, ButtonType, int, int>> buttonList(fileSize / sizeof(std::tuple<ButtonName, ButtonType, int, int>));
+            std::vector<std::tuple<ButtonName, ButtonType, int, int, int>> buttonList(fileSize / sizeof(std::tuple<ButtonName, ButtonType, int, int, int>));
             file.read(reinterpret_cast<char*>(buttonList.data()), static_cast<std::streamsize>(fileSize));
 
             buttonMaps.clear();
@@ -202,8 +230,9 @@ public:
                 const auto& buttonInputType = std::get<1>(buttonTuple);
                 const auto& buttonIndex = std::get<2>(buttonTuple);
                 const auto& buttonValue = std::get<3>(buttonTuple);
+                const auto& buttonSpecial = std::get<4>(buttonTuple);
 
-                ButtonMapInput buttonInput(buttonInputType, buttonIndex, buttonValue);
+                ButtonMapInput buttonInput(buttonInputType, buttonIndex, buttonValue, buttonSpecial);
                 buttonMaps[buttonName] = buttonInput;
             }
 
@@ -211,7 +240,7 @@ public:
             return 1; // Successfully loaded button maps
         }
         else {
-            return -1; // Error: Failed to open file
+            return 0; // Error: Failed to open file
         }
     }
 
@@ -300,12 +329,22 @@ public:
         }
     }
 
+    static std::string displayInput(ButtonMapInput input) {
+        if (input.input_type == SDLButtonMapping::ButtonType::UNSET)
+            return " (UNSET) ";
+        std::string out = getButtonTypeString(input.input_type) + " " +
+            std::to_string(input.index) + ": " +
+            std::to_string(input.value);
+
+        return out;
+    }
+
 private:
-    
+
     std::vector<ButtonName> generateButtonList(ButtonType buttonType) const {
 
-            auto compareByName = [this](ButtonName id1, ButtonName id2) {
-                return getButtonNameString(id1) < getButtonNameString(id2);
+        auto compareByName = [this](ButtonName id1, ButtonName id2) {
+            return getButtonNameString(id1) < getButtonNameString(id2);
             };
 
         std::vector<ButtonName> buttonList;
@@ -331,7 +370,7 @@ private:
             std::string name1 = getButtonNameString(id1);
             std::string name2 = getButtonNameString(id2);
             return name1.length() < name2.length();
-        };
+            };
 
         std::vector<ButtonName> genericButtons;
         for (const auto& buttonMap : buttonMaps) {
@@ -353,6 +392,7 @@ private:
 
 struct SDLJoystickData {
     SDL_Joystick* _ptr = nullptr;
+    int joyID = -1;
     std::string name = "";
     int num_axes = 0;
     int num_buttons = 0;
@@ -360,6 +400,7 @@ struct SDLJoystickData {
     SDLButtonMapping mapping;
     std::vector<int> avgBaseline;
 };
+
 
 // **********************************
 // These should probably be private member functions
