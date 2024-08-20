@@ -1073,96 +1073,83 @@ int InitJoystickInput()
 
 std::unordered_map<std::string, int> getJoystickList() {
     // Check for available joysticks
-    int numJoysticks = SDL_NumJoysticks();
-     if (numJoysticks <= 0)
-    {
-        std::cout << "No joysticks connected." << std::endl;
-        //return -2;
+    SDL_JoystickID* joystic_list = nullptr;
+    int numJoysticks = 0;
+    joystic_list = SDL_GetJoysticks(&numJoysticks);
+    if (numJoysticks < 1) {
+        std::cerr << "Warning: No joysticks connected!" << std::endl;
     }
     // Create and Populate list
     std::unordered_map<std::string, int> joystickList;
     for (int i = 0; i < numJoysticks; ++i)
     {
-        std::string joystickName = SDL_JoystickNameForIndex(i);
+        std::string joystickName = SDL_GetJoystickNameForID(joystic_list[i]);
         joystickList[joystickName] = i;
     }
     return joystickList;
 }
 
 int ConsoleSelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick) {
+    SDL_JoystickID* joystic_list = nullptr;
+    joystic_list = SDL_GetJoysticks(&numJoysticks);
     // Print the available joysticks
-       std::cout << "Connected Joysticks:" << std::endl;
-       for (int i = 0; i < numJoysticks; ++i)
-       {
-           std::cout << 1+i << ": " << SDL_JoystickNameForIndex(i) << std::endl;
-       }
-
-       // Prompt the user to select a joystick
-       int selectedJoystickIndex;
-       std::cout << "Select a joystick (1";
-       if (numJoysticks > 1) std::cout << "-" << numJoysticks;
-       std::cout << "): ";
-       std::cin >> selectedJoystickIndex;
-       --selectedJoystickIndex;
-       while ((getchar()) != '\n');    // Clear keyboard buffer of enter press
-
-       // Check if the selected index is valid
-       if (selectedJoystickIndex < 0 || selectedJoystickIndex >= numJoysticks)
-       {
-           std::cout << "Invalid joystick index." << std::endl;
-           SDL_Quit();
-           return 0;
-       }
-
-       // Open the selected joystick
-       joystick._ptr = SDL_JoystickOpen(selectedJoystickIndex);
-       if (joystick._ptr == nullptr)
-       {
-           std::cout << "Failed to open joystick: " << SDL_GetError() << std::endl;
-           SDL_Quit();
-           return 0;
-       } 
-       return 1;
-}
-
-void OpenSelectJoystickDialog(std::unordered_map<std::string, int>& joystickList) {
-    //
-    // Prompt the user to select a joystick
-    //
-        // Reset global selected index
-    g_joystickSelected = -1;
-    // Create the "Select Joystick" dialog
-    //DialogBoxParam(g_hInstance, MAKEINTRESOURCE(IDD_SELECT_JOYSTICK_DIALOG), g_hWnd, SelectJoystickDialogProc, reinterpret_cast<LPARAM>(&joystickList));
-    // Show the dialog
-    //ShowWindow(g_hSelectJoystickDialog, SW_SHOW);
-    // Await the selection
-    while (g_joystickSelected < 0) {
-        Sleep(10);
+    std::cout << "Connected Joysticks:" << std::endl;
+    for (int i = 0; i < numJoysticks; ++i)
+    {
+        std::cout << 1 + i << ": " << SDL_GetJoystickNameForID(joystic_list[i]) << std::endl;
     }
 
-}
+    // Prompt the user to select a joystick
+    int selectedJoystickIndex;
+    std::cout << "Select a joystick (1";
+    if (numJoysticks > 1) std::cout << "-" << numJoysticks;
+    std::cout << "): ";
+    std::cin >> selectedJoystickIndex;
+    --selectedJoystickIndex;
 
-int ConnectToJoystick(int joyIndex, SDLJoystickData& joystick) {
-    // Open the specified joystick
-    joystick._ptr = SDL_JoystickOpen(joyIndex);
+    // Check if the selected index is valid
+    if (selectedJoystickIndex < 0 || selectedJoystickIndex >= numJoysticks)
+    {
+        std::cout << "Invalid joystick index." << std::endl;
+        SDL_Quit();
+        return 0;
+    }
+
+    // Open the selected joystick
+    g_joystickSelected = joystic_list[selectedJoystickIndex];
+    joystick._ptr = SDL_OpenJoystick(g_joystickSelected);
     if (joystick._ptr == nullptr)
     {
         std::cout << "Failed to open joystick: " << SDL_GetError() << std::endl;
+        SDL_Quit();
         return 0;
     }
     return 1;
 }
 
+int ConnectToJoystick(int joyID, SDLJoystickData& joystick) {
+    // Open the specified joystick
+    joystick._ptr = SDL_OpenJoystick(joyID);
+    if (joystick._ptr == nullptr)
+    {
+        //std::cout << "Failed to open joystick: " << SDL_GetError() << std::endl;
+        return 0;
+    }
+    g_joystickSelected = joyID;
+    return 1;
+}
+
 void BuildJoystickInputData(SDLJoystickData& joystick) {
     // Get Baseline Reading for inputs
-    std::tuple<int,int,int> joyInputInfo;
+    std::tuple<int, int, int> joyInputInfo;
     std::tuple<std::vector<int>, std::vector<int>, std::vector<int>, std::vector<int>> baselineReports;
     std::tie(joyInputInfo, baselineReports) = get_sdl_joystick_baseline(joystick._ptr);
 
+    joystick.joyID = g_joystickSelected;
     joystick.num_axes = std::get<0>(joyInputInfo);
     joystick.num_buttons = std::get<1>(joyInputInfo);
     joystick.num_hats = std::get<2>(joyInputInfo);
-    joystick.name = std::string(SDL_JoystickName(joystick._ptr));
+    joystick.name = std::string(SDL_GetJoystickNameForID(joystick.joyID));
     joystick.avgBaseline = std::get<0>(baselineReports);
 }
 
@@ -1173,6 +1160,7 @@ void OpenOrCreateMapping(SDLJoystickData& joystick, std::string& mapName) {
     if (result.first) {
         // File exists, try and load data
         joystick.mapping.loadMapping(filePath.string());
+        joystick.mapping.populateInverseMap();
     }
     else {
         // File does not exist
@@ -1187,12 +1175,14 @@ void OpenOrCreateMapping(SDLJoystickData& joystick, std::string& mapName) {
         std::vector<SDLButtonMapping::ButtonName> inputList;
         // Set a Button Map for joystick
         setSDLMapping(joystick, inputList);
+        joystick.mapping.populateInverseMap();
+
         //Save new mapping
         int didSave = joystick.mapping.saveMapping(filePath.string());
     }
 }
 
-int RemapInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonName> inputList = std::vector<SDLButtonMapping::ButtonName>()){
+int RemapInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonName> inputList = std::vector<SDLButtonMapping::ButtonName>()) {
     // Convert joystick name to hex mapfile name   
     std::string mapName = encodeStringToHex(joystick.name);
     // Get file path for a mapfile
@@ -1210,6 +1200,8 @@ int RemapInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonN
     // Set a Button Map for joystick
     setSDLMapping(joystick, inputList);
 
+    joystick.mapping.populateInverseMap();
+
     //Save new mapping
     int didSave = joystick.mapping.saveMapping(filePath.string());
     //appendWindowTitle(g_hWnd, " Saved map : " + std::to_string(didSave)));
@@ -1217,6 +1209,6 @@ int RemapInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonN
 }
 
 int SDLRumble(SDLJoystickData& joystick, Uint8 leftMotor, Uint8 rightMotor, Uint32 duration_ms = 200) {
-    return SDL_JoystickRumble(joystick._ptr, leftMotor*128 + 127*(leftMotor > 0), rightMotor*128 + 127*(rightMotor > 0), duration_ms);
+    return SDL_RumbleJoystick(joystick._ptr, leftMotor * 128 + 127 * (leftMotor > 0), rightMotor * 128 + 127 * (rightMotor > 0), duration_ms);
 }
 //***************************************
