@@ -10,7 +10,7 @@
 #pragma comment(lib, "SDL2main.lib")
 
 // GLOBAL VARIABLES
-constexpr auto APP_NAME = "NetJoy";
+constexpr auto APP_NAME = "NetJoy2";
 
 std::string g_outputText;
 int g_joystickSelected = -1;
