@@ -421,6 +421,9 @@ SDLButtonMapping::ButtonType get_input_type(const std::string& s) {
     else if (lowercaseString.find("button") != std::string::npos) {
         return SDLButtonMapping::ButtonType::BUTTON;
     }
+    else if (lowercaseString.find("shoulder") != std::string::npos) {
+        return SDLButtonMapping::ButtonType::BUTTON;
+    }
     else {
         return SDLButtonMapping::ButtonType::UNSET;
     }
