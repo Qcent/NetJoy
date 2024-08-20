@@ -521,9 +521,9 @@ std::pair<bool, std::filesystem::path> check_for_saved_mapping(const std::string
 
 std::pair< std::tuple<int, int, int>, std::tuple<std::vector<int>, std::vector<int>, std::vector<int>, std::vector<int>>>
 get_sdl_joystick_baseline(SDL_Joystick* joystick, int numSamples = 64) {
-    int numAxes = SDL_JoystickNumAxes(joystick);
-    int numButtons = SDL_JoystickNumButtons(joystick);
-    int numHats = SDL_JoystickNumHats(joystick);
+    int numAxes = SDL_GetNumJoystickAxes(joystick);
+    int numButtons = SDL_GetNumJoystickButtons(joystick);
+    int numHats = SDL_GetNumJoystickHats(joystick);
 
     // Setup sample buffer for all inputs
     std::vector<std::vector<int>> sampleBuf(numSamples, std::vector<int>(numHats + numButtons + numAxes));
@@ -535,21 +535,22 @@ get_sdl_joystick_baseline(SDL_Joystick* joystick, int numSamples = 64) {
 
     // Collect data from samples
     for (int i = 0; i < numSamples; i++) {
-        SDL_JoystickUpdate();
+        SDL_UpdateJoysticks();
         for (int j = 0; j < numHats + numButtons + numAxes; j++) {
             int value = 0;
             if (j < numAxes) {
-                value = SDL_JoystickGetAxis(joystick, j);
+                value = SDL_GetJoystickAxis(joystick, j);
             }
             else if (j < numAxes + numButtons) {
-                value = SDL_JoystickGetButton(joystick, j - numAxes);
+                value = SDL_GetJoystickButton(joystick, j - numAxes);
             }
             else {
-                value = SDL_JoystickGetHat(joystick, j - numAxes - numButtons);
+                value = SDL_GetJoystickHat(joystick, j - numAxes - numButtons);
             }
             avgBuffer[j] += value;
             sampleBuf[i][j] = value;
         }
+
         // sleep for more accurate polling
         Sleep(5);
     }
