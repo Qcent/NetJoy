@@ -34,6 +34,9 @@ THE SOFTWARE.
 #define AXIS_INPUT_THRESHOLD 16000  // set high to prevent false positives on noisy input during mapping
 #define AXIS_INPUT_DEADZONE 3000    // like threshold but used for main loop joystick reading
 
+#define ANALOG_RANGE_NEG_TO_POS 3
+#define ANALOG_RANGE_POS_TO_NEG 4
+
 class SDLButtonMapping {
 public:
     enum class ButtonType {
@@ -576,7 +579,7 @@ SDLButtonMapping::ButtonMapInput get_sdljoystick_input(const SDLJoystickData& jo
 
     while (!APP_KILLED) {
         // Get the joystick state
-        SDL_JoystickUpdate();
+        SDL_UpdateJoysticks();
 
         if (getKeyState(VK_ESCAPE)) {
             while (getKeyState(VK_ESCAPE)) {
@@ -589,16 +592,47 @@ SDLButtonMapping::ButtonMapInput get_sdljoystick_input(const SDLJoystickData& jo
 
         // Iterate over all joystick axes
         for (int i = 0; i < joystick.num_axes; i++) {
-            int axis_value = SDL_JoystickGetAxis(joystick._ptr, i); // / 32767.0f;
+            int axis_value = SDL_GetJoystickAxis(joystick._ptr, i); // / 32767.0f;
             if (std::abs(axis_value - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) {
-                input.set(SDLButtonMapping::ButtonType::STICK, i, axis_value < 0 ? -1 : 1);
+
+                // Watch axis to see how far it moves in 1/2 second
+                int inital_reading, low_reading, high_reading;
+                inital_reading = low_reading = high_reading = axis_value;
+                for (int watching = 0; watching < 5; watching++) {
+                    Sleep(100);
+                    SDL_UpdateJoysticks();
+                    axis_value = SDL_GetJoystickAxis(joystick._ptr, i);
+                    if (std::abs(axis_value - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) {
+                        if (axis_value > high_reading) high_reading = axis_value;
+                        else if (axis_value < low_reading) low_reading = axis_value;
+                    }
+                }
+
+                // Analyze readings
+                if (inital_reading <= 0 && low_reading <= 0 && high_reading <= 0) {
+                    // All readings were negative
+                    input.set(SDLButtonMapping::ButtonType::STICK, i, -1);
+                }
+                else if (inital_reading >= 0 && low_reading >= 0 && high_reading >= 0) {
+                    // All readings were positive
+                    input.set(SDLButtonMapping::ButtonType::STICK, i, 1);
+                }
+                else if (inital_reading < 0 && low_reading < 0 && high_reading > 0) {
+                    // Values went from - to +
+                    input.set(SDLButtonMapping::ButtonType::STICK, i, ANALOG_RANGE_NEG_TO_POS);
+                }
+                else if (inital_reading > 0 && high_reading > 0 && low_reading < 0) {
+                    // Values went from + to -
+                    input.set(SDLButtonMapping::ButtonType::STICK, i, ANALOG_RANGE_POS_TO_NEG);
+                }
+
                 return input;
             }
         }
 
         // Iterate over all joystick buttons
         for (int i = 0; i < joystick.num_buttons; i++) {
-            if (SDL_JoystickGetButton(joystick._ptr, i)) {
+            if (SDL_GetJoystickButton(joystick._ptr, i)) {
                 input.set(SDLButtonMapping::ButtonType::BUTTON, i, 1);
                 return input;
             }
@@ -606,7 +640,7 @@ SDLButtonMapping::ButtonMapInput get_sdljoystick_input(const SDLJoystickData& jo
 
         // Iterate over DPad hats and record their value
         for (int i = 0; i < joystick.num_hats; i++) {
-            int hat_direction = SDL_JoystickGetHat(joystick._ptr, i);
+            int hat_direction = SDL_GetJoystickHat(joystick._ptr, i);
             if (hat_direction != 0) {
                 input.set(SDLButtonMapping::ButtonType::HAT, i, hat_direction);
                 return input;
@@ -619,29 +653,26 @@ SDLButtonMapping::ButtonMapInput get_sdljoystick_input(const SDLJoystickData& jo
 void wait_for_no_sdljoystick_input(SDLJoystickData& joystick) {
     bool awaiting_silence = true;
     while (awaiting_silence && !APP_KILLED) {
-        SDL_Event event;
-        while (SDL_PollEvent(&event)) {
-            // Handle events if necessary
-        }
+        SDL_UpdateJoysticks();
 
         int axis_value = 0;
         int button_value = 0;
         int hat_value = 0;
-        
+
         // Iterate over all joystick axes and record their value
         for (int i = 0; i < joystick.num_axes; i++) {
-            int read_val = SDL_JoystickGetAxis(joystick._ptr, i); 
-            axis_value += (abs(read_val-joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) ? abs(read_val) : 0;
+            int read_val = SDL_GetJoystickAxis(joystick._ptr, i);
+            axis_value += (abs(read_val - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) ? abs(read_val) : 0;
         }
 
         // Iterate over all joystick buttons and record their value
         for (int i = 0; i < joystick.num_buttons; i++) {
-            button_value += SDL_JoystickGetButton(joystick._ptr, i);
+            button_value += SDL_GetJoystickButton(joystick._ptr, i);
         }
 
         // Iterate over DPad hats and record their value
         for (int i = 0; i < joystick.num_hats; i++) {
-            hat_value += SDL_JoystickGetHat(joystick._ptr, i);
+            hat_value += SDL_GetJoystickHat(joystick._ptr, i);
         }
 
         // If no values are detected, the function may exit
@@ -653,32 +684,29 @@ void wait_for_no_sdljoystick_input(SDLJoystickData& joystick) {
 
 bool there_is_sdljoystick_input(SDLJoystickData& joystick) {
 
-        SDL_Event event;
-        while (SDL_PollEvent(&event)) {
-            // Handle events if necessary
-        }
+    SDL_UpdateJoysticks();
 
-        // Iterate over all joystick axes
-        for (int i = 0; i < joystick.num_axes; i++) {
-            int read_val = SDL_JoystickGetAxis(joystick._ptr, i);
-            if (abs(read_val - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD)
-                return true;
-        }
+    // Iterate over all joystick axes
+    for (int i = 0; i < joystick.num_axes; i++) {
+        int read_val = SDL_GetJoystickAxis(joystick._ptr, i);
+        if (abs(read_val - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD)
+            return true;
+    }
 
-        // Iterate over all joystick buttons
-        for (int i = 0; i < joystick.num_buttons; i++) {
-            if (SDL_JoystickGetButton(joystick._ptr, i))
-                return true;
-        }
+    // Iterate over all joystick buttons
+    for (int i = 0; i < joystick.num_buttons; i++) {
+        if (SDL_GetJoystickButton(joystick._ptr, i))
+            return true;
+    }
 
-        // Iterate over DPad hats
-        for (int i = 0; i < joystick.num_hats; i++) {
-            if (SDL_JoystickGetHat(joystick._ptr, i))
-                return true;
-        }
+    // Iterate over DPad hats
+    for (int i = 0; i < joystick.num_hats; i++) {
+        if (SDL_GetJoystickHat(joystick._ptr, i))
+            return true;
+    }
 
-        // If no values are detected return false       
-        return false;
+    // If no values are detected return false       
+    return false;
 }
 
 void setSDLMapping(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonName>& inputList) {
@@ -704,25 +732,14 @@ void setSDLMapping(SDLJoystickData& joystick, std::vector<SDLButtonMapping::Butt
         std::string inputName = SDLButtonMapping::getButtonNameString(inputID);
         SDLButtonMapping::ButtonType inputType = get_input_type(inputName);
 
-        
-
         // Receive updates from the device and map inputs
         SDLButtonMapping::ButtonMapInput received_input;
         bool settingInput = true;
         while (settingInput && !APP_KILLED) {
-
             // Wait for no input to be detected
-            if (there_is_sdljoystick_input(joystick)) { 
+            if (there_is_sdljoystick_input(joystick)) {
                 std::cout << " <<  Input Detected, Please Release To Continue >> ";
                 while (there_is_sdljoystick_input(joystick) && !APP_KILLED) {
-                    
-                    received_input = get_sdljoystick_input(joystick);
-                    
-                    std::cout << "Name: " + inputName + ", Input Type: " + SDLButtonMapping::getButtonTypeString(received_input.input_type) +
-                        ", Index: " + std::to_string(received_input.index) +
-                        ", Value: " + std::to_string(received_input.value);
-
-                    repositionConsoleCursor();
                     Sleep(20);
                 }
             }
@@ -736,6 +753,18 @@ void setSDLMapping(SDLJoystickData& joystick, std::vector<SDLButtonMapping::Butt
             if (APP_KILLED) return;
 
             // Create a key from the input
+            if ((inputType == SDLButtonMapping::ButtonType::BUTTON ||
+                inputType == SDLButtonMapping::ButtonType::SHOULDER ||
+                inputType == SDLButtonMapping::ButtonType::HAT ||
+                inputType == SDLButtonMapping::ButtonType::THUMB)
+                && received_input.input_type == SDLButtonMapping::ButtonType::STICK) {
+                if ((received_input.value == ANALOG_RANGE_NEG_TO_POS)
+                    || (received_input.value == ANALOG_RANGE_POS_TO_NEG)) {
+                    received_input.special = received_input.value;
+                    received_input.value = (received_input.special == ANALOG_RANGE_NEG_TO_POS) ? -1 : 1;
+                }
+            }
+
             std::string inputKey = std::to_string(static_cast<int>(received_input.input_type)) + "_" + std::to_string(received_input.index) + "_" + std::to_string(received_input.value);
 
             if (received_input.input_type == SDLButtonMapping::ButtonType::UNSET) {
@@ -764,9 +793,6 @@ void setSDLMapping(SDLJoystickData& joystick, std::vector<SDLButtonMapping::Butt
         if (received_input.input_type == SDLButtonMapping::ButtonType::UNSET) {
             g_outputText = "<< Input " + format_input_name(inputName) + " has been skipped! >>\r\n\r\n";
         }
-        /*else {
-            g_outputText = joystick.mapping.displayInput(inputID) + "\r\n\r\n";
-        }*/
 
     }
     g_outputText += "<< All Done! >>\r\n\r\n";
