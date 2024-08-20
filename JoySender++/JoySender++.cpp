@@ -488,8 +488,8 @@ int joySender(Arguments& args) {
                 }
             }
             else {
-                //# set the XBOX REPORT from SDL inputs
-                get_xbox_report_from_SDLmap(activeGamepad, activeInputs, xbox_report);
+                //# set the XBOX REPORT from SDL events
+                get_xbox_report_from_SDL_events(activeGamepad, xbox_report);
             }
 
             // ###################################
