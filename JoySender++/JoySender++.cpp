@@ -270,7 +270,7 @@ int joySender(Arguments& args) {
     case 1: {   // SDL MODE
         if (!args.select) {
            showConsoleCursor();
-           allGood = ConsoleSelectJoystickDialog(getJoystickList().size(), activeGamepad);
+           allGood = ConsoleSelectJoystickDialog(activeGamepad);
            if (!allGood) {
                std::cout << " Unable to connect to that device !! " << std::endl;
                return -1;
@@ -474,6 +474,7 @@ int joySender(Arguments& args) {
                 displayOutputText();
                 client.~TCPConnection();
                 inConnection = false;
+                return args.mode + 1;
             }
 
             // ###################################
