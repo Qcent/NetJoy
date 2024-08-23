@@ -683,6 +683,7 @@ bool sdl_joystick_still_connected(const SDLJoystickData& joystick) {
 void wait_for_no_sdljoystick_input(SDLJoystickData& joystick) {
     bool awaiting_silence = true;
     while (awaiting_silence && !APP_KILLED) {
+        Sleep(20);
         SDL_UpdateJoysticks();
 
         int axis_value = 0;
