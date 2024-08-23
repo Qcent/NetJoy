@@ -1224,24 +1224,6 @@ int InitJoystickInput()
     return 0;
 }
 
-std::unordered_map<std::string, int> getJoystickList() {
-    // Check for available joysticks
-    SDL_JoystickID* joystic_list = nullptr;
-    int numJoysticks = 0;
-    joystic_list = SDL_GetJoysticks(&numJoysticks);
-    if (numJoysticks < 1) {
-        std::cerr << "Warning: No joysticks connected!" << std::endl;
-    }
-    // Create and Populate list
-    std::unordered_map<std::string, int> joystickList;
-    for (int i = 0; i < numJoysticks; ++i)
-    {
-        std::string joystickName = SDL_GetJoystickNameForID(joystic_list[i]);
-        joystickList[joystickName] = i;
-    }
-    return joystickList;
-}
-
 int ConsoleSelectJoystickDialog(SDLJoystickData& joystick) {
     int numJoysticks = 0;
     SDL_JoystickID* joystic_list = nullptr;
@@ -1290,6 +1272,7 @@ int ConsoleSelectJoystickDialog(SDLJoystickData& joystick) {
         clearConsoleScreen();
         std::cout << "Invalid joystick index." << std::endl;
         
+        // allows for rescan of devices
         return ConsoleSelectJoystickDialog(joystick);
     }
 
