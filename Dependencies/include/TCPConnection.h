@@ -37,8 +37,6 @@ THE SOFTWARE.
 
 #pragma comment(lib, "ws2_32.lib")
 
-constexpr int UINT32_SIZE = sizeof(uint32_t);
-
 class TCPConnection {
 private:
     char hostAddress[16];
@@ -227,17 +225,17 @@ std::vector<char> TCPConnection::pack_header(const std::unordered_map<std::strin
         uint32_t valueLength = static_cast<uint32_t>(value.length());
 
         // Pack name length
-        char nameLengthBuffer[UINT32_SIZE];
-        memcpy(nameLengthBuffer, &nameLength, UINT32_SIZE);
-        headerData.insert(headerData.end(), nameLengthBuffer, nameLengthBuffer + UINT32_SIZE);
+        char nameLengthBuffer[sizeof(uint32_t)];
+        memcpy(nameLengthBuffer, &nameLength, sizeof(uint32_t));
+        headerData.insert(headerData.end(), nameLengthBuffer, nameLengthBuffer + sizeof(uint32_t));
 
         // Pack name
         headerData.insert(headerData.end(), name.begin(), name.end());
 
         // Pack value length
-        char valueLengthBuffer[UINT32_SIZE];
-        memcpy(valueLengthBuffer, &valueLength, UINT32_SIZE);
-        headerData.insert(headerData.end(), valueLengthBuffer, valueLengthBuffer + UINT32_SIZE);
+        char valueLengthBuffer[sizeof(uint32_t)];
+        memcpy(valueLengthBuffer, &valueLength, sizeof(uint32_t));
+        headerData.insert(headerData.end(), valueLengthBuffer, valueLengthBuffer + sizeof(uint32_t));
 
         // Pack value
         headerData.insert(headerData.end(), value.begin(), value.end());
@@ -252,8 +250,8 @@ std::unordered_map<std::string, std::string> TCPConnection::unpack_header(const 
     while (offset < dataSize) {
         // Unpack name length
         uint32_t nameLength;
-        memcpy(&nameLength, headerData + offset, UINT32_SIZE);
-        offset += UINT32_SIZE;
+        memcpy(&nameLength, headerData + offset, sizeof(uint32_t));
+        offset += sizeof(uint32_t);
 
         // Unpack name
         std::string name(headerData + offset, headerData + offset + nameLength);
@@ -261,8 +259,8 @@ std::unordered_map<std::string, std::string> TCPConnection::unpack_header(const 
 
         // Unpack value length
         uint32_t valueLength;
-        memcpy(&valueLength, headerData + offset, UINT32_SIZE);
-        offset += UINT32_SIZE;
+        memcpy(&valueLength, headerData + offset, sizeof(uint32_t));
+        offset += sizeof(uint32_t);
 
         // Unpack value
         std::string value(headerData + offset, headerData + offset + valueLength);
@@ -282,7 +280,7 @@ int TCPConnection::send_data(const char* data, int size, const std::unordered_ma
     // Prepare the combined data to be sent
     std::vector<char> combinedData;
     uint32_t headerSize = static_cast<uint32_t>(headerData.size());
-    combinedData.insert(combinedData.end(), reinterpret_cast<const char*>(&headerSize), reinterpret_cast<const char*>(&headerSize) + UINT32_SIZE);
+    combinedData.insert(combinedData.end(), reinterpret_cast<const char*>(&headerSize), reinterpret_cast<const char*>(&headerSize) + sizeof(uint32_t));
     combinedData.insert(combinedData.end(), headerData.begin(), headerData.end());
     combinedData.insert(combinedData.end(), data, data + size);
 
@@ -312,25 +310,25 @@ int TCPConnection::receive_data(char* buffer, int bufferSize, std::unordered_map
     }
 
     // Extract header size
-    if (bytesReceived < UINT32_SIZE) {
+    if (bytesReceived < sizeof(uint32_t)) {
         std::cerr << "Received data is incomplete." << std::endl;
         return -1;
     }
     uint32_t headerSize;
-    std::memcpy(&headerSize, buffer, UINT32_SIZE);
+    std::memcpy(&headerSize, buffer, sizeof(uint32_t));
 
     // Extract header data
-    if (bytesReceived < UINT32_SIZE + headerSize) {
+    if (bytesReceived < sizeof(uint32_t) + headerSize) {
         std::cerr << "Received data is incomplete." << std::endl;
         return -1;
     }
-    const char* headerData = buffer + UINT32_SIZE;
+    const char* headerData = buffer + sizeof(uint32_t);
     header = unpack_header(headerData, headerSize);
 
     // Extract payload data
-    int payloadSize = bytesReceived - UINT32_SIZE - headerSize;
+    int payloadSize = bytesReceived - sizeof(uint32_t) - headerSize;
     if (payloadSize > 0) {
-        std::memcpy(buffer, buffer + UINT32_SIZE + headerSize, payloadSize);
+        std::memcpy(buffer, buffer + sizeof(uint32_t) + headerSize, payloadSize);
     }
 
     return payloadSize;

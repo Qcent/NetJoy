@@ -881,7 +881,7 @@ std::map<SDLButtonMapping::ButtonName, _XUSB_BUTTON> toXUSB = {
 };
 
 // Used for looping through all Dpad directions
-int DPAD_DIRECTIONS[] = { XUSB_GAMEPAD_DPAD_UP, XUSB_GAMEPAD_DPAD_DOWN, XUSB_GAMEPAD_DPAD_LEFT, XUSB_GAMEPAD_DPAD_RIGHT };
+BYTE DPAD_DIRECTIONS[] = { XUSB_GAMEPAD_DPAD_UP, XUSB_GAMEPAD_DPAD_DOWN, XUSB_GAMEPAD_DPAD_LEFT, XUSB_GAMEPAD_DPAD_RIGHT };
 
 // Clears the value for a specific emulatedInput in an XUSB_REPORT
 void clear_XBOX_REPORT_value(const SDLButtonMapping::ButtonName emulatedInput, XUSB_REPORT& xboxReport) {
@@ -1240,6 +1240,7 @@ int ConsoleSelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick) {
     std::cout << "): ";
     std::cin >> selectedJoystickIndex;
     --selectedJoystickIndex;
+    while ((getchar()) != '\n');
 
     // Check if the selected index is valid
     if (selectedJoystickIndex < 0 || selectedJoystickIndex >= numJoysticks)

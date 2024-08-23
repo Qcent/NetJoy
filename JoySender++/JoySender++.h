@@ -24,7 +24,6 @@ void enableANSI();
 void hideConsoleCursor();
 void showConsoleCursor();
 void clearConsoleScreen();
-//void repositionConsoleCursor(char fwd, int linesFwd = 1, int offset = 0);
 void repositionConsoleCursor(int lines = 0, int offset = 0);
 void clearConsoleLine();
 // For FPS and Latency Output

@@ -163,7 +163,7 @@ void swallowInput()
 {
     while (_kbhit())
     {
-        _getch();
+        (void*)_getch();
     }
 }
 // Function waits for no keyboard presses to be detected before returning
@@ -218,13 +218,13 @@ int joySender(Arguments& args) {
     std::vector<SDLButtonMapping::ButtonName> activeInputs;
       
     int allGood;
-    char buffer[128];
+    char buffer[24];
     int buffer_size = sizeof(buffer);
     int bytesReceived;
     int reportSize;
 
     SDLJoystickData activeGamepad;
-    XUSB_REPORT xbox_report;
+    XUSB_REPORT xbox_report = {0};
     BYTE* hid_report = ds4_InReportBuf;
 
     // Lambda Functions and variables for FPS and FPS Limiting calculations
@@ -305,12 +305,7 @@ int joySender(Arguments& args) {
 
     //###########################################################################
     // Init Settings for Operating Mode
-    if (args.mode == 3) {
-        g_outputText = "HID Mode Activated\r\n";
-            //buttons = HIDButtonMapping()
-    }
-    else if (args.mode == 2) {  
-        
+    if (args.mode == 2) {      
         // Get a report from the device to determine what type of connection it has
         GetDS4Report();
 
@@ -389,10 +384,6 @@ int joySender(Arguments& args) {
         // Create a list of set joystick inputs
         activeInputs = activeGamepad.mapping.getSetButtonNames();
     }
-    if (args.mode == 3) {
-        /// hid_input_lists = get_hidmap_input_lists(buttons, input_list)
-        ///     report_size = len(gamepad.read(64))
-    }
 
     //###########################################################################
     //# Main Loop keeps client running
@@ -470,13 +461,7 @@ int joySender(Arguments& args) {
 
             //###################################
             //# Read from Input
-            if(args.mode == 3) {
-                //# Read the next HID report
-                //# input_report = gamepad.read(report_size)
-                //# set the XBOX REPORT from HID input_report
-                //get_xbox_report_from_hidmap(gamepad, report_size, buttons, hid_input_lists, xbox_report)
-            }
-            else if (args.mode == 2) {
+            if (args.mode == 2) {
                 //# Read the next HID report for DS4 Passthrough
                 allGood = GetDS4Report();
                 // *hid_report will point to most recent data
@@ -490,6 +475,13 @@ int joySender(Arguments& args) {
             else {
                 //# set the XBOX REPORT from SDL events
                 get_xbox_report_from_SDL_events(activeGamepad, xbox_report);
+
+                if (fps_counter.get_frame_count() % 10 == 0) {
+                    g_outputText = "";
+                    printXusbReport(xbox_report);
+                    std::cout << g_outputText;
+                    repositionConsoleCursor(-7);
+                }
             }
 
             // ###################################
@@ -562,7 +554,7 @@ int joySender(Arguments& args) {
             }
 
             // Sleep to yield thread
-            Sleep(max(fpsAdjustment, 0)); 
+            Sleep(fpsAdjustment > 0 ? fpsAdjustment : 0);
             if (args.mode == 2) {
                 // make sure we get a recent report
                 DS4manager.Flush();

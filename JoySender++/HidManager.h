@@ -42,12 +42,12 @@ struct HidDeviceInfo {
     std::wstring      serial;
     std::wstring      manufacturer;
     std::wstring      product;
-    unsigned short    vendorId;
-    unsigned short    productId;
-    unsigned short    release;
-    unsigned short    usagePage;
-    unsigned short    usage;
-    int               interfaceNumber;
+    unsigned short    vendorId        = 0;
+    unsigned short    productId       = 0;
+    unsigned short    release         = 0;
+    unsigned short    usagePage       = 0;
+    unsigned short    usage           = 0;
+    int               interfaceNumber = 0;
 };
 
 class HidDeviceManager
