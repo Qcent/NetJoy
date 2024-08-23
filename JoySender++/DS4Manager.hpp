@@ -325,8 +325,8 @@ int ConsoleSelectDS4Dialog(std::vector<HidDeviceInfo>& devList) {
        // Check if the selected index is valid
        if (selectedJoystickIndex < 0 || selectedJoystickIndex >= numJoysticks)
        {
-           std::cout << "Invalid index." << std::endl << std::endl;
-           selectedJoystickIndex = -1;
+           //std::cout << "Invalid index." << std::endl << std::endl;
+           return -1;
        }
    }
 
@@ -348,12 +348,22 @@ bool ConnectToDS4Controller() {
         ANY                 // usage
     );
 
+    if (devList.size() == 0) {
+        std::cout << "\t No Connected DS4 Controllers \n Connect a controller and press a key..." << std::endl;
+        _getch();
+        return ConnectToDS4Controller();
+    }
     if (devList.size() > 1) {
         // User selects from connected DS4 devices
         int idx = ConsoleSelectDS4Dialog(devList);
+        if (idx == -1) {
+            clearConsoleScreen();
+            std::cout << "Invalid index." << std::endl;
+            return ConnectToDS4Controller();
+        }
         selectedDev = &devList[idx];
     }
-    else if (devList.size()) {
+    else{
         selectedDev = &devList[0];
     }
     
