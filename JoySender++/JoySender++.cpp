@@ -163,7 +163,7 @@ void swallowInput()
 {
     while (_kbhit())
     {
-        (void*)_getch();
+        _getch();
     }
 }
 // Function waits for no keyboard presses to be detected before returning
@@ -254,8 +254,7 @@ int joySender(Arguments& args) {
         return std::string();
     };
     double latencyOutput = 0.0;
-    const int latency_report_freq = 25;
-    auto do_latency_timing = [&latencyTimer](int report_frequency = 15) {
+    auto do_latency_timing = [&latencyTimer](int report_frequency = 25) {
         if (latencyTimer.increment_frame_count() >= report_frequency) {
             double elapsedTime = latencyTimer.get_elapsed_time();
             latencyTimer.reset();
@@ -270,7 +269,7 @@ int joySender(Arguments& args) {
     switch (args.mode) {
     case 1: {   // SDL MODE
         if (!args.select) {
-            showConsoleCursor();
+           showConsoleCursor();
            allGood = ConsoleSelectJoystickDialog(getJoystickList().size(), activeGamepad);
            if (!allGood) {
                std::cout << " Unable to connect to that device !! " << std::endl;
@@ -464,24 +463,17 @@ int joySender(Arguments& args) {
             if (args.mode == 2) {
                 //# Read the next HID report for DS4 Passthrough
                 allGood = GetDS4Report();
-                // *hid_report will point to most recent data
-                if (!allGood) {
-                    g_outputText += "<< Device Disconnected >> \r\n";
-                    displayOutputText();
-                    client.~TCPConnection();
-                    inConnection = false;
-                }
+                // *hid_report will point to most recent data 
             }
             else {
                 //# set the XBOX REPORT from SDL events
-                get_xbox_report_from_SDL_events(activeGamepad, xbox_report);
-
-                if (fps_counter.get_frame_count() % 10 == 0) {
-                    g_outputText = "";
-                    printXusbReport(xbox_report);
-                    std::cout << g_outputText;
-                    repositionConsoleCursor(-7);
-                }
+                allGood = get_xbox_report_from_SDL_events(activeGamepad, xbox_report);
+            }
+            if (!allGood) {
+                g_outputText += "<< Device Disconnected >> \r\n";
+                displayOutputText();
+                client.~TCPConnection();
+                inConnection = false;
             }
 
             // ###################################
@@ -491,7 +483,7 @@ int joySender(Arguments& args) {
                 if (!fpsOutput.empty()) {
                     overwriteFPS(fpsOutput + " fps  ");
                 }
-                latencyOutput = do_latency_timing(latency_report_freq);
+                latencyOutput = do_latency_timing();
                 if (latencyOutput) {
                     overwriteLatency("Latency: " + formatDecimalString(std::to_string(((latencyOutput*1000) - fpsAdjustment) / 2), 5) + " ms  ");
                 }

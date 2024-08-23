@@ -668,6 +668,18 @@ SDLButtonMapping::ButtonMapInput get_sdljoystick_input(const SDLJoystickData& jo
     return input;
 }
 
+bool sdl_joystick_still_connected(const SDLJoystickData& joystick) {
+    int numJoysticks = 0;
+    SDL_JoystickID* joystick_list = nullptr;
+    joystick_list = SDL_GetJoysticks(&numJoysticks);
+    for (int i = 0; i < numJoysticks; i++) {
+        if (joystick_list[i] == joystick.joyID) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void wait_for_no_sdljoystick_input(SDLJoystickData& joystick) {
     bool awaiting_silence = true;
     while (awaiting_silence && !APP_KILLED) {
@@ -1083,13 +1095,19 @@ void SDL_event_to_xbox_report(const SDLButtonMapping::ButtonMapInput sdlEvent, c
     }
 }
 
-// Builds a new XUSB_REPORT from current SDL_Events
-void get_xbox_report_from_SDL_events(SDLJoystickData& joystick, XUSB_REPORT& xbox_report) {
+// Builds a new XUSB_REPORT from current SDL_Events returns false if joystick is removed, else true
+bool get_xbox_report_from_SDL_events(SDLJoystickData& joystick, XUSB_REPORT& xbox_report) {
     SDL_Event event;
     SDLButtonMapping::ButtonMapInput eventMap;
     int axis_value = 0;
     while (SDL_PollEvent(&event) != 0) {
         switch (event.type) {
+        case SDL_EVENT_JOYSTICK_REMOVED:
+            if (!sdl_joystick_still_connected(joystick)) {
+                return false;
+            }
+            break;
+
         case SDL_EVENT_JOYSTICK_BUTTON_DOWN:
             eventMap.set(SDLButtonMapping::ButtonType::BUTTON, (int)event.jbutton.button, true);
 
@@ -1175,6 +1193,7 @@ void get_xbox_report_from_SDL_events(SDLJoystickData& joystick, XUSB_REPORT& xbo
             break;
         }
     }
+    return 1;
 }
 
 // Will output XUSB_REPORT values to g_outputText
