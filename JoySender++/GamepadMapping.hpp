@@ -664,6 +664,8 @@ SDLButtonMapping::ButtonMapInput get_sdljoystick_input(const SDLJoystickData& jo
                 return input;
             }
         }
+
+        Sleep(20);
     }
     return input;
 }
