@@ -550,8 +550,6 @@ int joySender(Arguments& args) {
                     return 2;
                 if (getKeyState('2'))
                     return 3;
-                if (getKeyState('3'))
-                    return 4;
             }
             return 1;
         }
