@@ -219,6 +219,7 @@ public:
     }
 
     int loadMapping(const std::string& filename) {
+        bool V1_Flag = false;
         std::ifstream file(filename, std::ios::binary);
         if (file.is_open()) {
             file.seekg(0, std::ios::end);
@@ -226,23 +227,50 @@ public:
             file.seekg(0, std::ios::beg);
 
             if (fileSize % sizeof(std::tuple<ButtonName, ButtonType, int, int, int>) != 0) {
-                file.close();
-                return -1; // Error: Invalid file size
+                // Error: Invalid file size for mapping version 2
+                // Check if size matches version 1
+                if(fileSize % sizeof(std::tuple<ButtonName, ButtonType, int, int>) == 0) {
+                    V1_Flag = true;
+                    g_outputText += "! WARNING OLD MAP FILE DETECTED, RE-MAPPING INPUTS RECOMMENDED !\r\n";
+                }
+                else {
+                    file.close();
+                    return 0;
+                }
             }
 
-            std::vector<std::tuple<ButtonName, ButtonType, int, int, int>> buttonList(fileSize / sizeof(std::tuple<ButtonName, ButtonType, int, int, int>));
-            file.read(reinterpret_cast<char*>(buttonList.data()), static_cast<std::streamsize>(fileSize));
+            if (V1_Flag) {
+                // Old format
+                std::vector<std::tuple<ButtonName, ButtonType, int, int>> buttonList(fileSize / sizeof(std::tuple<ButtonName, ButtonType, int, int>));
+                file.read(reinterpret_cast<char*>(buttonList.data()), static_cast<std::streamsize>(fileSize));
 
-            buttonMaps.clear();
-            for (const auto& buttonTuple : buttonList) {
-                const auto& buttonName = std::get<0>(buttonTuple);
-                const auto& buttonInputType = std::get<1>(buttonTuple);
-                const auto& buttonIndex = std::get<2>(buttonTuple);
-                const auto& buttonValue = std::get<3>(buttonTuple);
-                const auto& buttonSpecial = std::get<4>(buttonTuple);
+                buttonMaps.clear();
+                for (const auto& buttonTuple : buttonList) {
+                    const auto& buttonName = std::get<0>(buttonTuple);
+                    const auto& buttonInputType = std::get<1>(buttonTuple);
+                    const auto& buttonIndex = std::get<2>(buttonTuple);
+                    const auto& buttonValue = std::get<3>(buttonTuple);
 
-                ButtonMapInput buttonInput(buttonInputType, buttonIndex, buttonValue, buttonSpecial);
-                buttonMaps[buttonName] = buttonInput;
+                    // Add int with a value of -1
+                    ButtonMapInput buttonInput(buttonInputType, buttonIndex, buttonValue, -1);
+                    buttonMaps[buttonName] = buttonInput;
+                }
+            }
+            else {
+                std::vector<std::tuple<ButtonName, ButtonType, int, int, int>> buttonList(fileSize / sizeof(std::tuple<ButtonName, ButtonType, int, int, int>));
+                file.read(reinterpret_cast<char*>(buttonList.data()), static_cast<std::streamsize>(fileSize));
+
+                buttonMaps.clear();
+                for (const auto& buttonTuple : buttonList) {
+                    const auto& buttonName = std::get<0>(buttonTuple);
+                    const auto& buttonInputType = std::get<1>(buttonTuple);
+                    const auto& buttonIndex = std::get<2>(buttonTuple);
+                    const auto& buttonValue = std::get<3>(buttonTuple);
+                    const auto& buttonSpecial = std::get<4>(buttonTuple);
+
+                    ButtonMapInput buttonInput(buttonInputType, buttonIndex, buttonValue, buttonSpecial);
+                    buttonMaps[buttonName] = buttonInput;
+                }
             }
 
             file.close();
@@ -1327,7 +1355,12 @@ void OpenOrCreateMapping(SDLJoystickData& joystick) {
     std::filesystem::path filePath = result.second;
     if (result.first) {
         // File exists, try and load data
-        joystick.mapping.loadMapping(filePath.string());
+        int allGood = joystick.mapping.loadMapping(filePath.string());
+        if (!allGood) {
+            // invald data, delete file and try to remap controller
+            std::filesystem::remove(result.second);
+            return OpenOrCreateMapping(joystick);
+        }
         joystick.mapping.populateExtraMaps();
     }
     else {

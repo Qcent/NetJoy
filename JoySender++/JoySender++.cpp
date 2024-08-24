@@ -361,7 +361,7 @@ int joySender(Arguments& args) {
         g_outputText = "SDL Mode Activated\r\n";
         BuildJoystickInputData(activeGamepad);
     }
-    displayOutputText();
+
     //##########################################################################
     // If not in DS4 Passthrough mode look for Saved Mapping or create one
     if (args.mode != 2) {
@@ -370,7 +370,7 @@ int joySender(Arguments& args) {
         // Create a list of set joystick inputs
         activeInputs = activeGamepad.mapping.getSetButtonNames();
     }
-
+    displayOutputText();
     //##########################################################################
     // Main Loop keeps client running
     // asks for new host if connection fails 3 times
@@ -450,7 +450,7 @@ int joySender(Arguments& args) {
             else {
                 // set the XBOX REPORT from SDL events
                 allGood = get_xbox_report_from_SDL_events(activeGamepad, xbox_report);
-#if 0
+#if 1
                 if (fps_counter.get_frame_count() % 10 == 0) {
                     g_outputText = "";
                     printXusbReport(xbox_report);
