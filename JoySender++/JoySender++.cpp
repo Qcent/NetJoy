@@ -635,8 +635,7 @@ int main(int argc, char **argv)
     swallowInput();
     SDL_Quit();
     showConsoleCursor();
-    Sleep(7);
-    std::cout << "all cleaned up! (:" << std::endl;
+
     return 1;
 }
 
@@ -644,6 +643,5 @@ void signalHandler(int signal) {
     if (signal == SIGINT) {
         APP_KILLED = 1;
         Sleep(5);
-        std::cout << "Keyboard interrupt received. Exiting gracefully." << std::endl;
     }
 }
