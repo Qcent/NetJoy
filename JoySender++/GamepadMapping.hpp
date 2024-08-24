@@ -1148,9 +1148,6 @@ bool get_xbox_report_from_SDL_events(SDLJoystickData& joystick, XUSB_REPORT& xbo
 
                     // If the eventMap exists in the inverseMap: set xbox_report accordingly
                     if (joystick.mapping.inverseMap.find(eventMap) != joystick.mapping.inverseMap.end()) {
-                        // clear report value
-                        xbox_report.wButtons &= ~toXUSB[joystick.mapping.inverseMap[eventMap]];
-
                         SDL_event_to_xbox_report(eventMap, joystick.mapping.inverseMap[eventMap], xbox_report, joystick);
                     }
                 }
