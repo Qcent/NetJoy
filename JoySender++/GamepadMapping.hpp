@@ -1274,8 +1274,8 @@ int ConnectToJoystick(int joyIndex, SDLJoystickData& joystick) {
 
 int ConsoleSelectJoystickDialog(SDLJoystickData& joystick) {
     int numJoysticks = 0;
-    SDL_JoystickID* joystic_list = nullptr;
-    joystic_list = SDL_GetJoysticks(&numJoysticks);
+    SDL_JoystickID* joystick_list = nullptr;
+    joystick_list = SDL_GetJoysticks(&numJoysticks);
     // Print the available joysticks
     std::cout << "Connected Joysticks:" << std::endl;
 
@@ -1296,13 +1296,13 @@ int ConsoleSelectJoystickDialog(SDLJoystickData& joystick) {
         }
 
         clearConsoleScreen();
-        joystic_list = SDL_GetJoysticks(&numJoysticks);
+        joystick_list = SDL_GetJoysticks(&numJoysticks);
         std::cout << "Connected Joysticks:" << std::endl;
     }
 
     for (int i = 0; i < numJoysticks; ++i)
     {
-        std::cout << 1 + i << ": " << SDL_GetJoystickNameForID(joystic_list[i]) << std::endl;
+        std::cout << 1 + i << ": " << SDL_GetJoystickNameForID(joystick_list[i]) << std::endl;
     }
 
     // Prompt the user to select a joystick
