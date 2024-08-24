@@ -117,7 +117,7 @@ int main(int argc, char* argv[]) {
                 }
                 else if (allGood == WSAEINVAL) {
                     // Invalid argument error * seems to trigger when we don't have access to the specified port
-                    std::cout << "!! Unable to run on PORT: " << args.port << " !!\r\n";
+                    std::cout << " << Unable to use port : " << args.port << " >>\r\n";
                     std::cout << "<< Exiting >>" << std::endl;
                     APP_KILLED = true;
                     break;
