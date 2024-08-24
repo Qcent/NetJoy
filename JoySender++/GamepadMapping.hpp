@@ -1317,7 +1317,9 @@ void BuildJoystickInputData(SDLJoystickData& joystick) {
     joystick.avgBaseline = std::get<0>(baselineReports);
 }
 
-void OpenOrCreateMapping(SDLJoystickData& joystick, std::string& mapName) {
+void OpenOrCreateMapping(SDLJoystickData& joystick) {
+    // Convert joystick name to hex  
+    std::string mapName = encodeStringToHex(joystick.name);
     // Check for a saved Map for selected joystick
     auto result = check_for_saved_mapping(mapName);
     std::filesystem::path filePath = result.second;
