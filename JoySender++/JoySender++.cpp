@@ -450,6 +450,14 @@ int joySender(Arguments& args) {
             else {
                 // set the XBOX REPORT from SDL events
                 allGood = get_xbox_report_from_SDL_events(activeGamepad, xbox_report);
+#if 0
+                if (fps_counter.get_frame_count() % 10 == 0) {
+                    g_outputText = "";
+                    printXusbReport(xbox_report);
+                    std::cout << g_outputText;
+                    repositionConsoleCursor(-7);
+                }
+#endif
             }
             if (!allGood) {
                 g_outputText += "<< Device Disconnected >> \r\n";
