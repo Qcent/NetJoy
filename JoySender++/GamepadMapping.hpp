@@ -121,6 +121,7 @@ public:
 
     ButtonMap buttonMaps;
     InverseMap inverseMap;
+    std::vector<ButtonName> dpadInputList;
     std::vector<ButtonName> stickButtonNames;
     std::vector<ButtonName> triggerButtonNames;
     std::vector<ButtonName> thumbButtonNames;
@@ -181,12 +182,17 @@ public:
         return unsetButtons;
     }
 
-    void populateInverseMap() {
+    void populateExtraMaps() {
+        dpadInputList.clear();    // Clear set Dpad buttons
         inverseMap.clear();  // Clear the inverse map before populating it
         std::vector<ButtonName> setButtons = getSetButtonNames();
         for (const auto& buttonName : setButtons) {
             const auto& buttonInput = buttonMaps.at(buttonName);
             inverseMap[buttonInput] = buttonName;
+
+            if (buttonInput.input_type == SDLButtonMapping::ButtonType::HAT) {
+                dpadInputList.push_back(buttonName);
+            }
         }
     }
 
@@ -1132,15 +1138,12 @@ bool get_xbox_report_from_SDL_events(SDLJoystickData& joystick, XUSB_REPORT& xbo
             break;
 
         case SDL_EVENT_JOYSTICK_HAT_MOTION:
-            // All values set by dpad/hat inputs must be addressed as a single value is given for entire dpad state
-            // all values set by DPAD must be reset on DPAD value change
-            for (auto const& input : joystick.mapping.buttonMaps) {
-                if (input.second.input_type == SDLButtonMapping::ButtonType::HAT) {
-                    // Clear xbox_report values that are set by a HAT input
-                    clear_XBOX_REPORT_value(input.first, xbox_report);
-                }
+            // All values set by DPAD must be reset on DPAD value change
+            for (auto const& input : joystick.mapping.dpadInputList) {
+                    clear_XBOX_REPORT_value(input, xbox_report);
             }
 
+            // All dpad/hat directions must be addressed, as a single value is given for entire dpad state
             for (int dpad_dir : DPAD_DIRECTIONS) {
                 // bitwise AND comparison of dpad directions (extracts single direction from possible multi direction)
                 if (event.jhat.value & dpad_dir) {
@@ -1198,13 +1201,13 @@ bool get_xbox_report_from_SDL_events(SDLJoystickData& joystick, XUSB_REPORT& xbo
 
 // Will output XUSB_REPORT values to g_outputText
 void printXusbReport(const XUSB_REPORT& report) {
-    g_outputText += "wButtons: " + std::to_string(report.wButtons) + "\r\n";
-    g_outputText += "bLeftTrigger: " + std::to_string(static_cast<int>(report.bLeftTrigger)) + "\r\n";
-    g_outputText += "bRightTrigger: " + std::to_string(static_cast<int>(report.bRightTrigger)) + "\r\n";
-    g_outputText += "sThumbLX: " + std::to_string(report.sThumbLX) + "\r\n";
-    g_outputText += "sThumbLY: " + std::to_string(report.sThumbLY) + "\r\n";
-    g_outputText += "sThumbRX: " + std::to_string(report.sThumbRX) + "\r\n";
-    g_outputText += "sThumbRY: " + std::to_string(report.sThumbRY) + "\r\n";
+    g_outputText += "wButtons: " + std::to_string(report.wButtons) + "      \r\n";
+    g_outputText += "bLeftTrigger: " + std::to_string(static_cast<int>(report.bLeftTrigger)) + "      \r\n";
+    g_outputText += "bRightTrigger: " + std::to_string(static_cast<int>(report.bRightTrigger)) + "      \r\n";
+    g_outputText += "sThumbLX: " + std::to_string(report.sThumbLX) + "      \r\n";
+    g_outputText += "sThumbLY: " + std::to_string(report.sThumbLY) + "      \r\n";
+    g_outputText += "sThumbRX: " + std::to_string(report.sThumbRX) + "      \r\n";
+    g_outputText += "sThumbRY: " + std::to_string(report.sThumbRY) + "      \r\n";
 }
 
 
@@ -1325,7 +1328,7 @@ void OpenOrCreateMapping(SDLJoystickData& joystick) {
     if (result.first) {
         // File exists, try and load data
         joystick.mapping.loadMapping(filePath.string());
-        joystick.mapping.populateInverseMap();
+        joystick.mapping.populateExtraMaps();
     }
     else {
         // File does not exist
@@ -1340,7 +1343,7 @@ void OpenOrCreateMapping(SDLJoystickData& joystick) {
         std::vector<SDLButtonMapping::ButtonName> inputList;
         // Set a Button Map for joystick
         setSDLMapping(joystick, inputList);
-        joystick.mapping.populateInverseMap();
+        joystick.mapping.populateExtraMaps();
 
         //Save new mapping
         int didSave = joystick.mapping.saveMapping(filePath.string());
@@ -1365,7 +1368,7 @@ int RemapInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonN
     // Set a Button Map for joystick
     setSDLMapping(joystick, inputList);
 
-    joystick.mapping.populateInverseMap();
+    joystick.mapping.populateExtraMaps();
 
     //Save new mapping
     int didSave = joystick.mapping.saveMapping(filePath.string());
