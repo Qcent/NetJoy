@@ -399,7 +399,6 @@ int joySender(Arguments& args) {
             if (allGood < 1) {
                 g_outputText += "<< Connection Failed >> \r\n";
                 displayOutputText();
-                client.~TCPConnection();
                 break;
             }
 
@@ -410,7 +409,6 @@ int joySender(Arguments& args) {
             else{
                 g_outputText += "<< Connection Failed >> \r\n";
                 displayOutputText();
-                client.~TCPConnection();
                 break;
             }
 
@@ -434,7 +432,6 @@ int joySender(Arguments& args) {
                 }
                 if (getKeyState('R') || getKeyState('M') || getKeyState('Q')) {
                     if (IsAppActiveWindow()) {
-                        client.~TCPConnection();
                         inConnection = false;
                     }
                 }
@@ -457,7 +454,6 @@ int joySender(Arguments& args) {
             if (!allGood) {
                 g_outputText += "<< Device Disconnected >> \r\n";
                 displayOutputText();
-                client.~TCPConnection();
                 inConnection = false;
                 return args.mode + 1;
             }
@@ -489,7 +485,6 @@ int joySender(Arguments& args) {
             if (allGood < 1) {
                 g_outputText += "<< Connection Lost >> \r\n";
                 displayOutputText();
-                client.~TCPConnection();
                 inConnection = false;
                 break;
             }
@@ -500,7 +495,6 @@ int joySender(Arguments& args) {
             if (allGood < 1) {
                 g_outputText += "<< Connection Lost >> \r\n";
                 displayOutputText();
-                client.~TCPConnection();
                 inConnection = false;
                 break;
             }
