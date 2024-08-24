@@ -805,7 +805,7 @@ void setSDLMapping(SDLJoystickData& joystick, std::vector<SDLButtonMapping::Butt
         while (settingInput && !APP_KILLED) {
             // Wait for no input to be detected
             if (there_is_sdljoystick_input(joystick)) {
-                std::cout << " <<  Input Detected, Please Release To Continue >> ";
+                std::cout << " <<  Input Detected, Please Release To Continue  >> ";
                 while (there_is_sdljoystick_input(joystick) && !APP_KILLED) {
                     Sleep(20);
                 }
