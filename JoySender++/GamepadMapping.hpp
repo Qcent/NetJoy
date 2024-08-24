@@ -619,11 +619,11 @@ SDLButtonMapping::ButtonMapInput get_sdljoystick_input(const SDLJoystickData& jo
             int axis_value = SDL_GetJoystickAxis(joystick._ptr, i); // / 32767.0f;
             if (std::abs(axis_value - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) {
 
-                // Watch axis to see how far it moves in 1/2 second
+                // Watch axis to see how far it moves in ~1/4 second
                 int inital_reading, low_reading, high_reading;
                 inital_reading = low_reading = high_reading = axis_value;
-                for (int watching = 0; watching < 5; watching++) {
-                    Sleep(100);
+                for (int watching = 0; watching < 10; watching++) {
+                    Sleep(25);
                     SDL_UpdateJoysticks();
                     axis_value = SDL_GetJoystickAxis(joystick._ptr, i);
                     if (std::abs(axis_value - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) {
