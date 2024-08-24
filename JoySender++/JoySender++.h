@@ -12,7 +12,6 @@
 constexpr auto APP_NAME = "NetJoy";
 
 std::string g_outputText;
-int g_joystickSelected = -1;
 
 volatile sig_atomic_t APP_KILLED = 0;
 void signalHandler(int signal);

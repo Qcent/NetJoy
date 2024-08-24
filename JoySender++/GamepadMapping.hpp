@@ -470,8 +470,7 @@ bool haveSameSign(int num1, int num2) {
     return (num1 >= 0 && num2 >= 0) || (num1 < 0 && num2 < 0);
 }
 
-BYTE ShortToByte(SHORT value)
-{
+BYTE ShortToByte(SHORT value){
     // Scale the absolute value to fit within the range of a BYTE (0 to 255)
     DOUBLE scaleFactor = 255.0 / SHRT_MAX;
     DOUBLE scaledValue = scaleFactor * value;
@@ -1257,6 +1256,22 @@ int InitJoystickInput()
     return 0;
 }
 
+int ConnectToJoystick(int joyIndex, SDLJoystickData& joystick) {
+    int numJoysticks = 0;
+    SDL_JoystickID* joystick_list = nullptr;
+    joystick_list = SDL_GetJoysticks(&numJoysticks);
+
+    // Open the specified joystick
+    joystick._ptr = SDL_OpenJoystick(joystick_list[joyIndex]);
+    if (joystick._ptr == nullptr)
+    {
+        //std::cout << "Failed to open joystick: " << SDL_GetError() << std::endl;
+        return 0;
+    }
+    joystick.joyID = joystick_list[joyIndex];
+    return 1;
+}
+
 int ConsoleSelectJoystickDialog(SDLJoystickData& joystick) {
     int numJoysticks = 0;
     SDL_JoystickID* joystic_list = nullptr;
@@ -1310,27 +1325,7 @@ int ConsoleSelectJoystickDialog(SDLJoystickData& joystick) {
     }
 
     // Open the selected joystick
-    g_joystickSelected = joystic_list[selectedJoystickIndex];
-    joystick._ptr = SDL_OpenJoystick(g_joystickSelected);
-    if (joystick._ptr == nullptr)
-    {
-        std::cout << "Failed to open joystick: " << SDL_GetError() << std::endl;
-        SDL_Quit();
-        return 0;
-    }
-    return 1;
-}
-
-int ConnectToJoystick(int joyID, SDLJoystickData& joystick) {
-    // Open the specified joystick
-    joystick._ptr = SDL_OpenJoystick(joyID);
-    if (joystick._ptr == nullptr)
-    {
-        //std::cout << "Failed to open joystick: " << SDL_GetError() << std::endl;
-        return 0;
-    }
-    g_joystickSelected = joyID;
-    return 1;
+    return ConnectToJoystick(selectedJoystickIndex, joystick);
 }
 
 void BuildJoystickInputData(SDLJoystickData& joystick) {
@@ -1339,7 +1334,6 @@ void BuildJoystickInputData(SDLJoystickData& joystick) {
     std::tuple<std::vector<int>, std::vector<int>, std::vector<int>, std::vector<int>> baselineReports;
     std::tie(joyInputInfo, baselineReports) = get_sdl_joystick_baseline(joystick._ptr);
 
-    joystick.joyID = g_joystickSelected;
     joystick.num_axes = std::get<0>(joyInputInfo);
     joystick.num_buttons = std::get<1>(joyInputInfo);
     joystick.num_hats = std::get<2>(joyInputInfo);
