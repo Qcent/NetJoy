@@ -89,7 +89,7 @@ int main(int argc, char* argv[]) {
     localIP = server.get_local_ip();
     server.set_silence(true);
     server.start_server();
-    server.set_silence(false);
+    //server.set_silence(false);
 
     std::system("cls");
     ///********************************
@@ -115,6 +115,13 @@ int main(int argc, char* argv[]) {
                     // No client connection is immediately available
                     Sleep(10); // Sleep for 10 milliseconds
                 }
+                else if (allGood == WSAEINVAL) {
+                    // Invalid argument error * seems to trigger when we don't have access to the specified port
+                    std::cout << "!! Unable to run on PORT: " << args.port << " !!\r\n";
+                    std::cout << "<< Exiting >>" << std::endl;
+                    APP_KILLED = true;
+                    break;
+                }
                 else {
                     // An error occurred during accept()
                     std::cerr << "Failed to accept client connection: " << allGood << std::endl;
@@ -122,8 +129,8 @@ int main(int argc, char* argv[]) {
                     if (ErrCount > 10) { 
                         std::cout << "<< Exiting >>" << std::endl;
                         APP_KILLED = true; 
+                        break; // Exit the loop or handle the error condition
                     }
-                    break; // Exit the loop or handle the error condition
                 }
             }
             else {
@@ -297,6 +304,7 @@ int main(int argc, char* argv[]) {
 
 void signalHandler(int signal) {
     if (signal == SIGINT) {
+        std::cout << "\r\n<< Exiting >>" << std::endl;
         APP_KILLED = 1;
         Sleep(5);
     }
