@@ -282,12 +282,11 @@ struct ReportOut11 {
 };
 
 // Create a buffer to store reports in
-const DWORD ds4_InBuffSize = 1024; // 1024 is smallest value that will receive DS4 report using ReadFileInputReport() ??? i just used 64 in USB mode
+const DWORD ds4_InBuffSize = 547; // 547 is smallest value that will receive DS4 report using ReadFileInputReport() via BT, USB can be as low as 64?
 BYTE ds4_InReportBuf[ds4_InBuffSize];
 
 // Create an output buffer for sending ReportOut11/ReportOut05 structures
-const DWORD ds4_outBuffSize = sizeof(ReportOut11);
-BYTE ds4_OutReportBuf[ds4_outBuffSize];
+BYTE ds4_OutReportBuf[sizeof(ReportOut11)];
 
 // Holds the position of the relevent input data in HID report depending on USB/BT connection
 size_t ds4DataOffset = 0;
