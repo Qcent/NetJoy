@@ -289,9 +289,6 @@ int main(int argc, char* argv[]) {
     vigem_disconnect(vigemClient);
     vigem_free(vigemClient);
 
-    // Close TCPConnection
-    server.~TCPConnection();
-
     swallowInput();
     showConsoleCursor();
     
