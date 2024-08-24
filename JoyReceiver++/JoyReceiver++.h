@@ -6,22 +6,10 @@
 #pragma comment(lib, "setupapi.lib")
 #pragma comment(lib, "VIGEmClient.lib")
 
-#include <thread>
-#include <mutex>
-std::mutex mtx;  // Mutex for synchronizing access to shared variables
 std::string feedbackData; // For sending rumble data back to joySender
 
 volatile sig_atomic_t APP_KILLED = 0;
 void signalHandler(int signal);
-
-std::vector<std::string> split(const std::string& str, char delimiter);
-std::string formatDecimalString(const std::string& str, size_t numDigits);
-void hideConsoleCursor();
-void showConsoleCursor();
-void repositionConsoleCursor(int linesfwd = 1, int offset = 0);
-void clearConsoleLine(const std::string& text);
-void overwriteFPS(const std::string& text);
-void overwriteLatency(const std::string& text);
 
 // Define the callback functions for Rumble Support 
 VOID CALLBACK xbox_rumble( PVIGEM_CLIENT Client, PVIGEM_TARGET Target, 
@@ -67,7 +55,6 @@ VOID CALLBACK ds4_rumble( PVIGEM_CLIENT Client, PVIGEM_TARGET Target, UCHAR Larg
     feedbackData += static_cast<char>(LightbarColor.Green);
     feedbackData += static_cast<char>(LightbarColor.Blue);
 };
-
 
 std::vector<std::string> split(const std::string& str, char delimiter) {
     std::vector<std::string> tokens;

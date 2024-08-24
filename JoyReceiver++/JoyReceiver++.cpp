@@ -27,23 +27,6 @@ THE SOFTWARE.
 #include "FPSCounter.hpp"
 #include "JoyReceiver++.h"
 
-// for testing
-void displayBytes(BYTE* buffer, DWORD bufferSize) {
-    for (DWORD i = 0; i < bufferSize; i++) {
-        // Check if the current byte is "CC"
-        if (buffer[i] == 0xCC) {
-            // Check if the next three bytes are also "CC"
-            if (i + 3 < bufferSize && buffer[i + 1] == 0xCC && buffer[i + 2] == 0xCC && buffer[i + 3] == 0xCC) {
-                // std::cout << "\nEncountered CC sequence, exiting..." << std::endl;
-                printf("\r\n");
-                return;  // Terminate the function
-            }
-        }
-        printf("%02X ", buffer[i]);
-    }
-    printf("\r\n");
-}
-
 int main(int argc, char* argv[]) {
     Arguments args = parse_arguments(argc, argv);
     FPSCounter fps_counter;
@@ -51,12 +34,11 @@ int main(int argc, char* argv[]) {
     TCPConnection server(args.port);
     PVIGEM_TARGET gamepad;
     XUSB_REPORT xbox_report;
-    //DS4_REPORT ds4_report;
     DS4_REPORT_EX ds4_report_ex;
 
     int allGood;
     UINT8 ErrCount = 0;
-    char buffer[128];
+    char buffer[64];
     int buffer_size = sizeof(buffer);
     int bytesReceived;
     double expectedFrameDelay = 0;
@@ -72,8 +54,7 @@ int main(int argc, char* argv[]) {
         return std::string();
         };
     double latencyOutput;
-    const int latency_report_freq = 25;
-    auto do_latency_timing = [&latencyTimer](int report_frequency = 15) {
+    auto do_latency_timing = [&latencyTimer](int report_frequency = 25) {
         if (latencyTimer.increment_frame_count() >= report_frequency) {
             double elapsedTime = latencyTimer.get_elapsed_time();
             latencyTimer.reset();
@@ -103,7 +84,6 @@ int main(int argc, char* argv[]) {
         //return -1;
         APP_KILLED = 1;
     }
-
 
     externalIP = server.get_external_ip();
     localIP = server.get_local_ip();
@@ -157,12 +137,10 @@ int main(int argc, char* argv[]) {
         }
         if (APP_KILLED) break;
 
-
         // clientSocket will have inherited non blocking mode
         // Return both sockets to blocking mode
         server.set_client_blocking(true);
         server.set_server_blocking(true);
-
 
         //
         // Receive Operating Mode and Client Timing
@@ -178,7 +156,6 @@ int main(int argc, char* argv[]) {
 
         auto emMode = op_mode == 2 ? "DS4" : "XBOX";
         std::cout << "Client Timing: " << client_timing << "fps" << "\t" << "Emulating " << emMode << " Controller" << std::endl;
-        
 
         if (op_mode == 2) { // Emulating a DS4 controller
             gamepad = vigem_target_ds4_alloc();
@@ -239,7 +216,6 @@ int main(int argc, char* argv[]) {
             }
         }
 
-
         //
         // Send response back to client
         feedbackData = "Go for Joy!";
@@ -270,7 +246,7 @@ int main(int argc, char* argv[]) {
                 if (!fpsOutput.empty()) {
                     overwriteFPS("FPS: " + fpsOutput);
                 }
-                latencyOutput = do_latency_timing(latency_report_freq);
+                latencyOutput = do_latency_timing();
                 if (latencyOutput) {
                     overwriteLatency("Latency: " + formatDecimalString(std::to_string(((latencyOutput * 1000)- expectedFrameDelay) / 2), 5) + " ms    ");
                 }
@@ -282,15 +258,12 @@ int main(int argc, char* argv[]) {
                 // Cast the buffer to an DS4_REPORT_EX pointer
                 ds4_report_ex = *reinterpret_cast<DS4_REPORT_EX*>(buffer);
                 vigem_target_ds4_update_ex(vigemClient, gamepad, ds4_report_ex);
-               /// ds4_report = *reinterpret_cast<DS4_REPORT*>(buffer);
-               /// vigem_target_ds4_update(vigemClient, gamepad, ds4_report);
             }
             else {
                 // Cast the buffer to an XUSB_REPORT pointer
                 xbox_report = *reinterpret_cast<XUSB_REPORT*>(buffer);
                 vigem_target_x360_update(vigemClient, gamepad, xbox_report);
             }
-
 
             //*******************************
             // Send response back to client :: Rumble data
@@ -312,7 +285,6 @@ int main(int argc, char* argv[]) {
         vigem_target_free(gamepad);
     }
 
-
     // Release connection to the ViGEM Bus
     vigem_disconnect(vigemClient);
     vigem_free(vigemClient);
@@ -322,8 +294,7 @@ int main(int argc, char* argv[]) {
 
     swallowInput();
     showConsoleCursor();
-    Sleep(7);
-    std::cout << "all cleaned up! (:" << std::endl;
+    
     return 1;
 }
 
@@ -331,6 +302,5 @@ void signalHandler(int signal) {
     if (signal == SIGINT) {
         APP_KILLED = 1;
         Sleep(5);
-        std::cout << "Keyboard interrupt received. Exiting gracefully." << std::endl;
     }
 }
