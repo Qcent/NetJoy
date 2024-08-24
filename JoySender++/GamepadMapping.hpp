@@ -948,7 +948,7 @@ void SDL_event_to_xbox_report(const SDLButtonMapping::ButtonMapInput sdlEvent, c
     case inputType::HAT:
         switch (emulatedInput) {
         case inputName::LEFT_STICK_LEFT:
-            xboxReport.sThumbLX = -INT16_MAX;
+            xboxReport.sThumbLX = INT16_MIN;
             break;
         case inputName::LEFT_STICK_RIGHT:
             xboxReport.sThumbLX = INT16_MAX;
@@ -957,10 +957,10 @@ void SDL_event_to_xbox_report(const SDLButtonMapping::ButtonMapInput sdlEvent, c
             xboxReport.sThumbLY = INT16_MAX;
             break;
         case inputName::LEFT_STICK_DOWN:
-            xboxReport.sThumbLY = -INT16_MAX;
+            xboxReport.sThumbLY = INT16_MIN;
             break;
         case inputName::RIGHT_STICK_LEFT:
-            xboxReport.sThumbRX = -INT16_MAX;
+            xboxReport.sThumbRX = INT16_MIN;
             break;
         case inputName::RIGHT_STICK_RIGHT:
             xboxReport.sThumbRX = INT16_MAX;
@@ -969,7 +969,7 @@ void SDL_event_to_xbox_report(const SDLButtonMapping::ButtonMapInput sdlEvent, c
             xboxReport.sThumbRY = INT16_MAX;
             break;
         case inputName::RIGHT_STICK_DOWN:
-            xboxReport.sThumbRY = -INT16_MAX;
+            xboxReport.sThumbRY = INT16_MIN;
             break;
         case inputName::LEFT_TRIGGER:
             xboxReport.bLeftTrigger = UINT8_MAX;
@@ -1058,7 +1058,7 @@ void SDL_event_to_xbox_report(const SDLButtonMapping::ButtonMapInput sdlEvent, c
     case inputType::BUTTON:
         switch (emulatedInput) {
         case inputName::LEFT_STICK_LEFT:
-            xboxReport.sThumbLX = sdlEvent.value * -INT16_MAX;
+            xboxReport.sThumbLX = sdlEvent.value * INT16_MIN;
             break;
         case inputName::LEFT_STICK_RIGHT:
             xboxReport.sThumbLX = sdlEvent.value * INT16_MAX;
@@ -1067,10 +1067,10 @@ void SDL_event_to_xbox_report(const SDLButtonMapping::ButtonMapInput sdlEvent, c
             xboxReport.sThumbLY = sdlEvent.value * INT16_MAX;
             break;
         case inputName::LEFT_STICK_DOWN:
-            xboxReport.sThumbLY = sdlEvent.value * -INT16_MAX;
+            xboxReport.sThumbLY = sdlEvent.value * INT16_MIN;
             break;
         case inputName::RIGHT_STICK_LEFT:
-            xboxReport.sThumbRX = sdlEvent.value * -INT16_MAX;
+            xboxReport.sThumbRX = sdlEvent.value * INT16_MIN;
             break;
         case inputName::RIGHT_STICK_RIGHT:
             xboxReport.sThumbRX = sdlEvent.value * INT16_MAX;
@@ -1079,7 +1079,7 @@ void SDL_event_to_xbox_report(const SDLButtonMapping::ButtonMapInput sdlEvent, c
             xboxReport.sThumbRY = sdlEvent.value * INT16_MAX;
             break;
         case inputName::RIGHT_STICK_DOWN:
-            xboxReport.sThumbRY = sdlEvent.value * -INT16_MAX;
+            xboxReport.sThumbRY = sdlEvent.value * INT16_MIN;
             break;
         case inputName::LEFT_TRIGGER:
             xboxReport.bLeftTrigger = sdlEvent.value * UINT8_MAX;
