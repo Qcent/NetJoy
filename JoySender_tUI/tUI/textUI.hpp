@@ -89,23 +89,6 @@ int findNextLineBreak(const wchar_t* text, int start, int width) {
     return lastSpace;
 }
 
-// Function to get rid of the flashing cursor
-void hideConsoleCursor() {
-    HANDLE consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
-    CONSOLE_CURSOR_INFO cursorInfo;
-    GetConsoleCursorInfo(consoleHandle, &cursorInfo);
-    cursorInfo.bVisible = FALSE;
-    SetConsoleCursorInfo(consoleHandle, &cursorInfo);
-}
-// Function to bring the flashing cursor back
-void showConsoleCursor() {
-    HANDLE consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
-    CONSOLE_CURSOR_INFO cursorInfo;
-    GetConsoleCursorInfo(consoleHandle, &cursorInfo);
-    cursorInfo.bVisible = TRUE;
-    SetConsoleCursorInfo(consoleHandle, &cursorInfo);
-}
-
 // Packages 4 colors representing: defaultColor, highlightColor, selectedColor, activeColor
 struct tUIColorPkg {
     WORD col1;
