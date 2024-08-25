@@ -644,8 +644,8 @@ int main(int argc, char** argv)
 
     // Set Version into window title
     wchar_t winTitle[30] = {0};
-    wcscpy(winTitle, L"JoySender++ tUI ");
-    wcscat(winTitle, APP_VERSION_NUM);
+    wcscpy_s(winTitle, L"JoySender++ tUI ");
+    wcscat_s(winTitle, APP_VERSION_NUM);
     SetConsoleTitleW(winTitle);
 
     // Set Version into backdrop
