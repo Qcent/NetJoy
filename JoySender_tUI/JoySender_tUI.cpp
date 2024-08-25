@@ -561,7 +561,7 @@ int joySender(Arguments& args) {
             fpsOutput = do_fps_counting();
             if (!fpsOutput.empty()) {
                 //updateFPS(g_converter.from_bytes(fpsOutput + "   ").c_str(), 8);
-                swprintf(fpsPointer, 8, L"%S   ",fpsOutput.c_str());
+                swprintf(fpsPointer, 8, L" %S   ",fpsOutput.c_str());
                 fpsMsg.SetText(fpsPointer);
                 fpsMsg.Draw();
             }
