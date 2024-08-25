@@ -504,14 +504,6 @@ int joySender(Arguments& args) {
             else {
                 //# set the XBOX REPORT from SDL inputs
                 allGood = get_xbox_report_from_SDL_events(activeGamepad, xbox_report);
-#if 1
-                if (fps_counter.get_frame_count() % 10 == 0) {
-                    g_outputText = "";
-                    printXusbReport(xbox_report);
-                    setCursorPosition(0, 10);
-                    std::wcout << std::wstring(g_outputText.begin(), g_outputText.end());
-                }
-#endif
                 // activate screen buttons from xbox report
                 buttonStatesFromXboxReport(xbox_report);
             }
