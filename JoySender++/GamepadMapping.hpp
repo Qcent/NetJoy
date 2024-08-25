@@ -703,20 +703,6 @@ SDLButtonMapping::ButtonMapInput get_sdljoystick_input(const SDLJoystickData& jo
     return input;
 }
 
-bool sdl_joystick_still_connected(const SDLJoystickData& joystick) {
-    int numJoysticks = 0;
-    SDL_JoystickID* joystick_list = nullptr;
-    joystick_list = SDL_GetJoysticks(&numJoysticks);
-    for (int i = 0; i < numJoysticks; i++) {
-        if (joystick_list[i] == joystick.joyID) {
-            SDL_free(joystick_list);
-            return true;
-        }
-    }
-    SDL_free(joystick_list);
-    return false;
-}
-
 void wait_for_no_sdljoystick_input(SDLJoystickData& joystick) {
     bool awaiting_silence = true;
     while (awaiting_silence && !APP_KILLED) {
@@ -1139,11 +1125,12 @@ bool get_xbox_report_from_SDL_events(SDLJoystickData& joystick, XUSB_REPORT& xbo
     SDLButtonMapping::ButtonMapInput eventMap;
     int axis_value = 0;
     while (SDL_PollEvent(&event) != 0) {
+        if (event.jdevice.which != joystick.joyID) {
+            continue; // bypass any events not from our joystick
+        }
         switch (event.type) {
         case SDL_EVENT_JOYSTICK_REMOVED:
-            if (!sdl_joystick_still_connected(joystick)) {
-                return false;
-            }
+            return false;
             break;
 
         case SDL_EVENT_JOYSTICK_BUTTON_DOWN:
@@ -1172,7 +1159,7 @@ bool get_xbox_report_from_SDL_events(SDLJoystickData& joystick, XUSB_REPORT& xbo
                     clear_XBOX_REPORT_value(input, xbox_report);
             }
 
-            // All dpad/hat directions must be addressed, as a single value is given for entire dpad state
+            // All dpad/hat directions must be assessed, as a single value is given for entire dpad state
             for (int dpad_dir : DPAD_DIRECTIONS) {
                 // bitwise AND comparison of dpad directions (extracts single direction from possible multi direction)
                 if (event.jhat.value & dpad_dir) {
