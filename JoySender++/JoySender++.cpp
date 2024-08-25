@@ -248,17 +248,9 @@ int joySender(Arguments& args) {
             // Shift + R will Reset program allowing joystick reconnection / selection
             // Shift + M will reMap all buttons on an SDL device
             // Shift + Q will Quit the program
-            // Shift + G will re output g_outputText
-            if (getKeyState(VK_SHIFT)) {
-                if (getKeyState('G')) {
-                    displayOutputText();
-                    // Set Lines for FPS and Latency output
-                    std::cout << std::endl << std::endl;
-                }
+            if (getKeyState(VK_SHIFT) && IsAppActiveWindow()) {
                 if (getKeyState('R') || getKeyState('M') || getKeyState('Q')) {
-                    if (IsAppActiveWindow()) {
-                        inConnection = false;
-                    }
+                    inConnection = false;
                 }
             }
             if (!inConnection || APP_KILLED) {
