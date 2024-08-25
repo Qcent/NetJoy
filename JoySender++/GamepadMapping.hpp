@@ -231,7 +231,8 @@ public:
                 // Check if size matches version 1
                 if(fileSize % sizeof(std::tuple<ButtonName, ButtonType, int, int>) == 0) {
                     V1_Flag = true;
-                    g_outputText += "! WARNING OLD MAP FILE DETECTED, RE-MAPPING INPUTS RECOMMENDED !\r\n";
+                    g_outputText += OLDMAP_WARNING_MSG;
+                    g_outputText += "\r\n";
                 }
                 else {
                     file.close();
