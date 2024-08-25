@@ -619,7 +619,7 @@ int joySender(Arguments& args) {
     return APP_KILLED ? 0 : 1;
 }
 
-console con(consoleWidth + 2, consoleHeight + 2);
+console con(consoleWidth, consoleHeight);
 
 int main(int argc, char** argv)
 {

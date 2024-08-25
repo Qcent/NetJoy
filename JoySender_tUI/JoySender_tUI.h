@@ -59,8 +59,8 @@ struct console
         GetConsoleScreenBufferInfo(hConOut, &csbi);
 
         r.Left = r.Top = 0;
-        r.Right = width - 1;
-        r.Bottom = height - 1;
+        r.Right = width;
+        r.Bottom = height + 1;
         SetConsoleWindowInfo(hConOut, TRUE, &r);
 
         c.X = width;
