@@ -24,7 +24,7 @@ THE SOFTWARE.
 
 #include "JoySender_tUI.h"
 
-int joySender(Arguments& args) {
+int joySendertUI(Arguments& args) {
     // general error values
     int allGood;        
 
@@ -625,6 +625,7 @@ int main(int argc, char** argv)
 {
     Arguments args = parse_arguments(argc, argv);
     g_mode = args.mode;
+    int RUN = 1;
 
     // Register the signal handler function
     std::signal(SIGINT, signalHandler);
@@ -641,6 +642,7 @@ int main(int argc, char** argv)
 
     // Set the console to UTF-8 mode
     err = _setmode(_fileno(stdout), _O_U8TEXT);
+    if (err) RUN = -1;
 
     // Set Version into window title
     wchar_t winTitle[30] = {0};
@@ -650,7 +652,7 @@ int main(int argc, char** argv)
 
     // Set Version into backdrop
     {
-        int versionStartPoint = 73 * 3 + 29;
+        constexpr int versionStartPoint = 73 * 3 + 29;
         const size_t verLength = wcslen(APP_VERSION_NUM);
 
         for (int i = 0; i < verLength; i++) {
@@ -662,9 +664,8 @@ int main(int argc, char** argv)
 
     hideConsoleCursor();
 
-    int RUN = 1;
     while (RUN > 0) {
-        RUN = joySender(args);
+        RUN = joySendertUI(args);
 
         if (RUN > 1){
             args.mode = RUN - 1;
