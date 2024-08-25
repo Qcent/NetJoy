@@ -23,61 +23,75 @@ THE SOFTWARE.
 */
 
 #pragma once
-#include <iostream>
-#include <conio.h>
-#include <csignal>
+
 #include <cwchar>
 #include <codecvt>
+#include <fcntl.h>
 #include <wchar.h>
 #include <thread>
 
 #include "TCPConnection.h"
-#include "ArgumentParser.hpp"
 #include "FPSCounter.hpp"
 
-#pragma comment(lib, "SDL2.lib")
-#pragma comment(lib, "SDL2main.lib")
+#include "./../JoySender++/JoySender++.h"
+#include "./../JoySender++/GamepadMapping.hpp"
+#include "./../JoySender++/DS4Manager.hpp"
+
+#define APP_VERSION_NUM     L"2.0.0.0"
 
 #define CANCELLED_FLAG      -2
 #define DISCONNECT_ERROR    -3
 
-// GLOBAL VARIABLES
-#define APP_VERSION_NUM     L"1.0.0.2"
-constexpr auto APP_NAME =   "NetJoy";
-
-std::string g_outputText;
-int g_joystickSelected = -1;
-
-volatile sig_atomic_t APP_KILLED = 0;
-void signalHandler(int signal);
-
 int RESTART_FLAG = 0;
 int MAPPING_FLAG = 0;
 
-// Function safely returns environment variables
-std::string g_getenv(const char* variableName);
+//----------------------------------------------------------------------------
+// adapted from : https://cplusplus.com/forum/windows/10731/
+struct console
+{
+    console(unsigned width, unsigned height)
+    {
+        SMALL_RECT r;
+        COORD      c;
+        hConOut = GetStdHandle(STD_OUTPUT_HANDLE);
+        GetConsoleScreenBufferInfo(hConOut, &csbi);
+        g_hConsoleInput = hConOut;
 
-// Function to detect if keyboard key is pressed
-bool getKeyState(int KEYCODE);
-// Function to convert strings to wide strings
-std::wstring g_toWide(std::string& str);
-// Function that will prompt for and verify an ip address 
-std::string getHostAddress();
-// Function that takes string representing a float and fixes it's decimal places to numDigits
-std::string formatDecimalString(const std::string& str, UINT8 numDigits);
-// Function captures all input from the keyboard to clear buffer
-void swallowInput();
-// Function waits for no keyboard presses to be detected before returning
-void wait_for_no_keyboard_input();
-// Function determines if app if the active window
-bool IsAppActiveWindow();
-// Function determines if rumble values need to be updated
-bool updateRumble(const char motor, BYTE val);
-// Main Loop Function 
-int joySender(Arguments& args);
+        r.Left = r.Top = 0;
+        r.Right = width - 1;
+        r.Bottom = height - 1;
+        SetConsoleWindowInfo(hConOut, TRUE, &r);
 
-#include "GamepadMapping.hpp"
-#include "DS4Manager.hpp"
+        c.X = width;
+        c.Y = height;
+        SetConsoleScreenBufferSize(hConOut, c);
+
+        // Get the console mode to enable mouse input
+        DWORD mode;
+        GetConsoleMode(hConOut, &mode);
+        SetConsoleMode(hConOut, ENABLE_MOUSE_INPUT | (mode & ~ENABLE_QUICK_EDIT_MODE));
+
+        // Set the console to UTF-8 mode
+        _setmode(_fileno(stdout), _O_U8TEXT);
+
+        // Set Version into window title
+        wchar_t winTitle[30];
+        wcscpy(winTitle, L"JoySender++ tUI ");
+        wcscat(winTitle, APP_VERSION_NUM);
+        SetConsoleTitleW(winTitle);
+    }
+
+    ~console()
+    {
+        SetConsoleTextAttribute(hConOut, csbi.wAttributes);
+        SetConsoleScreenBufferSize(hConOut, csbi.dwSize);
+        SetConsoleWindowInfo(hConOut, TRUE, &csbi.srWindow);
+    }
+
+    HANDLE                     hConOut;
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+};
+
 
 ///////
 /// tUI.h 
@@ -85,7 +99,7 @@ int joySender(Arguments& args);
 #include "tUI/textUI.h"
 
 void setErrorMsg(const wchar_t* text, size_t length);
-void updateFPS(std::string text, size_t length);
+void updateFPS(const wchar_t* text, size_t length);
 void exitAppCallback(mouseButton& button);
 void joystickSelectCallback(mouseButton& button);
 void newControllerColorsCallback(mouseButton& button);
@@ -133,6 +147,7 @@ const int consoleHeight = 20;
 // Converts strings to wide strings and back again
 std::wstring_convert<std::codecvt_utf8<wchar_t>> g_converter;
 
+int g_joystickSelected = -1;
 int g_mode = 1;
 int g_currentColorScheme;
 ColorScheme g_simpleScheme;
@@ -395,10 +410,10 @@ void exitAppCallback(mouseButton& button) {
 
 // for selecting joystick by mouse click, will set g_joystickSelected to button._id
 void joystickSelectCallback(mouseButton& button) {
-if (button.Status() & MOUSE_UP) {
-    button.SetStatus(MOUSE_OUT);
-    g_joystickSelected = button.GetId();
-}
+    if (button.Status() & MOUSE_UP) {
+        button.SetStatus(MOUSE_OUT);
+        g_joystickSelected = button.GetId();
+    }
 }
 
 // will generate a new color scheme for program and controller face
@@ -456,118 +471,117 @@ void newControllerColorsCallback(mouseButton& button) {
 
 // handles status and color changes to the UI restart button array for restartButton[1] & [2]
 void restartModeCallback(mouseButton& button) {
-static int lastStatus = 0;
-static std::wstring modeCheckValue(L"1");
+    static int lastStatus = 0;
+    static std::wstring modeCheckValue(L"1");
 
-// if the status has not changed do nothing
-if (button.Status() == lastStatus) return;
+    // if the status has not changed do nothing
+    if (button.Status() == lastStatus) return;
 
 
-if (button.Status() & (MOUSE_HOVERED)) {
+    if (button.Status() & (MOUSE_HOVERED)) {
 
-    // Get mode value from button text
-    std::wstring modetxt = button.getTextPtr();
+        // Get mode value from button text
+        std::wstring modetxt = button.getTextPtr();
 
-    // if mouse released on number restart in that mode
-    if (button.Status() & MOUSE_UP) {
-        /*
-        if (modetxt == modeCheckValue)
-            RESTART_FLAG = 2;
+        // if mouse released on number restart in that mode
+        if (button.Status() & MOUSE_UP) {
+            /*
+            if (modetxt == modeCheckValue)
+                RESTART_FLAG = 2;
+            else
+                RESTART_FLAG = 3;
+            */
+            RESTART_FLAG = (modetxt != modeCheckValue) + 2;  // non branching
+
+            for (int i = 0; i < 3; ++i)
+                restartButton[i].SetStatus(MOUSE_OUT);
+
+            return;
+        }
+
+
+        // create new text for button
+        std::wstring modeText = L"[mode " + modetxt + L"] ";
+        // store text in msgPointer3 
+        swprintf(msgPointer3, modeText.size() + 1, L"%s", modeText.c_str());
+        // update button text
+        restartButton[3].SetText(msgPointer3);
+
+
+        // correct button colors
+        WORD correctColor;
+
+        if (button.Status() & MOUSE_DOWN || restartButton[0].Status() & MOUSE_DOWN)
+            correctColor = restartButton[0].getCurrentColor();
         else
-            RESTART_FLAG = 3;
+            correctColor = button.getCurrentColor();
+
+
+        restartButton[3].Draw(correctColor);
+
+        /*
+        if (modetxt == modeCheckValue) {
+            restartButton[2].Draw(correctColor);
+        }
+        else {
+            restartButton[1].Draw(correctColor);
+        }
         */
-        RESTART_FLAG = (modetxt != modeCheckValue) + 2;  // non branching
+        restartButton[(modetxt == modeCheckValue) + 1].Draw(correctColor); // non branching, yay!
 
-        for (int i = 0; i < 3; ++i)
-            restartButton[i].SetStatus(MOUSE_OUT);
-
-        return;
+        restartButton[1].SetDefaultColor(correctColor);
+        restartButton[2].SetDefaultColor(correctColor);
     }
 
-
-    // create new text for button
-    std::wstring modeText = L"[mode " + modetxt + L"] ";
-    // store text in msgPointer3 
-    swprintf(msgPointer3, modeText.size() + 1, L"%s", modeText.c_str());
-    // update button text
-    restartButton[3].SetText(msgPointer3);
-
-
-    // correct button colors
-    WORD correctColor;
-
-    if (button.Status() & MOUSE_DOWN || restartButton[0].Status() & MOUSE_DOWN)
-        correctColor = restartButton[0].getCurrentColor();
-    else
-        correctColor = button.getCurrentColor();
-
-
-    restartButton[3].Draw(correctColor);
-
-    /*
-    if (modetxt == modeCheckValue) {
-        restartButton[2].Draw(correctColor);
+    else if (button.Status() == MOUSE_OUT) {
+        restartButton[3].Clear(fullColorSchemes[g_currentColorScheme].controllerBg);
+        restartButton[3].SetText(L"[mode] ");
+        restartButton[3].Draw(restartButton[0].getCurrentColor());
     }
-    else {
-        restartButton[1].Draw(correctColor);
-    }
-    */
-    restartButton[(modetxt == modeCheckValue) + 1].Draw(correctColor); // non branching, yay!
 
-    restartButton[1].SetDefaultColor(correctColor);
-    restartButton[2].SetDefaultColor(correctColor);
-}
-
-else if (button.Status() == MOUSE_OUT) {
-    restartButton[3].Clear(fullColorSchemes[g_currentColorScheme].controllerBg);
-    restartButton[3].SetText(L"[mode] ");
-    restartButton[3].Draw(restartButton[0].getCurrentColor());
-}
-
-lastStatus = button.Status();
+    lastStatus = button.Status();
 }
 
 // handles status and color changes to the UI restart button array for restartButton[0]
 void restartStatusCallback(mouseButton& button) {
-static int lastStatus = 0;
+    static int lastStatus = 0;
 
-if (button.Status() & MOUSE_UP) {
-    RESTART_FLAG = 1;
-    for (int i = 0; i < 3; ++i)
-        restartButton[i].SetStatus(MOUSE_OUT);
-    return;
-}
+    if (button.Status() & MOUSE_UP) {
+        RESTART_FLAG = 1;
+        for (int i = 0; i < 3; ++i)
+            restartButton[i].SetStatus(MOUSE_OUT);
+        return;
+    }
 
-if (button.Status() == lastStatus) return;
+    if (button.Status() == lastStatus) return;
 
-byte a = restartButton[1].Status();  // mode 1 button
-byte b = restartButton[2].Status();  // mode 2 button
+    byte a = restartButton[1].Status();  // mode 1 button
+    byte b = restartButton[2].Status();  // mode 2 button
 
-if ((a | b) & (MOUSE_DOWN | MOUSE_HOVERED)) {
-    // mode 1 or 2 button is the target
-    button.SetStatus(MOUSE_HOVERED);  // cancel mouse down on main restart button
-}
-else {
-    // The status has changed // make colors match
-    restartButton[1].SetDefaultColor(button.getCurrentColor());
-    restartButton[1].Draw(button.getCurrentColor());
+    if ((a | b) & (MOUSE_DOWN | MOUSE_HOVERED)) {
+        // mode 1 or 2 button is the target
+        button.SetStatus(MOUSE_HOVERED);  // cancel mouse down on main restart button
+    }
+    else {
+        // The status has changed // make colors match
+        restartButton[1].SetDefaultColor(button.getCurrentColor());
+        restartButton[1].Draw(button.getCurrentColor());
 
-    restartButton[2].SetDefaultColor(button.getCurrentColor());
-    restartButton[2].Draw(button.getCurrentColor());
+        restartButton[2].SetDefaultColor(button.getCurrentColor());
+        restartButton[2].Draw(button.getCurrentColor());
 
-    restartButton[3].Draw(button.getCurrentColor());
-}
+        restartButton[3].Draw(button.getCurrentColor());
+    }
 
-lastStatus = button.Status();
+    lastStatus = button.Status();
 }
 
 // callback for UI button that activates mapping screen
 void mappingButtonCallback(mouseButton& button) {
-if (button.Status() & MOUSE_UP) {
-    button.SetStatus(MOUSE_OUT);
-    MAPPING_FLAG = 1;
-}
-
+    if (button.Status() & MOUSE_UP) {
+        button.SetStatus(MOUSE_OUT);
+        MAPPING_FLAG = 1;
+    }
 }
 
 // callback for face buttons in mapping screen
@@ -832,7 +846,9 @@ std::unordered_map<std::string, int> getUIJoystickList() {
     }
 
     // Check for available joysticks
-    int numJoysticks = SDL_NumJoysticks();
+    int numJoysticks = 0;
+    SDL_JoystickID* joystick_list = nullptr;
+    joystick_list = SDL_GetJoysticks(&numJoysticks);
     if (numJoysticks <= 0)
     {
         setErrorMsg(L" No Joysticks Connected! ", 26);
@@ -843,11 +859,120 @@ std::unordered_map<std::string, int> getUIJoystickList() {
     std::unordered_map<std::string, int> joystickList;
     for (int i = 0; i < numJoysticks; ++i)
     {
-        std::string joystickName = SDL_JoystickNameForIndex(i);
+        std::string joystickName = SDL_GetJoystickNameForID(joystick_list[i]);
         joystickList[joystickName] = i;
     }
     return joystickList;
 }
+
+// returns a list of active joystick inputs with extra stick scanning for mapping
+std::vector<SDLButtonMapping::ButtonMapInput> get_sdljoystick_input_list_map(const SDLJoystickData& joystick) {
+    std::vector<SDLButtonMapping::ButtonMapInput> inputs;
+
+    SDLButtonMapping::ButtonMapInput input;
+
+    // Get the joystick state
+    SDL_UpdateJoysticks();
+
+    // Iterate over all joystick axes
+    for (int i = 0; i < joystick.num_axes; i++) {
+        int axis_value = SDL_GetJoystickAxis(joystick._ptr, i); // / 32767.0f;
+        if (std::abs(axis_value - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) {
+
+            // Watch axis to see how far it moves in ~1/4 second
+            int inital_reading, low_reading, high_reading;
+            inital_reading = low_reading = high_reading = axis_value;
+            for (int watching = 0; watching < 10; watching++) {
+                Sleep(25);
+                SDL_UpdateJoysticks();
+                axis_value = SDL_GetJoystickAxis(joystick._ptr, i);
+                if (std::abs(axis_value - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) {
+                    if (axis_value > high_reading) high_reading = axis_value;
+                    else if (axis_value < low_reading) low_reading = axis_value;
+                }
+            }
+
+            // Analyze readings
+            if (inital_reading <= 0 && low_reading <= 0 && high_reading <= 0) {
+                // All readings were negative
+                input.set(SDLButtonMapping::ButtonType::STICK, i, -1);
+            }
+            else if (inital_reading >= 0 && low_reading >= 0 && high_reading >= 0) {
+                // All readings were positive
+                input.set(SDLButtonMapping::ButtonType::STICK, i, 1);
+            }
+            else if (inital_reading < 0 && low_reading < 0 && high_reading > 0) {
+                // Values went from - to +
+                input.set(SDLButtonMapping::ButtonType::STICK, i, ANALOG_RANGE_NEG_TO_POS);
+            }
+            else if (inital_reading > 0 && high_reading > 0 && low_reading < 0) {
+                // Values went from + to -
+                input.set(SDLButtonMapping::ButtonType::STICK, i, ANALOG_RANGE_POS_TO_NEG);
+            }
+
+            inputs.push_back(input);
+        }
+    }
+
+    // Iterate over all joystick buttons
+    for (int i = 0; i < joystick.num_buttons; i++) {
+        if (SDL_GetJoystickButton(joystick._ptr, i)) {
+            input.set(SDLButtonMapping::ButtonType::BUTTON, i, 1);
+            inputs.push_back(input);
+        }
+    }
+
+    // Iterate over DPad hats and record their value
+    for (int i = 0; i < joystick.num_hats; i++) {
+        int hat_direction = SDL_GetJoystickHat(joystick._ptr, i);
+        if (hat_direction != 0) {
+            input.set(SDLButtonMapping::ButtonType::HAT, i, hat_direction);
+            inputs.push_back(input);
+        }
+    }
+
+    return inputs;
+}
+
+// returns a list of active joystick inputs
+std::vector<SDLButtonMapping::ButtonMapInput> get_sdljoystick_input_list(const SDLJoystickData& joystick) {
+    std::vector<SDLButtonMapping::ButtonMapInput> inputs;
+
+    SDLButtonMapping::ButtonMapInput input;
+
+    // Get the joystick state
+    SDL_UpdateJoysticks();
+
+    // Iterate over all joystick axes
+    for (int i = 0; i < joystick.num_axes; i++) {
+        int axis_value = SDL_GetJoystickAxis(joystick._ptr, i); // / 32767.0f;
+        if (std::abs(axis_value - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) {
+            input.set(SDLButtonMapping::ButtonType::STICK, i, axis_value < 0 ? -1 : 1);
+            inputs.push_back(input);
+        }
+    }
+
+    // Iterate over all joystick buttons
+    for (int i = 0; i < joystick.num_buttons; i++) {
+        if (SDL_GetJoystickButton(joystick._ptr, i)) {
+            input.set(SDLButtonMapping::ButtonType::BUTTON, i, 1);
+            inputs.push_back(input);
+        }
+    }
+
+    // Iterate over DPad hats and record their value
+    for (int i = 0; i < joystick.num_hats; i++) {
+        int hat_direction = SDL_GetJoystickHat(joystick._ptr, i);
+        if (hat_direction != 0) {
+            input.set(SDLButtonMapping::ButtonType::HAT, i, hat_direction);
+            inputs.push_back(input);
+        }
+    }
+
+    return inputs;
+}
+
+
 
 // Attempts to open an HID connection to a ds4 device
 bool uiConnectToDS4Controller(HidDeviceInfo* selectedDev) {
@@ -959,44 +1084,6 @@ char IpInputLoop() {
         return '^';
 
     return 'X';
-}
-
-// returns a list of active joystick inputs
-std::vector<SDLButtonMapping::ButtonMapInput> get_sdljoystick_input_list(const SDLJoystickData& joystick) {
-    std::vector<SDLButtonMapping::ButtonMapInput> inputs;
-
-    SDLButtonMapping::ButtonMapInput input;
-
-    // Get the joystick state
-    SDL_JoystickUpdate();
-
-    // Iterate over all joystick axes
-    for (int i = 0; i < joystick.num_axes; i++) {
-        int axis_value = SDL_JoystickGetAxis(joystick._ptr, i); // / 32767.0f;
-        if (std::abs(axis_value - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) {
-            input.set(SDLButtonMapping::ButtonType::STICK, i, axis_value < 0 ? -1 : 1);
-            inputs.push_back(input);
-        }
-    }
-
-    // Iterate over all joystick buttons
-    for (int i = 0; i < joystick.num_buttons; i++) {
-        if (SDL_JoystickGetButton(joystick._ptr, i)) {
-            input.set(SDLButtonMapping::ButtonType::BUTTON, i, 1);
-            inputs.push_back(input);
-        }
-    }
-
-    // Iterate over DPad hats and record their value
-    for (int i = 0; i < joystick.num_hats; i++) {
-        int hat_direction = SDL_JoystickGetHat(joystick._ptr, i);
-        if (hat_direction != 0) {
-            input.set(SDLButtonMapping::ButtonType::HAT, i, hat_direction);
-            inputs.push_back(input);
-        }
-    }
-
-    return inputs;
 }
 
 // will look for a saved controller mapping and open it or initiate the mapping process
@@ -1140,10 +1227,14 @@ bool pushNewIP(const wchar_t newData[16]) {
 // ********************************
 // tUI Screens 
 
-int tUISelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick, textUI& screen) {
+int tUISelectJoystickDialog(SDLJoystickData& joystick, textUI& screen) {
     constexpr int START_LINE = 7;
     constexpr int START_COL = 20;
     constexpr int MAX_JOYSTICKS = 9;
+
+    int numJoysticks = 0;
+    SDL_JoystickID* joystick_list = nullptr;
+    joystick_list = SDL_GetJoysticks(&numJoysticks);
 
     if (!numJoysticks) {
         //APP_KILLED = true;
@@ -1170,11 +1261,11 @@ int tUISelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick, textUI&
     for (int i = 0; i < numJoysticks; ++i)
     {
         // Determine the length of the char string
-        size_t charLen = strlen(SDL_JoystickNameForIndex(i));
+        size_t charLen = strlen(SDL_GetJoystickNameForID(joystick_list[i]));
         // Allocate memory for the wchar_t string
         wchar_t* wideStr = new wchar_t[charLen + 6]; // +4 for the index string, +1 for a space and +1 null terminator
         // Convert the char string to a wchar_t string // store in message3 as temp location 
-        mbstowcs(msgPointer3, SDL_JoystickNameForIndex(i), charLen + 1);
+        mbstowcs(msgPointer3, SDL_GetJoystickNameForID(joystick_list[i]), charLen + 1);
 
         // Copy to wideStr with a formatted index
         swprintf(wideStr, L"(%d) %s ", i+1, msgPointer3);
@@ -1273,7 +1364,7 @@ int tUISelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick, textUI&
     }
 
     // Open the selected joystick
-    joystick._ptr = SDL_JoystickOpen(g_joystickSelected);
+    ConnectToJoystick(g_joystickSelected, joystick);
     if (joystick._ptr == nullptr)
     {
         setErrorMsg(L"Failed to open joystick.", 25);
@@ -2229,11 +2320,24 @@ int tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::B
 
             if (!received_input.size()) {
                 // Receive an input signature
-                received_input = get_sdljoystick_input_list(joystick);
+                received_input = get_sdljoystick_input_list_map(joystick);
                 wait_for_no_sdljoystick_input(joystick);
             }
 
             if (received_input.size() == 1) {
+
+                if ((inputType == SDLButtonMapping::ButtonType::BUTTON ||
+                    inputType == SDLButtonMapping::ButtonType::SHOULDER ||
+                    inputType == SDLButtonMapping::ButtonType::HAT ||
+                    inputType == SDLButtonMapping::ButtonType::THUMB)
+                    && received_input[0].input_type == SDLButtonMapping::ButtonType::STICK) {
+                    if ((received_input[0].value == ANALOG_RANGE_NEG_TO_POS)
+                        || (received_input[0].value == ANALOG_RANGE_POS_TO_NEG)) {
+                        received_input[0].special = received_input[0].value;
+                        received_input[0].value = (received_input[0].special == ANALOG_RANGE_NEG_TO_POS) ? -1 : 1;
+                    }
+                }
+
                 settingInput = false;
             }
             else {
@@ -2243,11 +2347,7 @@ int tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::B
 
         if (received_input.size() == 1) {
             // Map received input to inputID
-            joystick.mapping.buttonMaps[inputToMap].set(received_input[0].input_type, received_input[0].index, received_input[0].value);
-
-            if (received_input[0].input_type == SDLButtonMapping::ButtonType::UNSET) {
-                //g_outputText = " << Input " + format_input_name(inputName) + " has been skipped! >> ";
-            }
+            joystick.mapping.buttonMaps[inputToMap] = received_input[0];
 
             buttonToMap->SetStatus(MOUSE_OUT);
             buttonToMap->Update();
