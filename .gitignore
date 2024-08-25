@@ -40,7 +40,13 @@ JoyReceiver++/JoyReceiver++/
 JoyReceiver++/x64
 JoyReceiver++/Release
 JoyReceiver++/Debug
+JoyReceiver_tUI/x64
+JoyReceiver_tUI/Release
+JoyReceiver_tUI/Debug
 JoySender++/JoySender++/
 JoySender++/x64
 JoySender++/Release
 JoySender++/Debug
+JoySender_tUI/x64
+JoySender_tUI/Release
+JoySender_tUI/Debug
