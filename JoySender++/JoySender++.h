@@ -35,6 +35,7 @@ THE SOFTWARE.
 
 // GLOBAL VARIABLES
 constexpr auto APP_NAME = "NetJoy";
+constexpr auto OLDMAP_WARNING_MSG = "! WARNING OLD MAP FILE DETECTED, RE-MAPPING INPUTS RECOMMENDED !";
 
 std::string g_outputText;
 
