@@ -29,39 +29,34 @@ int joySender(Arguments& args) {
     int allGood;        
 
     // for network data/communication
-    char buffer[128];
+    char buffer[24];
     int buffer_size = sizeof(buffer);
     int bytesReceived;
-    int reportSize;
     bool inConnection = false;
     int failed_connections = 0;
 
     // for joystick mapping and sharing joystick data between functions
     SDLJoystickData activeGamepad;
-    std::string mapName;
-    std::vector<SDLButtonMapping::ButtonName> activeInputs;
-
     XUSB_REPORT xbox_report = {0};      // xbox
     BYTE* hid_report = ds4_InReportBuf; // ds4
 
     // Lambda Functions and variables for FPS and FPS Limiting calculations
     FPSCounter fps_counter;
-    int TARGET_FPS = args.fps;
-    double fpsAdjustment = 0.0;
+    double loop_delay = 0.0;
     std::string fpsOutput;
-    auto do_fps_counting = [&fps_counter, &TARGET_FPS, &fpsAdjustment](int report_frequency = 30) {
+    auto do_fps_counting = [&fps_counter, &args, &loop_delay](int report_frequency = 30) {
         // set up some static doubles we will use each frame
-        static double averageFrameTime_ms, fps, target_sleep = 1000.0 / (TARGET_FPS);
+        static double averageFrameTime_ms, fps, target_sleep = 1000 / (args.fps);
         
         int count = fps_counter.increment_frame_count();
 
         // determine how long to sleep to limit frame rate
         averageFrameTime_ms = (fps_counter.get_elapsed_time() / count) * 1000;
         fps = fps_counter.get_fps();
-        if (fps < TARGET_FPS)
-            fpsAdjustment = target_sleep - averageFrameTime_ms;
+        if (fps < args.fps)
+            loop_delay = target_sleep - averageFrameTime_ms;
         else
-            fpsAdjustment = target_sleep;
+            loop_delay = target_sleep;
     
         // output fps to caller
         if (count >= report_frequency) {
@@ -70,9 +65,7 @@ int joySender(Arguments& args) {
         }
         return std::string();
     };
-    double latencyOutput = 0.0;
-    const int latency_report_freq = 25;
-
+    
     // global flags set by ui and callback functions
     RESTART_FLAG = 0;
     MAPPING_FLAG = 0;
@@ -189,21 +182,6 @@ int joySender(Arguments& args) {
             Sleep(5); // update fails if controller is bombarded with read/writes, so take a rest bud
             allGood = SendDS4Update();
 
-            // i like this but it doesnt show up here as the screen changes too quickly
-            // it should be implemented in printControllerHeader()
-            /*
-            g_outputText = "DS4 Controller";
-            if (ds4DataOffset == DS4_VIA_BT) { g_outputText += "| Wireless | "; }
-            else if (ds4DataOffset == DS4_VIA_USB) { g_outputText += "| USB | "; }
-            if (extReport) { g_outputText += "Gyro/Accel | "; }
-            if (allGood) {g_outputText += "Rumble | "; }
-
-            setCursorPosition(5, 9);
-            std::wcout << g_toWide(g_outputText);
-            */
-
-            reportSize = DS4_REPORT_NETWORK_DATA_SIZE;
-
             // Rumble the Controller
             if (allGood) {
                 // jiggle it
@@ -230,14 +208,9 @@ int joySender(Arguments& args) {
     }
     else {
         BuildJoystickInputData(activeGamepad);
-        // Convert joystick name to hex  
-        mapName = encodeStringToHex(activeGamepad.name);
-        reportSize = sizeof(xbox_report);
 
         // Look for an existing map for selected device
-        uiOpenOrCreateMapping(activeGamepad, mapName, screen);
-        // Create a list of set joystick inputs
-        activeInputs = activeGamepad.mapping.getSetButtonNames();
+        uiOpenOrCreateMapping(activeGamepad, screen);
     }
 
     // UI resets
@@ -247,9 +220,7 @@ int joySender(Arguments& args) {
     //############################################################
     //# Main Loop keeps client running
     //# asks for new host if, inner Connection Loop, fails 3 times
-    while (!APP_KILLED) {
-        
-        //
+    while (!APP_KILLED) {        
         // Acquire host address for connection attempt
         if (args.host.empty()) {       
 
@@ -438,8 +409,6 @@ int joySender(Arguments& args) {
                 if (allGood < 1) {
                     swprintf(errorPointer, 48, L" << Connection To %S Failed >> ", args.host.c_str());
                     errorOut.SetText(errorPointer);
-                    //setErrorMsg(g_converter.from_bytes(" << Connection To: " + args.host + " Failed >> ").c_str(), 48);
-                    client.~TCPConnection();
                     break;
                 }
                 // rx
@@ -450,8 +419,6 @@ int joySender(Arguments& args) {
                 else {
                     swprintf(errorPointer, 46, L" << Connection To: %S Lost >> ", args.host.c_str());
                     errorOut.SetText(errorPointer);
-                    //setErrorMsg(g_converter.from_bytes(" << Connection To: " + args.host + " Lost >> ").c_str(), 46);
-                    client.~TCPConnection();
                     break;
                 }
             }
@@ -485,7 +452,6 @@ int joySender(Arguments& args) {
                 }
             }
             if (RESTART_FLAG || APP_KILLED) {
-                client.~TCPConnection();
                 inConnection = false;
                 break; // Break out of the loop
             }
@@ -495,13 +461,9 @@ int joySender(Arguments& args) {
                 // REMAP STUFF ** pauses communication (freezing host) till finished
                 tUIRemapInputsScreen(activeGamepad, screen);
                 if (APP_KILLED) {
-                    client.~TCPConnection();
                     inConnection = false;
                     break; // Break out of the loop
                 }
-
-                // sets new input scheme
-                activeInputs = activeGamepad.mapping.getSetButtonNames(); 
 
                 // reset output1
                 wcsncpy_s(msgPointer1, 40, g_converter.from_bytes(" << Connected to: " + args.host + "  >> ").c_str(), _TRUNCATE);
@@ -536,26 +498,29 @@ int joySender(Arguments& args) {
             if (args.mode == 2) {
                 //# Read the next HID report from DS4 controller
                 allGood = GetDS4Report(); // *hid_report will be set
-
-                if (!allGood) {
-                    swprintf(errorPointer, 28, L" << Device Disconnected >> ");
-                    errorOut.SetText(errorPointer);
-                    //setErrorMsg(g_converter.from_bytes(" << Device Disconnected >> ").c_str(), 28);
-                    client.~TCPConnection();
-                    inConnection = false;
-                    allGood = DISCONNECT_ERROR;
-                    break;
-                }
-
                 // activate screen buttons from *hid_report
                 buttonStatesFromDS4Report();
             }
             else {
                 //# set the XBOX REPORT from SDL inputs
-                get_xbox_report_from_SDL_events(activeGamepad, xbox_report);
-
+                allGood = get_xbox_report_from_SDL_events(activeGamepad, xbox_report);
+#if 1
+                if (fps_counter.get_frame_count() % 10 == 0) {
+                    g_outputText = "";
+                    printXusbReport(xbox_report);
+                    setCursorPosition(0, 10);
+                    std::wcout << std::wstring(g_outputText.begin(), g_outputText.end());
+                }
+#endif
                 // activate screen buttons from xbox report
                 buttonStatesFromXboxReport(xbox_report);
+            }
+            if (!allGood) {
+                swprintf(errorPointer, 28, L" << Device Disconnected >> ");
+                errorOut.SetText(errorPointer);
+                inConnection = false;
+                allGood = DISCONNECT_ERROR;
+                break;
             }
 
                 
@@ -563,17 +528,15 @@ int joySender(Arguments& args) {
             //  Send joystick input to server
             if (args.mode == 2) {
                 //# Shift bytearray to index of first stick value
-                allGood = client.send_data(reinterpret_cast<const char*>(hid_report+ds4DataOffset), reportSize);     
+                allGood = client.send_data(reinterpret_cast<const char*>(hid_report + ds4DataOffset), DS4_REPORT_NETWORK_DATA_SIZE);
             }
             else {
-                allGood = client.send_data(reinterpret_cast<const char*>(&xbox_report), reportSize); 
+                allGood = client.send_data(reinterpret_cast<const char*>(&xbox_report), sizeof(xbox_report));
             }
                 //  Error 
             if (allGood < 1) {
                 swprintf(errorPointer, 50, L" << Connection To:  %s Failed >> ", std::wstring(args.host.begin(), args.host.end()).c_str());
                 errorOut.SetText(errorPointer);
-                //setErrorMsg(g_converter.from_bytes(" << Connection To: " + args.host + " Failed >> ").c_str(), 48);
-                client.~TCPConnection();
                 inConnection = false;
                 break;
             }
@@ -585,8 +548,6 @@ int joySender(Arguments& args) {
             if (allGood < 1) {
                 swprintf(errorPointer, 50, L" << Connection To:  %S Failed >> ", args.host.c_str());
                 errorOut.SetText(errorPointer);
-                //setErrorMsg(g_converter.from_bytes(" << Connection To: " + args.host + " Lost >> ").c_str(), 46);
-                client.~TCPConnection();
                 inConnection = false;
                 break;
             }
@@ -598,11 +559,6 @@ int joySender(Arguments& args) {
                 if (args.mode == 2){
                     SetDS4RumbleValue(byte(buffer[0]), byte(buffer[1]));
                     allGood = SendDS4Update();
-                    if (!allGood) {
-                        // USB always errors // not anymore right?
-                       // outputLastError();
-                       // displayBytes(ds4_OutReportBuf, 16);
-                    }
                 }
                 else if (args.mode == 1) {
                     SDLRumble(activeGamepad, byte(buffer[0]), byte(buffer[1]));
@@ -621,7 +577,7 @@ int joySender(Arguments& args) {
 
             //
             // Sleep to yield thread
-            Sleep(max(fpsAdjustment, 0)); 
+            Sleep(loop_delay > 0 ? loop_delay : 0);
             if (args.mode == 2) {
                 // make sure we get a recent report
                 DS4manager.Flush();
@@ -668,7 +624,7 @@ int joySender(Arguments& args) {
         screen.SetBackdrop(JoySendMain_Backdrop);
     }
 
-    return !APP_KILLED;
+    return APP_KILLED ? 0 : 1;
 }
 
 console con(consoleWidth + 2, consoleHeight + 2);
@@ -692,7 +648,7 @@ int main(int argc, char** argv)
     SetConsoleMode(g_hConsoleInput, ENABLE_MOUSE_INPUT | mode & ~ENABLE_QUICK_EDIT_MODE);
 
     // Set the console to UTF-8 mode
-    _setmode(_fileno(stdout), _O_U8TEXT);
+    err = _setmode(_fileno(stdout), _O_U8TEXT);
 
     // Set Version into window title
     wchar_t winTitle[30] = {0};

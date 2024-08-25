@@ -1043,13 +1043,21 @@ char IpInputLoop() {
 }
 
 // will look for a saved controller mapping and open it or initiate the mapping process
-void uiOpenOrCreateMapping(SDLJoystickData& joystick, std::string& mapName, textUI& screen) {
+void uiOpenOrCreateMapping(SDLJoystickData& joystick, textUI& screen) {
+    // Convert joystick name to hex  
+    std::string mapName = encodeStringToHex(joystick.name);
     // Check for a saved Map for selected joystick
     auto result = check_for_saved_mapping(mapName);
     std::filesystem::path filePath = result.second;
     if (result.first) {
         // File exists, try and load data
-        joystick.mapping.loadMapping(filePath.string());
+        int allGood = joystick.mapping.loadMapping(filePath.string());
+        if (!allGood) {
+            // invald data, delete file and try to remap controller
+            std::filesystem::remove(result.second);
+            return uiOpenOrCreateMapping(joystick, screen);
+        }
+        joystick.mapping.populateExtraMaps();
     }
     else {
         // File does not exist
@@ -1058,9 +1066,9 @@ void uiOpenOrCreateMapping(SDLJoystickData& joystick, std::string& mapName, text
         BuildXboxFace();
         SetControllerButtonPositions(1);
 
-            // set mapping flag = 2 to indicate that all inputs should be mapped
+        // set mapping flag = 2 to indicate that all inputs should be mapped
         MAPPING_FLAG = 2;
-            // launch the mapping inputs screen
+        // launch the mapping inputs screen
         tUIRemapInputsScreen(joystick, screen);
     }
 }
@@ -1998,7 +2006,6 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
                 currentInput.SetText(currentInputText);
                 currentInput.Draw();
             }
-
         }
         lastHovered = hoveredButton;
 
@@ -2160,6 +2167,8 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
         return 0;
     }
 
+    // update SDL3 maps
+    joystick.mapping.populateExtraMaps();
 
     return 1;
 }
