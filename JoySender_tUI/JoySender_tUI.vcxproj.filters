@@ -14,4 +14,32 @@
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="JoySender_tUI.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="tUI\backdrops.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="tUI\ColorSchemes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="tUI\controllerFaces.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="tUI\textUI.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="tUI\textUI.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="tUI\uiButtons.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="JoySender_tUI.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
 </Project>
