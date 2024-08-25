@@ -27,6 +27,7 @@ THE SOFTWARE.
 #include <cwchar>
 #include <codecvt>
 #include <fcntl.h>
+#include <io.h>
 #include <wchar.h>
 #include <thread>
 
@@ -44,6 +45,7 @@ THE SOFTWARE.
 
 int RESTART_FLAG = 0;
 int MAPPING_FLAG = 0;
+HANDLE g_hConsoleInput;
 
 //----------------------------------------------------------------------------
 // adapted from : https://cplusplus.com/forum/windows/10731/
@@ -76,8 +78,8 @@ struct console
 
         // Set Version into window title
         wchar_t winTitle[30];
-        wcscpy(winTitle, L"JoySender++ tUI ");
-        wcscat(winTitle, APP_VERSION_NUM);
+        wcscpy_s(winTitle, L"JoySender++ tUI ");
+        wcscat_s(winTitle, APP_VERSION_NUM);
         SetConsoleTitleW(winTitle);
     }
 
@@ -108,7 +110,7 @@ void checkForQuit();
 bool checkKey(int key, bool pressed);
 char IpInputLoop();
 int screenLoop(textUI& screen);
-int tUISelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick, textUI& screen);
+int tUISelectJoystickDialog(SDLJoystickData& joystick, textUI& screen);
 int tUISelectDS4Dialog(std::vector<HidDeviceInfo>devList, textUI& screen);
 std::string tUIGetHostAddress(textUI& screen);
 void threadedEstablishConnection(TCPConnection& client, int& retVal);
@@ -159,8 +161,6 @@ wchar_t* fpsPointer = hostPointer + 25;   // max length 10
 wchar_t* msgPointer1 = fpsPointer + 10;   // max length 100
 wchar_t* msgPointer2 = msgPointer1 + 100;   // max length 100
 wchar_t* msgPointer3 = msgPointer2 + 100;   // max length 165
-
-HANDLE g_hConsoleInput;
 
 textUI g_screen;
 textBox errorOut(4, 22, 45, 0, ALIGN_CENTER, errorPointer, BRIGHT_RED);
@@ -837,34 +837,6 @@ void buttonStatesFromXboxReport(XUSB_REPORT& xboxReport) {
     }
 }
 
-// returns list of connected SDL joysticks
-std::unordered_map<std::string, int> getUIJoystickList() {
-
-    int err = InitJoystickInput(); // this will update the connected joysticks recognized by SDL
-    if (err) {
-        APP_KILLED = true;
-    }
-
-    // Check for available joysticks
-    int numJoysticks = 0;
-    SDL_JoystickID* joystick_list = nullptr;
-    joystick_list = SDL_GetJoysticks(&numJoysticks);
-    if (numJoysticks <= 0)
-    {
-        setErrorMsg(L" No Joysticks Connected! ", 26);
-
-        // ## ERRORS to be handled by caller
-    }
-    // Create and Populate list
-    std::unordered_map<std::string, int> joystickList;
-    for (int i = 0; i < numJoysticks; ++i)
-    {
-        std::string joystickName = SDL_GetJoystickNameForID(joystick_list[i]);
-        joystickList[joystickName] = i;
-    }
-    return joystickList;
-}
-
 // returns a list of active joystick inputs with extra stick scanning for mapping
 std::vector<SDLButtonMapping::ButtonMapInput> get_sdljoystick_input_list_map(const SDLJoystickData& joystick) {
     std::vector<SDLButtonMapping::ButtonMapInput> inputs;
@@ -1250,6 +1222,7 @@ int tUISelectJoystickDialog(SDLJoystickData& joystick, textUI& screen) {
 
     auto cleanMemory = [&]() {
         screen.ClearButtons();
+        SDL_free(joystick_list);
         for (int i = 0; i < numJoysticks; ++i) {
             delete[] availableJoystickBtn[i].getTextPtr();
         }
@@ -1315,11 +1288,13 @@ int tUISelectJoystickDialog(SDLJoystickData& joystick, textUI& screen) {
         Sleep(30);
 
         // scan for new connected joysticks and recursively launch function if new joysticks are detected
-        int newConnections = getUIJoystickList().size();
+        int newConnections = 0;
+        SDL_free(joystick_list);
+        joystick_list = SDL_GetJoysticks(&newConnections);
         if (newConnections != numJoysticks) {
             setErrorMsg(L"\0", 1); // clear errors
             cleanMemory();
-            return tUISelectJoystickDialog(newConnections, joystick, screen);
+            return tUISelectJoystickDialog(joystick, screen);
         }
 
         if (IsAppActiveWindow()) {

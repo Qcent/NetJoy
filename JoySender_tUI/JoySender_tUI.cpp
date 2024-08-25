@@ -24,139 +24,6 @@ THE SOFTWARE.
 
 #include "JoySender_tUI.h"
 
-
-// Function safely return environment variables
-std::string g_getenv(const char* variableName) {
-    std::string value;
-    size_t requiredSize = 0;
-    getenv_s(&requiredSize, nullptr, 0, variableName);
-    if (requiredSize > 0) {
-        value.resize(requiredSize);
-        getenv_s(&requiredSize, &value[0], requiredSize, variableName);
-        value.pop_back(); // Remove the null-terminating character
-    }
-    return value;
-}
-// Function to detect if keyboard key is pressed
-bool getKeyState(int KEYCODE) {
-    return GetAsyncKeyState(KEYCODE) & 0x8000;
-}
-// Function to convert strings to wide strings
-std::wstring g_toWide(std::string& str) {
-    std::wstring wideString(str.begin(), str.end());
-    return wideString;
-}
-// Function that will prompt for and verify an ip address 
-std::string getHostAddress() {
-    // Lambda function for IP address validation
-    auto validIPAddress = [](const std::string& ipAddress) {
-        std::regex pattern(R"((\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b))");
-        std::smatch match;
-        return std::regex_match(ipAddress, match, pattern);
-    };
-    swallowInput();
-    std::string host_address;
-    showConsoleCursor();
-    while (!APP_KILLED && host_address.empty()) {
-            std::cout << "Please enter the host IP address (or nothing for localhost): ";
-            //std::cin.ignore(80, '\n'); // Flush the input stream
-            std::getline(std::cin, host_address);
-
-        if (host_address.empty()) {
-            host_address = "127.0.0.1";
-        }
-
-        if (!validIPAddress(host_address)) {
-            std::cout << "Invalid IP address. Please try again." << std::endl;
-            host_address = "";
-        }
-    }
-    hideConsoleCursor();
-    return host_address;
-}
-// Function that takes string representing a float and fixes it's decimal places to numDigits
-std::string formatDecimalString(const std::string& str, UINT8 numDigits) {
-    size_t decimalPos = str.find('.');
-    if (decimalPos == std::string::npos) {
-        // No decimal point found, return the original 
-        // string with decimal and padded zeros
-        std::string paddedStr = " " + str + ".";
-        paddedStr.append(numDigits, '0');
-        return paddedStr;
-    }
-    size_t strLen = str.length();
-    size_t numDecimals = strLen - decimalPos - 1;
-    if (numDecimals <= numDigits) {
-        // No need to truncate or pad, return the original string
-        return str;
-    }
-    // Truncate the string to the desired number of decimal places
-    std::string truncatedStr = " " + str.substr(0, decimalPos + numDigits + 1);
-    // Pad with zeros if necessary
-    if (numDecimals < numDigits) {
-        truncatedStr.append(numDigits - numDecimals, '0');
-    }
-
-    return truncatedStr;
-}
-// Function captures all input from the keyboard to clear buffer
-void swallowInput()
-{
-    while (_kbhit())
-    {
-        _getch();
-    }
-}
-// Function waits for no keyboard presses to be detected before returning
-void wait_for_no_keyboard_input() {
-    bool input = true;
-    while (input) {
-        input = false;
-        // Check if any key is currently being pressed
-        // 31 - 111 are ascii codes 0-9, aA-zZ, and numpad
-        for (int i = 31; i < 112; i++) {
-            if (GetAsyncKeyState(i) & 0x8000) {
-                input = true;
-            }
-        }
-
-        // some extra keys i want to check for
-        if (getKeyState(VK_OEM_PERIOD) || getKeyState(VK_DECIMAL) || getKeyState(VK_BACK)) {
-            input = true;
-        }
-
-    }
-    swallowInput();
-}
-// Function determines if app is the active window
-bool IsAppActiveWindow()
-{
-    HWND consoleWindow = GetConsoleWindow();
-    HWND foregroundWindow = GetForegroundWindow();
-
-    return (consoleWindow == foregroundWindow);
-}
-// Function determines if rumble values need to be updated
-bool updateRumble(const char motor, BYTE val) {
-    static BYTE L, R = 0;
-    switch (motor) {
-    case 'L':
-    {
-        if (val == 0 && L == val) return false;
-        L = val;
-        return true;
-    }
-
-    case 'R':
-    {
-        if (val == 0 && R == val) return false;
-        R = val;
-        return true;
-    }
-    }
-    return false;
-}
-
 int joySender(Arguments& args) {
     // general error values
     int allGood;        
@@ -245,7 +112,7 @@ int joySender(Arguments& args) {
     switch (args.mode) {
     case 1: {   // SDL MODE
         if (!args.select) { // not auto select
-           allGood = tUISelectJoystickDialog(getUIJoystickList().size(), activeGamepad, screen);
+           allGood = tUISelectJoystickDialog(activeGamepad, screen);
            if (!allGood) {
                SDL_Quit();
                return -1;
@@ -803,7 +670,6 @@ int joySender(Arguments& args) {
 
     return !APP_KILLED;
 }
-
 
 // Set console size
 console con(consoleWidth+2, consoleHeight+2);
