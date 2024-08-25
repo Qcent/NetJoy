@@ -1966,7 +1966,7 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
                 // get formatted wstring
                 auto txt = SDLButtonMapping::displayInput(input);
                 // add formatted input to wchar_t pointer
-                swprintf(detectedInputs + inputPtr, txt.size() + 4, L"%s %s ", i ? L"\n" : L"", txt.c_str());
+                swprintf(detectedInputs + inputPtr, txt.size() + 4, L"%S %S ", i ? L"\n" : L"", txt.c_str());
                 // update inputPtr
                 inputPtr += txt.size() + 2 + (i>0);
 
@@ -1994,7 +1994,7 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
                 auto txt = SDLButtonMapping::displayInput(
                     joystick.mapping.buttonMaps[static_cast<SDLButtonMapping::ButtonName>(hoveredButton - (hoveredButton > MAP_BUTTON_CLICKED - 1) * MAP_BUTTON_CLICKED)]
                 );
-                swprintf(currentInputText, txt.size() + 3, L" %s  ", txt.c_str());
+                swprintf(currentInputText, txt.size() + 3, L" %S  ", txt.c_str());
                 currentInput.SetText(currentInputText);
                 currentInput.Draw();
             }
