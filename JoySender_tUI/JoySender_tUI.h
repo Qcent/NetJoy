@@ -48,7 +48,7 @@ int MAPPING_FLAG = 0;
 HANDLE g_hConsoleInput;
 
 //----------------------------------------------------------------------------
-// adapted from : https://cplusplus.com/forum/windows/10731/
+// lifted from : https://cplusplus.com/forum/windows/10731/
 struct console
 {
     console(unsigned width, unsigned height)
@@ -57,7 +57,6 @@ struct console
         COORD      c;
         hConOut = GetStdHandle(STD_OUTPUT_HANDLE);
         GetConsoleScreenBufferInfo(hConOut, &csbi);
-        g_hConsoleInput = hConOut;
 
         r.Left = r.Top = 0;
         r.Right = width - 1;
@@ -67,20 +66,6 @@ struct console
         c.X = width;
         c.Y = height;
         SetConsoleScreenBufferSize(hConOut, c);
-
-        // Get the console mode to enable mouse input
-        DWORD mode;
-        GetConsoleMode(hConOut, &mode);
-        SetConsoleMode(hConOut, ENABLE_MOUSE_INPUT | (mode & ~ENABLE_QUICK_EDIT_MODE));
-
-        // Set the console to UTF-8 mode
-        _setmode(_fileno(stdout), _O_U8TEXT);
-
-        // Set Version into window title
-        wchar_t winTitle[30];
-        wcscpy_s(winTitle, L"JoySender++ tUI ");
-        wcscat_s(winTitle, APP_VERSION_NUM);
-        SetConsoleTitleW(winTitle);
     }
 
     ~console()
@@ -93,7 +78,6 @@ struct console
     HANDLE                     hConOut;
     CONSOLE_SCREEN_BUFFER_INFO csbi;
 };
-
 
 ///////
 /// tUI.h 

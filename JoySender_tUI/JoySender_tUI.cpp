@@ -41,7 +41,7 @@ int joySender(Arguments& args) {
     std::string mapName;
     std::vector<SDLButtonMapping::ButtonName> activeInputs;
 
-    XUSB_REPORT xbox_report;            // xbox
+    XUSB_REPORT xbox_report = {0};      // xbox
     BYTE* hid_report = ds4_InReportBuf; // ds4
 
     // Lambda Functions and variables for FPS and FPS Limiting calculations
@@ -671,19 +671,34 @@ int joySender(Arguments& args) {
     return !APP_KILLED;
 }
 
-// Set console size
-console con(consoleWidth+2, consoleHeight+2);
+console con(consoleWidth + 2, consoleHeight + 2);
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
     Arguments args = parse_arguments(argc, argv);
     g_mode = args.mode;
-    
+
     // Register the signal handler function
     std::signal(SIGINT, signalHandler);
 
     int err = InitJoystickInput();
     if (err) return -1;
+
+    // Get the console input handle to enable mouse input
+    g_hConsoleInput = GetStdHandle(STD_INPUT_HANDLE);
+
+    DWORD mode;
+    GetConsoleMode(g_hConsoleInput, &mode);                     // Disable Quick Edit Mode // working??
+    SetConsoleMode(g_hConsoleInput, ENABLE_MOUSE_INPUT | mode & ~ENABLE_QUICK_EDIT_MODE);
+
+    // Set the console to UTF-8 mode
+    _setmode(_fileno(stdout), _O_U8TEXT);
+
+    // Set Version into window title
+    wchar_t winTitle[30] = {0};
+    wcscpy(winTitle, L"JoySender++ tUI ");
+    wcscat(winTitle, APP_VERSION_NUM);
+    SetConsoleTitleW(winTitle);
 
     // Set Version into backdrop
     {
