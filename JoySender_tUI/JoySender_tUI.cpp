@@ -211,6 +211,10 @@ int joySendertUI(Arguments& args) {
 
         // Look for an existing map for selected device
         uiOpenOrCreateMapping(activeGamepad, screen);
+
+        if (g_outputText.find(OLDMAP_WARNING_MSG) != std::string::npos) {
+            OLDMAP_FLAG = true;
+        }
     }
 
     // UI resets
@@ -424,6 +428,12 @@ int joySendertUI(Arguments& args) {
             }
         }
 
+
+        if (inConnection && OLDMAP_FLAG == true) {
+            setErrorMsg(g_converter.from_bytes(OLDMAP_WARNING_MSG).c_str(), 65);
+            errorOut.SetPosition(consoleWidth/2 - 31, consoleHeight - 1, 65, 1, ALIGN_LEFT);
+            errorOut.Draw();
+        }
 
         // //############################################################  //
         // Connection Loop  //##########################################  //
@@ -642,7 +652,7 @@ int main(int argc, char** argv)
 
     // Set the console to UTF-8 mode
     err = _setmode(_fileno(stdout), _O_U8TEXT);
-    if (err) RUN = -1;
+    if (err == -1) RUN = -1;
 
     // Set Version into window title
     wchar_t winTitle[30] = {0};

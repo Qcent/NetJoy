@@ -45,6 +45,7 @@ THE SOFTWARE.
 
 int RESTART_FLAG = 0;
 int MAPPING_FLAG = 0;
+int OLDMAP_FLAG = 0;
 HANDLE g_hConsoleInput;
 
 //----------------------------------------------------------------------------
@@ -2020,6 +2021,9 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
             else if (checkKey('D', IS_RELEASED)) {
                 dummyBtn.SetStatus(MOUSE_UP);
                 mappingDoneButtonCallback(dummyBtn);
+                if (changes && OLDMAP_FLAG) {
+                    OLDMAP_FLAG == false;
+                }
             }
             // Cancel
             else if (checkKey('C', IS_RELEASED)) {
@@ -2053,6 +2057,9 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
                 if (changes) {
                     joystick.mapping.saveMapping(filePath.string());
                     saveMsg.SetText(L" Mapping Saved! ");
+                    if (OLDMAP_FLAG) {
+                        OLDMAP_FLAG == false;
+                    }
                 }
                 else {
                     saveMsg.SetText(L" Nothing has Changed! ");
