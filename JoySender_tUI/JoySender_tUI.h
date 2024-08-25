@@ -1971,10 +1971,10 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
             inputsListed = i;
             for (auto input : activeInputs) {
                 inputsListed = i+1;
-                // get formatted wstring
+                // get formatted string
                 auto txt = SDLButtonMapping::displayInput(input);
                 // add formatted input to wchar_t pointer
-                swprintf(detectedInputs + inputPtr, txt.size() + 4, L"%S %S ", i ? L"\n" : L"", txt.c_str());
+                swprintf(detectedInputs + inputPtr, txt.size() + 4, L"%s %S ", i ? L"\n" : L"", txt.c_str());
                 // update inputPtr
                 inputPtr += txt.size() + 2 + (i>0);
 
