@@ -709,9 +709,11 @@ bool sdl_joystick_still_connected(const SDLJoystickData& joystick) {
     joystick_list = SDL_GetJoysticks(&numJoysticks);
     for (int i = 0; i < numJoysticks; i++) {
         if (joystick_list[i] == joystick.joyID) {
+            SDL_free(joystick_list);
             return true;
         }
     }
+    SDL_free(joystick_list);
     return false;
 }
 
@@ -1266,9 +1268,12 @@ int ConnectToJoystick(int joyIndex, SDLJoystickData& joystick) {
     if (joystick._ptr == nullptr)
     {
         //std::cout << "Failed to open joystick: " << SDL_GetError() << std::endl;
+        SDL_free(joystick_list);
         return 0;
     }
     joystick.joyID = joystick_list[joyIndex];
+
+    SDL_free(joystick_list);
     return 1;
 }
 
@@ -1280,6 +1285,7 @@ int ConsoleSelectJoystickDialog(SDLJoystickData& joystick) {
     std::cout << "Connected Joysticks:" << std::endl;
 
     if (numJoysticks < 1) {
+        SDL_free(joystick_list);
         std::cout << "\t (None) \n  Connect a joystick to continue...";
 
         bool needJoystick = true;
@@ -1304,6 +1310,7 @@ int ConsoleSelectJoystickDialog(SDLJoystickData& joystick) {
     {
         std::cout << 1 + i << ": " << SDL_GetJoystickNameForID(joystick_list[i]) << std::endl;
     }
+    SDL_free(joystick_list);
 
     // Prompt the user to select a joystick
     int selectedJoystickIndex;
