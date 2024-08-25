@@ -46,7 +46,6 @@ int joySender(Arguments& args) {
     int failed_connections = 0;
 
     SDLJoystickData activeGamepad;
-    std::vector<SDLButtonMapping::ButtonName> activeInputs;
     XUSB_REPORT xbox_report = {0};
     BYTE* hid_report = ds4_InReportBuf;
 
@@ -196,16 +195,12 @@ int joySender(Arguments& args) {
     if (args.mode != 2) {
         // Look for an existing map for selected device
         OpenOrCreateMapping(activeGamepad);
-        // Create a list of set joystick inputs
-        activeInputs = activeGamepad.mapping.getSetButtonNames();
     }
     displayOutputText();
     //##########################################################################
     // Main Loop keeps client running
     // asks for new host if connection fails 3 times
     while (!APP_KILLED) {
-        fps_counter.reset();
-
         // Aquire host address for connection attempt
         if (args.host.empty()) {
             args.host = getHostAddress();
@@ -248,6 +243,7 @@ int joySender(Arguments& args) {
 
         // *****************\\
         // Connection loop   ||
+        fps_counter.reset();
         while (inConnection){
             // Shift + R will Reset program allowing joystick reconnection / selection
             // Shift + M will reMap all buttons on an SDL device
@@ -292,7 +288,7 @@ int joySender(Arguments& args) {
                 g_outputText += "<< Device Disconnected >> \r\n";
                 displayOutputText();
                 inConnection = false;
-                return args.mode + 1;
+                return 1;
             }
 
             // ###################################
@@ -349,10 +345,6 @@ int joySender(Arguments& args) {
                 if (args.mode == 2){
                     SetDS4RumbleValue(byte(buffer[0]), byte(buffer[1]));
                     allGood = SendDS4Update();
-                    if (!allGood) {
-                        outputLastError();
-                        displayBytes(ds4_OutReportBuf, 16);
-                    }
                 }
                 else if (args.mode == 1) {
                     SDLRumble(activeGamepad, byte(buffer[0]), byte(buffer[1]));
