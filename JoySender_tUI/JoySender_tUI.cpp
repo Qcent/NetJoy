@@ -483,6 +483,7 @@ int joySendertUI(Arguments& args) {
                 output1.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg);
 
                 // re add screen buttons
+                screen.AddButton(&newColorsButton);
                 screen.AddButton(&mappingButton);
                 screen.AddButton(&restartButton[1]);  // mode 1
                 screen.AddButton(&restartButton[2]);  // mode 2
