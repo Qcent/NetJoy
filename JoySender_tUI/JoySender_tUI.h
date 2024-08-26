@@ -1898,15 +1898,15 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
     // Set up a current mapped Input area
     textBox& currentInputTitle = output2;
     currentInputTitle.SetPosition(9, 2, 17, 1, ALIGN_CENTER);
-    swprintf(msgPointer2, 17, L" Current Input: "); // title
+    swprintf(msgPointer2, 17, L" Input Mapping: "); // title
     currentInputTitle.SetText(msgPointer2);
     currentInputTitle.SetColor(BRIGHT_BLUE);
 
     // an area to update with the hovered button input value
-    textBox currentInput = output2;
+    textBox currentInputMap = output2;
     wchar_t* currentInputText = msgPointer2 + 16;
-    currentInput.SetColor(YELLOW);
-    currentInput.SetPosition(9, 3, 15, 1, ALIGN_CENTER);
+    currentInputMap.SetColor(YELLOW);
+    currentInputMap.SetPosition(9, 3, 15, 1, ALIGN_CENTER);
 
     // set global g_extraData to hoveredButton for access by callback function
     int hoveredButton = -1;
@@ -2071,15 +2071,15 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
 
         // display current mapping for hovered button
         if (hoveredButton != lastHovered) {
-            currentInput.Clear(fullColorSchemes[g_currentColorScheme].controllerBg);
+            currentInputMap.Clear(fullColorSchemes[g_currentColorScheme].controllerBg);
             if (hoveredButton > -1) {
 
                 auto txt = SDLButtonMapping::displayInput(
                     joystick.mapping.buttonMaps[static_cast<SDLButtonMapping::ButtonName>(hoveredButton - (hoveredButton > MAP_BUTTON_CLICKED - 1) * MAP_BUTTON_CLICKED)]
                 );
                 swprintf(currentInputText, txt.size() + 3, L" %S  ", txt.c_str());
-                currentInput.SetText(currentInputText);
-                currentInput.Draw();
+                currentInputMap.SetText(currentInputText);
+                currentInputMap.Draw();
             }
         }
         lastHovered = hoveredButton;
