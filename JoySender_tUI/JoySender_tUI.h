@@ -826,8 +826,8 @@ void buttonStatesFromXboxReport(XUSB_REPORT& xboxReport) {
 void get_xbox_report_from_activeInputs(SDLJoystickData& joystick, const std::vector<SDLButtonMapping::ButtonMapInput>& activeInputs, XUSB_REPORT& xbox_report) {
     xbox_report = { 0 };
     SDLButtonMapping::ButtonMapInput dummyInput;
-    int axis_value = 0;
     for (auto& activeInput : activeInputs) {
+        bool input_is_set = 0;
         switch (activeInput.input_type) {
 
         case SDLButtonMapping::ButtonType::BUTTON:
@@ -853,35 +853,29 @@ void get_xbox_report_from_activeInputs(SDLJoystickData& joystick, const std::vec
 
         case SDLButtonMapping::ButtonType::STICK:
             // Triggers set by analog/stick inputs ranges could be (INT16_MIN-0, 0-INT16_MAX, INT16_MIN-INT16_MAX, INT16_MAX-INT16_MIN )
-            // this block checks for the last two cases
+            // this block checks for the last two cases (extended range mode) by inserting mapped axis range value into the input signature
             for (auto trigger : joystick.mapping.triggerButtonNames) {
                 if (joystick.mapping.buttonMaps[trigger].input_type == SDLButtonMapping::ButtonType::STICK) {
-                    dummyInput.set(activeInput.input_type, activeInput.index, joystick.mapping.buttonMaps[trigger].value); // check new axis range values
+                    dummyInput.set(activeInput.input_type, activeInput.index, joystick.mapping.buttonMaps[trigger].value); // insert axis range value
 
-                    // Check if the dummyInput exists in the inverseMap
-                    if (joystick.mapping.inverseMap.find(dummyInput) != joystick.mapping.inverseMap.end()) {
-                        auto emulatedInput = joystick.mapping.inverseMap[dummyInput];
-                        dummyInput.value = activeInput.special;     // special will hold the axis value if set by get_sdljoystick_input_list()
-                        dummyInput.index = joystick.mapping.buttonMaps[trigger].value;  // hack new axis range into index eg. ANALOG_RANGE_NEG_TO_POS
-                        SDL_event_to_xbox_report(dummyInput, emulatedInput, xbox_report, joystick);
+                    // Check if dummy input == stored button mapping, ensuring that extended range mode will be used if it is set
+                    if (joystick.mapping.buttonMaps[trigger] == dummyInput) {
+                        // set index to mapped range value / and value to axis value (in special)
+                        dummyInput.index = dummyInput.value;
+                        dummyInput.value = activeInput.special;
+                        SDL_event_to_xbox_report(dummyInput, trigger, xbox_report, joystick);
+                        input_is_set = true;
+                        break;
                     }
                 }
             }
+            if (input_is_set) break;
 
-            axis_value = (activeInput.special > 0) ? 1 : -1;
-            dummyInput.set(SDLButtonMapping::ButtonType::STICK, activeInput.index, axis_value);
-
-            // Check if the dummyInput exists in the inverseMap
-            if (joystick.mapping.inverseMap.find(dummyInput) != joystick.mapping.inverseMap.end()) {
-                auto emulatedInput = joystick.mapping.inverseMap[activeInput];
-
-                // Check if special flag is set to pass on to dummyInput
-                if (joystick.mapping.buttonMaps[emulatedInput].special > 1) {
-                    dummyInput.special = joystick.mapping.buttonMaps[emulatedInput].special;
-                }
-
-                dummyInput.value = activeInput.special;
-                SDL_event_to_xbox_report(dummyInput, emulatedInput, xbox_report, joystick);
+            // Check if the activeInput exists in the inverseMap
+            if (joystick.mapping.inverseMap.find(activeInput) != joystick.mapping.inverseMap.end()) {
+                // set value for stick with special
+                dummyInput.set(activeInput.input_type, activeInput.index, activeInput.special);
+                SDL_event_to_xbox_report(dummyInput, joystick.mapping.inverseMap[activeInput], xbox_report, joystick);
             }
             break;
 

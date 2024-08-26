@@ -1010,7 +1010,7 @@ void SDL_event_to_xbox_report(const SDLButtonMapping::ButtonMapInput sdlEvent, c
         break;
 
     case inputType::STICK:
-        absVal = max((abs(sdlEvent.value) - 1), 0);
+        absVal = max((abs(sdlEvent.value) - 1), 0); // prevents off by 1 errors when swapping INT16_MAX-INT16_MIN
         switch (emulatedInput) {
         case inputName::LEFT_STICK_LEFT:
             xboxReport.sThumbLX = -absVal;
