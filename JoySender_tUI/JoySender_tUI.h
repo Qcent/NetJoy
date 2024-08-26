@@ -891,12 +891,8 @@ void get_xbox_report_from_activeInputs(SDLJoystickData& joystick, const std::vec
     }
 }
 
-// returns a list of active joystick inputs with extra stick scanning for mapping
-std::vector<SDLButtonMapping::ButtonMapInput> get_sdljoystick_input_list_map(const SDLJoystickData& joystick) {
-    std::vector<SDLButtonMapping::ButtonMapInput> inputs;
-
-    SDLButtonMapping::ButtonMapInput input;
-
+// sets input to an active joystick input with extra stick scanning for mapping * mirrors get_sdljoystick_input from JoySender++.h 
+void get_sdljoystick_mapping_input(const SDLJoystickData& joystick, SDLButtonMapping::ButtonMapInput& input) {
     // Get the joystick state
     SDL_UpdateJoysticks();
 
@@ -936,7 +932,7 @@ std::vector<SDLButtonMapping::ButtonMapInput> get_sdljoystick_input_list_map(con
                 input.set(SDLButtonMapping::ButtonType::STICK, i, ANALOG_RANGE_POS_TO_NEG);
             }
 
-            inputs.push_back(input);
+            return;
         }
     }
 
@@ -944,7 +940,7 @@ std::vector<SDLButtonMapping::ButtonMapInput> get_sdljoystick_input_list_map(con
     for (int i = 0; i < joystick.num_buttons; i++) {
         if (SDL_GetJoystickButton(joystick._ptr, i)) {
             input.set(SDLButtonMapping::ButtonType::BUTTON, i, 1);
-            inputs.push_back(input);
+            return;
         }
     }
 
@@ -953,11 +949,9 @@ std::vector<SDLButtonMapping::ButtonMapInput> get_sdljoystick_input_list_map(con
         int hat_direction = SDL_GetJoystickHat(joystick._ptr, i);
         if (hat_direction != 0) {
             input.set(SDLButtonMapping::ButtonType::HAT, i, hat_direction);
-            inputs.push_back(input);
+            return;
         }
     }
-
-    return inputs;
 }
 
 // returns a list of active joystick inputs
@@ -1186,8 +1180,8 @@ int screenLoop(textUI& screen) {
 // Previous Host IP Memories
 #define IPS_TO_REMEMBER     5
 struct previousIPData {
-    wchar_t address[IPS_TO_REMEMBER][16];
-    BYTE index;
+    wchar_t address[IPS_TO_REMEMBER][16] = {L'\0'};
+    BYTE index = 0;
 };
 
 previousIPData g_previousIPData;
@@ -2267,6 +2261,8 @@ int tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::B
 
     tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
 
+    errorOut.SetPosition(consoleWidth/2 - 14, 6);
+
     mouseButton cancelButton(CONSOLE_WIDTH / 2 - 6, XBOX_QUIT_LINE, 20, L" (C) Cancel  ");
     mouseButton skipButton(CONSOLE_WIDTH / 2 - 9, XBOX_QUIT_LINE - 1, 20, L" (Esc) Skip Input  ");
     quitButton.SetPosition(CONSOLE_WIDTH / 2 - 5, XBOX_QUIT_LINE + 1);
@@ -2298,6 +2294,8 @@ int tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::B
     MapScreen_Overlay_bodyBottom.Draw();
     mapOverlay.DrawButtons();
 
+    // Create a map to ensure no input is used twice
+    std::unordered_map<std::string, bool> receivedInput;
 
     // Map all inputs in inputList
     for (const auto& inputToMap : inputList) {
@@ -2326,7 +2324,7 @@ int tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::B
         buttonToMap->Update();
 
 
-        std::vector<SDLButtonMapping::ButtonMapInput> received_input;
+        SDLButtonMapping::ButtonMapInput received_input;
         bool settingInput = true;
 
         while (settingInput && !APP_KILLED) {
@@ -2351,8 +2349,8 @@ int tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::B
                 }
                 // Skip
                 else if (checkKey(VK_ESCAPE, IS_RELEASED) || skipButton.Status() & MOUSE_UP ) {
-                    received_input = { SDLButtonMapping::ButtonMapInput() };
                     skipButton.SetStatus(MOUSE_OUT);
+                    settingInput = false;
                 }
                 // Quit
                 checkForQuit();
@@ -2363,41 +2361,57 @@ int tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::B
                 checkKey(VK_ESCAPE, IS_RELEASED);
             }
 
-            if (!received_input.size()) {
+            if (received_input.input_type == SDLButtonMapping::ButtonType::UNSET) {
                 // Receive an input signature
-                received_input = get_sdljoystick_input_list_map(joystick);
-                wait_for_no_sdljoystick_input(joystick);
+                get_sdljoystick_mapping_input(joystick, received_input);
             }
 
-            if (received_input.size() == 1) {
-
+            if (received_input.input_type != SDLButtonMapping::ButtonType::UNSET) {
+                // Create a key from the input
                 if ((inputType == SDLButtonMapping::ButtonType::BUTTON ||
                     inputType == SDLButtonMapping::ButtonType::SHOULDER ||
                     inputType == SDLButtonMapping::ButtonType::HAT ||
                     inputType == SDLButtonMapping::ButtonType::THUMB)
-                    && received_input[0].input_type == SDLButtonMapping::ButtonType::STICK) {
-                    if ((received_input[0].value == ANALOG_RANGE_NEG_TO_POS)
-                        || (received_input[0].value == ANALOG_RANGE_POS_TO_NEG)) {
-                        received_input[0].special = received_input[0].value;
-                        received_input[0].value = (received_input[0].special == ANALOG_RANGE_NEG_TO_POS) ? -1 : 1;
+                    && received_input.input_type == SDLButtonMapping::ButtonType::STICK) {
+                    if ((received_input.value == ANALOG_RANGE_NEG_TO_POS)
+                        || (received_input.value == ANALOG_RANGE_POS_TO_NEG)) {
+                        received_input.special = received_input.value;
+                        received_input.value = (received_input.special == ANALOG_RANGE_NEG_TO_POS) ? -1 : 1;
                     }
                 }
 
-                settingInput = false;
+                std::string inputKey = std::to_string(static_cast<int>(received_input.input_type)) + "_" + std::to_string(received_input.index) + "_" + std::to_string(received_input.value);
+
+                if (receivedInput.find(inputKey) == receivedInput.end()) {
+                    receivedInput[inputKey] = true;
+                    settingInput = false;
+                    while (there_is_sdljoystick_input(joystick) && !APP_KILLED) {
+                        Sleep(20);
+                    }
+                }
+                else {
+                    received_input = SDLButtonMapping::ButtonMapInput();
+                    setErrorMsg( L"<< Input already assigned! >>", 30 );
+                    errorOut.Draw();
+                    while (there_is_sdljoystick_input(joystick) && !APP_KILLED) {
+                        Sleep(20);
+                    }
+                    errorOut.Clear(fullColorSchemes[g_currentColorScheme].controllerColors.col1);
+                }
             }
             else {
-                Sleep(30);
+                Sleep(20);
             }
         }
 
-        if (received_input.size() == 1) {
+        if (!settingInput) {
             // Map received input to inputID
-            joystick.mapping.buttonMaps[inputToMap] = received_input[0];
+            joystick.mapping.buttonMaps[inputToMap] = received_input;
 
             buttonToMap->SetStatus(MOUSE_OUT);
             buttonToMap->Update();
 
-            topMsg.Clear(UIcolors.col1);
+            topMsg.Clear(fullColorSchemes[g_currentColorScheme].controllerColors.col1);
             inputID.Clear(UIcolors.col1);
         }
     }
