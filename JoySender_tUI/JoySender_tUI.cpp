@@ -66,14 +66,14 @@ int joySendertUI(Arguments& args) {
         return std::string();
     };
     
-    // global flags set by ui and callback functions
+    //
+    // Set Up for first tUI screen
+        // global flags set by ui and callback functions
+    OLDMAP_FLAG = 0;
     RESTART_FLAG = 0;
     MAPPING_FLAG = 0;
     g_mode = args.mode;
 
-    //
-    // Set Up for first tUI screen
-    
         // establish a color scheme
     g_currentColorScheme = generateRandomInt(0, NUM_COLOR_SCHEMES);       // will be used as index for fullColorSchemes
     if (g_currentColorScheme == RANDOMSCHEME)
@@ -94,6 +94,7 @@ int joySendertUI(Arguments& args) {
     screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg);
     output1.SetPosition(14, 5, 50, 1, ALIGN_LEFT); // output1 is a textarea used for screen headers/titles
     errorOut.SetPosition(consoleWidth/2, 4, 50, 0, ALIGN_CENTER); // used for error messaging
+    setErrorMsg(L"\0", 1);
     fpsMsg.SetPosition(51, 1, 7, 1, ALIGN_LEFT);                // fps output
     quitButton.setCallback(&exitAppCallback);
     newColorsButton.setCallback(&newControllerColorsCallback);
