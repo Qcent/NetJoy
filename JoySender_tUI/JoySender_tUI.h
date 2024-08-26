@@ -136,7 +136,7 @@ std::wstring_convert<std::codecvt_utf8<wchar_t>> g_converter;
 
 int g_joystickSelected = -1;
 int g_mode = 1;
-int g_currentColorScheme;
+int g_currentColorScheme = 0;
 ColorScheme g_simpleScheme;
 
 wchar_t g_stringBuff[500];      // for holding generated text data
@@ -584,40 +584,40 @@ void mappingControllerButtonsCallback(mouseButton& button) {
         footerMsg.SetColor(colors.col1);
     }
     
-
     // use g_extraData as a pointer to int currentHoveredButton shared with calling function 
     int* currentHoveredButton = static_cast<int*>(g_extraData);
 
-    // # 'Click To Map' messaging and currentHoveredButton logic
-{
-    // display 'click to map' message if not already displayed
-    if (button.Status() & MOUSE_HOVERED && !msgDisplayed) {
-        topMsg.Draw();
-        footerMsg.SetColor(colors.col2);
-        footerMsg.Draw();
-        
-        *currentHoveredButton = button.GetId();
-
-        msgDisplayed = true;
-    }
-    else if (button.Status() == MOUSE_HOVERED && msgDisplayed == 1)
-    {       // if it is displayed increment the msgDisplayed counter
-        ++msgDisplayed; //covers conditions where buttons are right next to or overlapping
-
-        *currentHoveredButton = button.GetId();
-    }
-
-    // decrement msgDisplayed counter and clear message from screen if 0
-    else if (button.Status() == MOUSE_OUT && msgDisplayed) {
-        --msgDisplayed;
-        if (!msgDisplayed) {
-            topMsg.Clear(colors.col2);
-            footerMsg.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg);
+    // 'Click To Map' messaging and currentHoveredButton logic *only if button not spoofed by joystick
+    if(!(button.Status() & SETBYGAMEPAD))
+    {
+        // display 'click to map' message if not already displayed
+        if (button.Status() & MOUSE_HOVERED && !msgDisplayed) {
+            topMsg.Draw();
+            footerMsg.SetColor(colors.col2);
             footerMsg.Draw();
-            *currentHoveredButton = -1;
+        
+            *currentHoveredButton = button.GetId();
+
+            msgDisplayed = true;
+        }
+        else if (button.Status() == MOUSE_HOVERED && msgDisplayed == 1)
+        {       // if it is displayed increment the msgDisplayed counter
+            ++msgDisplayed; //covers conditions where buttons are right next to or overlapping
+
+            *currentHoveredButton = button.GetId();
+        }
+
+        // decrement msgDisplayed counter and clear message from screen if 0
+        else if (button.Status() == MOUSE_OUT && msgDisplayed) {
+            --msgDisplayed;
+            if (!msgDisplayed) {
+                topMsg.Clear(colors.col2);
+                footerMsg.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg);
+                footerMsg.Draw();
+                *currentHoveredButton = -1;
+            }
         }
     }
-}
 
     // Share status with button partners // for highlighting
     auto other = button.GetPartner();
@@ -626,8 +626,8 @@ void mappingControllerButtonsCallback(mouseButton& button) {
         other->Update();
     }
 
-    // If clicked, set a flag or something
-    if (button.Status() & MOUSE_DOWN) {
+    // If clicked and not spoofed by joystick, set a flag or something
+    if ((button.Status() & MOUSE_DOWN) && !(button.Status() & SETBYGAMEPAD)){
         *currentHoveredButton += MAP_BUTTON_CLICKED; // add value higher then any conceivable input index
     }
 
@@ -754,13 +754,13 @@ void buttonStatesFromXboxReport(XUSB_REPORT& xboxReport) {
     byte shoulderRedraw = 0;  // 0x01: left, 0x08: right
     auto updateButtonStatus = [&](mouseButton& button, bool condition, byte special = 0) {
         if (condition && button.Status() == MOUSE_OUT) {
-            button.SetStatus(MOUSE_HOVERED | MOUSE_DOWN);
+            button.SetStatus(MOUSE_HOVERED | MOUSE_DOWN | SETBYGAMEPAD);
             if (!special)
                 button.Update();
             else
                 shoulderRedraw |= special;
         }
-        else if (!condition && button.Status() == (MOUSE_HOVERED | MOUSE_DOWN)) {
+        else if (!condition && button.Status() & SETBYGAMEPAD) {
             button.SetStatus(MOUSE_OUT);
             if (!special)
                 button.Update();
@@ -819,6 +819,75 @@ void buttonStatesFromXboxReport(XUSB_REPORT& xboxReport) {
     if (shoulderRedraw & 0x08) {
         button_R1_highlight.Update();
         button_R2_highlight.Update();
+    }
+}
+
+// Used in remapping screen for visual button feedback * mirrors get_xbox_report_from_SDL_events()
+void get_xbox_report_from_activeInputs(SDLJoystickData& joystick, const std::vector<SDLButtonMapping::ButtonMapInput>& activeInputs, XUSB_REPORT& xbox_report) {
+    xbox_report = { 0 };
+    SDLButtonMapping::ButtonMapInput dummyInput;
+    int axis_value = 0;
+    for (auto& activeInput : activeInputs) {
+        switch (activeInput.input_type) {
+
+        case SDLButtonMapping::ButtonType::BUTTON:
+            if (joystick.mapping.inverseMap.find(activeInput) != joystick.mapping.inverseMap.end()) {
+                SDL_event_to_xbox_report(activeInput, joystick.mapping.inverseMap[activeInput], xbox_report, joystick);
+            }
+            break;
+
+        case SDLButtonMapping::ButtonType::HAT:
+            // All dpad/hat directions must be assessed, as a single value is given for entire dpad state
+            for (int dpad_dir : DPAD_DIRECTIONS) {
+                // bitwise AND comparison of dpad directions (extracts single direction from possible multi direction)
+                if (activeInput.value & dpad_dir) {
+                    dummyInput.set(activeInput.input_type, activeInput.index, dpad_dir);
+
+                    // If the dummyInput exists in the inverseMap: set xbox_report accordingly
+                    if (joystick.mapping.inverseMap.find(dummyInput) != joystick.mapping.inverseMap.end()) {
+                        SDL_event_to_xbox_report(dummyInput, joystick.mapping.inverseMap[dummyInput], xbox_report, joystick);
+                    }
+                }
+            }
+            break;
+
+        case SDLButtonMapping::ButtonType::STICK:
+            // Triggers set by analog/stick inputs ranges could be (INT16_MIN-0, 0-INT16_MAX, INT16_MIN-INT16_MAX, INT16_MAX-INT16_MIN )
+            // this block checks for the last two cases
+            for (auto trigger : joystick.mapping.triggerButtonNames) {
+                if (joystick.mapping.buttonMaps[trigger].input_type == SDLButtonMapping::ButtonType::STICK) {
+                    dummyInput.set(activeInput.input_type, activeInput.index, joystick.mapping.buttonMaps[trigger].value); // check new axis range values
+
+                    // Check if the dummyInput exists in the inverseMap
+                    if (joystick.mapping.inverseMap.find(dummyInput) != joystick.mapping.inverseMap.end()) {
+                        auto emulatedInput = joystick.mapping.inverseMap[dummyInput];
+                        dummyInput.value = activeInput.special;     // special will hold the axis value if set by get_sdljoystick_input_list()
+                        dummyInput.index = joystick.mapping.buttonMaps[trigger].value;  // hack new axis range into index eg. ANALOG_RANGE_NEG_TO_POS
+                        SDL_event_to_xbox_report(dummyInput, emulatedInput, xbox_report, joystick);
+                    }
+                }
+            }
+
+            axis_value = (activeInput.special > 0) ? 1 : -1;
+            dummyInput.set(SDLButtonMapping::ButtonType::STICK, activeInput.index, axis_value);
+
+            // Check if the dummyInput exists in the inverseMap
+            if (joystick.mapping.inverseMap.find(dummyInput) != joystick.mapping.inverseMap.end()) {
+                auto emulatedInput = joystick.mapping.inverseMap[activeInput];
+
+                // Check if special flag is set to pass on to dummyInput
+                if (joystick.mapping.buttonMaps[emulatedInput].special > 1) {
+                    dummyInput.special = joystick.mapping.buttonMaps[emulatedInput].special;
+                }
+
+                dummyInput.value = activeInput.special;
+                SDL_event_to_xbox_report(dummyInput, emulatedInput, xbox_report, joystick);
+            }
+            break;
+
+        default:
+            break;
+        }
     }
 }
 
@@ -905,6 +974,7 @@ std::vector<SDLButtonMapping::ButtonMapInput> get_sdljoystick_input_list(const S
         int axis_value = SDL_GetJoystickAxis(joystick._ptr, i); // / 32767.0f;
         if (std::abs(axis_value - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) {
             input.set(SDLButtonMapping::ButtonType::STICK, i, axis_value < 0 ? -1 : 1);
+            input.special = axis_value;
             inputs.push_back(input);
         }
     }
@@ -928,8 +998,6 @@ std::vector<SDLButtonMapping::ButtonMapInput> get_sdljoystick_input_list(const S
 
     return inputs;
 }
-
-
 
 // Attempts to open an HID connection to a ds4 device
 bool uiConnectToDS4Controller(HidDeviceInfo* selectedDev) {
@@ -1942,6 +2010,7 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
     footerMsg.Draw();
     // *********
 
+    XUSB_REPORT dummyReport = { 0 };
     std::vector<SDLButtonMapping::ButtonMapInput> activeInputs, lastInputs;
     int inputPtr = 0;
     int lastHovered = -1;
@@ -1956,8 +2025,13 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
         // get activeInputs to identify noisy Inputs // temporary?
         activeInputs = get_sdljoystick_input_list(joystick);
 
-        // clear active input area
+        // update detected input area and controller buttons
         if (lastInputs != activeInputs) {
+            // Create dummy report for controller buttons
+            get_xbox_report_from_activeInputs(joystick, activeInputs, dummyReport);
+            buttonStatesFromXboxReport(dummyReport);
+
+            // clear active input area
             detectedInput.Clear(fullColorSchemes[g_currentColorScheme].controllerBg);
             detectedInput.SetText(L" (NONE) ");
             if (inputsListed > 3) { // after four inputs controller could get drawn over
