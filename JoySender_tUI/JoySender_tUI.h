@@ -822,7 +822,7 @@ void buttonStatesFromXboxReport(XUSB_REPORT& xboxReport) {
     }
 }
 
-// Used in remapping screen for visual button feedback * mirrors get_xbox_report_from_SDL_events()
+// Used in remapping screen for visual button feedback * mirrors get_xbox_report_from_SDL_events() from GamepadMapping.hpp
 void get_xbox_report_from_activeInputs(SDLJoystickData& joystick, const std::vector<SDLButtonMapping::ButtonMapInput>& activeInputs, XUSB_REPORT& xbox_report) {
     xbox_report = { 0 };
     SDLButtonMapping::ButtonMapInput dummyInput;
@@ -895,11 +895,14 @@ void get_sdljoystick_mapping_input(const SDLJoystickData& joystick, SDLButtonMap
         int axis_value = SDL_GetJoystickAxis(joystick._ptr, i); // / 32767.0f;
         if (std::abs(axis_value - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) {
 
-            // Watch axis to see how far it moves in ~1/4 second
+            // Watch axis to see how far it moves in ~1/5 second
+            constexpr double totaltime_s = 1 / 5.0f;
+            constexpr int numsamples = 12;
+            constexpr int delay_ms = (totaltime_s / numsamples) * 1000;
             int inital_reading, low_reading, high_reading;
             inital_reading = low_reading = high_reading = axis_value;
             for (int watching = 0; watching < 10; watching++) {
-                Sleep(25);
+                Sleep(delay_ms);
                 SDL_UpdateJoysticks();
                 axis_value = SDL_GetJoystickAxis(joystick._ptr, i);
                 if (std::abs(axis_value - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) {
