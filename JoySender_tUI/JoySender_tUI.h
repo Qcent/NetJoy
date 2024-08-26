@@ -852,21 +852,18 @@ void get_xbox_report_from_activeInputs(SDLJoystickData& joystick, const std::vec
             break;
 
         case SDLButtonMapping::ButtonType::STICK:
-            // Triggers set by analog/stick inputs ranges could be (INT16_MIN-0, 0-INT16_MAX, INT16_MIN-INT16_MAX, INT16_MAX-INT16_MIN )
-            // this block checks for the last two cases (extended range mode) by inserting mapped axis range value into the input signature
-            for (auto trigger : joystick.mapping.triggerButtonNames) {
-                if (joystick.mapping.buttonMaps[trigger].input_type == SDLButtonMapping::ButtonType::STICK) {
-                    dummyInput.set(activeInput.input_type, activeInput.index, joystick.mapping.buttonMaps[trigger].value); // insert axis range value
+            // Ensure extended range mode by inserting mapped axis range value into the input signature for known extended range inputs
+            for (auto extRangeInput : joystick.mapping.extRangeInputList) {
+                dummyInput.set(activeInput.input_type, activeInput.index, joystick.mapping.buttonMaps[extRangeInput].value); // insert axis range value
 
-                    // Check if dummy input == stored button mapping, ensuring that extended range mode will be used if it is set
-                    if (joystick.mapping.buttonMaps[trigger] == dummyInput) {
-                        // set index to mapped range value / and value to axis value (in special)
-                        dummyInput.index = dummyInput.value;
-                        dummyInput.value = activeInput.special;
-                        SDL_event_to_xbox_report(dummyInput, trigger, xbox_report, joystick);
-                        input_is_set = true;
-                        break;
-                    }
+                // Check if dummy input == stored button mapping, ensuring that extended range mode will be used if it is set
+                if (joystick.mapping.buttonMaps[extRangeInput] == dummyInput) {
+                    // set index to mapped range value / and value to axis value (in special)
+                    dummyInput.index = dummyInput.value;
+                    dummyInput.value = activeInput.special;
+                    SDL_event_to_xbox_report(dummyInput, extRangeInput, xbox_report, joystick);
+                    input_is_set = true;
+                    break;
                 }
             }
             if (input_is_set) break;
@@ -901,7 +898,7 @@ void get_sdljoystick_mapping_input(const SDLJoystickData& joystick, SDLButtonMap
             constexpr int delay_ms = (totaltime_s / numsamples) * 1000;
             int inital_reading, low_reading, high_reading;
             inital_reading = low_reading = high_reading = axis_value;
-            for (int watching = 0; watching < 10; watching++) {
+            for (int watching = 0; watching < numsamples; watching++) {
                 Sleep(delay_ms);
                 SDL_UpdateJoysticks();
                 axis_value = SDL_GetJoystickAxis(joystick._ptr, i);

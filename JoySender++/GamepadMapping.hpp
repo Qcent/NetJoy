@@ -122,6 +122,7 @@ public:
     ButtonMap buttonMaps;
     InverseMap inverseMap;
     std::vector<ButtonName> dpadInputList;
+    std::vector<ButtonName> extRangeInputList;
     std::vector<ButtonName> stickButtonNames;
     std::vector<ButtonName> triggerButtonNames;
     std::vector<ButtonName> thumbButtonNames;
@@ -192,6 +193,10 @@ public:
 
             if (buttonInput.input_type == SDLButtonMapping::ButtonType::HAT) {
                 dpadInputList.push_back(buttonName);
+            }
+
+            if (buttonInput.input_type == SDLButtonMapping::ButtonType::STICK && buttonInput.value >= ANALOG_RANGE_NEG_TO_POS) {
+                extRangeInputList.push_back(buttonName);
             }
         }
     }
