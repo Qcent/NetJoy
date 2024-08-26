@@ -35,11 +35,12 @@ THE SOFTWARE.
 #define MAX_SCREEN_INPUTS   8
 
 // mouse button status flags
-#define MOUSE_OUT       0x0
-#define MOUSE_HOVERED   0x1
-#define MOUSE_DOWN      0x2
-#define MOUSE_UP        0x4
-#define ACTIVE_INPUT    0x8
+#define MOUSE_OUT       0x00
+#define MOUSE_HOVERED   0x01
+#define MOUSE_DOWN      0x02
+#define MOUSE_UP        0x04
+#define ACTIVE_INPUT    0x08
+#define SETBYGAMEPAD    0x10
 
 // mouse button settings flags
 #define UNCLICKABLE     0x1
