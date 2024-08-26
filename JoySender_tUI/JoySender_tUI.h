@@ -1126,7 +1126,6 @@ void uiOpenOrCreateMapping(SDLJoystickData& joystick, textUI& screen) {
             std::filesystem::remove(result.second);
             return uiOpenOrCreateMapping(joystick, screen);
         }
-        joystick.mapping.populateExtraMaps();
     }
     else {
         // File does not exist
@@ -2241,15 +2240,12 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
             }
         }
 
-        Sleep(50);
+        Sleep(25);
     }
 
     if (APP_KILLED) {
         return 0;
     }
-
-    // update SDL3 maps
-    joystick.mapping.populateExtraMaps();
 
     return 1;
 }
@@ -2407,6 +2403,7 @@ int tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::B
     }
 
     // ********************  
+    joystick.mapping.populateExtraMaps();
 
     return 0;
 }

@@ -275,6 +275,8 @@ public:
             }
 
             file.close();
+            // update SDL3 maps
+            populateExtraMaps();
             return 1; // Successfully loaded button maps
         }
         else {
@@ -850,10 +852,11 @@ void setSDLMapping(SDLJoystickData& joystick, std::vector<SDLButtonMapping::Butt
         }
 
     }
+
+    joystick.mapping.populateExtraMaps();
+
     g_outputText += "<< All Done! >>\r\n\r\n";
     displayOutputText();
-
-    return;
 }
 
 
@@ -1350,7 +1353,6 @@ void OpenOrCreateMapping(SDLJoystickData& joystick) {
             std::filesystem::remove(result.second);
             return OpenOrCreateMapping(joystick);
         }
-        joystick.mapping.populateExtraMaps();
     }
     else {
         // File does not exist
@@ -1365,7 +1367,6 @@ void OpenOrCreateMapping(SDLJoystickData& joystick) {
         std::vector<SDLButtonMapping::ButtonName> inputList;
         // Set a Button Map for joystick
         setSDLMapping(joystick, inputList);
-        joystick.mapping.populateExtraMaps();
 
         //Save new mapping
         int didSave = joystick.mapping.saveMapping(filePath.string());
@@ -1380,7 +1381,6 @@ int RemapInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonN
     std::filesystem::path filePath = result.second;
 
     // Visual notification to user
-   // appendWindowTitle(g_hWnd, "Remap Buttons!"));
     g_outputText = "Remapping Inputs For:  " + joystick.name + "\r\n\r\n\t Press Any Button To Continue\r\n\r\n";
     displayOutputText();
 
@@ -1389,8 +1389,6 @@ int RemapInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonN
 
     // Set a Button Map for joystick
     setSDLMapping(joystick, inputList);
-
-    joystick.mapping.populateExtraMaps();
 
     //Save new mapping
     int didSave = joystick.mapping.saveMapping(filePath.string());
