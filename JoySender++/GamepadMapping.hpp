@@ -184,9 +184,12 @@ public:
     }
 
     void populateExtraMaps() {
-        dpadInputList.clear();    // Clear set Dpad buttons
-        inverseMap.clear();  // Clear the inverse map before populating it
+        // Clear all maps/lists
+        extRangeInputList.clear();
+        dpadInputList.clear();
+        inverseMap.clear();  
         std::vector<ButtonName> setButtons = getSetButtonNames();
+        // Re-populate maps/lists
         for (const auto& buttonName : setButtons) {
             const auto& buttonInput = buttonMaps.at(buttonName);
             inverseMap[buttonInput] = buttonName;
@@ -1207,9 +1210,10 @@ bool get_xbox_report_from_SDL_events(SDLJoystickData& joystick, XUSB_REPORT& xbo
 
             // Check if the spoofed eventMap exists in the inverseMap
             if (joystick.mapping.inverseMap.find(eventMap) != joystick.mapping.inverseMap.end()) {
+                auto emulatedInput = joystick.mapping.inverseMap[eventMap];
                 // set value from stick input
                 eventMap.value = event.jaxis.value;
-                SDL_event_to_xbox_report(eventMap, joystick.mapping.inverseMap[eventMap], xbox_report, joystick);
+                SDL_event_to_xbox_report(eventMap, emulatedInput, xbox_report, joystick);
             }
             break;
 
