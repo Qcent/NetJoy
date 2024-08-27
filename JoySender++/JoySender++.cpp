@@ -199,7 +199,7 @@ int joySender(Arguments& args) {
     displayOutputText();
     //##########################################################################
     // Main Loop keeps client running
-    // asks for new host if connection fails 3 times
+    // asks for new host if connection fails 3 times in a row
     while (!APP_KILLED) {
         // Aquire host address for connection attempt
         if (args.host.empty()) {
@@ -235,6 +235,7 @@ int joySender(Arguments& args) {
             else{
                 inConnection = true;   
                 client.set_silence(true);
+                failed_connections = 0;
             }
 
             // Set Lines for FPS and Latency output
