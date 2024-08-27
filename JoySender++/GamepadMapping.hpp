@@ -654,11 +654,14 @@ SDLButtonMapping::ButtonMapInput get_sdljoystick_input(const SDLJoystickData& jo
             int axis_value = SDL_GetJoystickAxis(joystick._ptr, i); // / 32767.0f;
             if (std::abs(axis_value - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) {
 
-                // Watch axis to see how far it moves in ~1/4 second
+                // Watch axis to see how far it moves in ~1/5 second
+                constexpr double totaltime_s = 1 / 5.0f;
+                constexpr int numsamples = 12;
+                constexpr int delay_ms = (totaltime_s / numsamples) * 1000;
                 int inital_reading, low_reading, high_reading;
                 inital_reading = low_reading = high_reading = axis_value;
-                for (int watching = 0; watching < 10; watching++) {
-                    Sleep(25);
+                for (int watching = 0; watching < numsamples; watching++) {
+                    Sleep(delay_ms);
                     SDL_UpdateJoysticks();
                     axis_value = SDL_GetJoystickAxis(joystick._ptr, i);
                     if (std::abs(axis_value - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) {
@@ -1132,8 +1135,8 @@ void SDL_event_to_xbox_report(const SDLButtonMapping::ButtonMapInput sdlEvent, c
 bool get_xbox_report_from_SDL_events(SDLJoystickData& joystick, XUSB_REPORT& xbox_report) {
     SDL_Event event;
     SDLButtonMapping::ButtonMapInput eventMap;
-    int axis_value = 0;
     while (SDL_PollEvent(&event) != 0) {
+        int input_is_set = false;
         if (event.jdevice.which != joystick.joyID) {
             continue; // bypass any events not from our joystick
         }
@@ -1183,36 +1186,30 @@ bool get_xbox_report_from_SDL_events(SDLJoystickData& joystick, XUSB_REPORT& xbo
             break;
 
         case SDL_EVENT_JOYSTICK_AXIS_MOTION:
-            // Triggers set by analog/stick inputs ranges could be (INT16_MIN-0, 0-INT16_MAX, INT16_MIN-INT16_MAX, INT16_MAX-INT16_MIN )
-            // this block checks for the last two cases
-            for (auto trigger : joystick.mapping.triggerButtonNames) {
-                if (joystick.mapping.buttonMaps[trigger].input_type == SDLButtonMapping::ButtonType::STICK) {
-                    eventMap.set(SDLButtonMapping::ButtonType::STICK, event.jaxis.axis, joystick.mapping.buttonMaps[trigger].value); // check new axis range values
+            // Ensure extended range mode by inserting mapped axis range value into the input signature for known extended range inputs
+            for (auto extRangeInput : joystick.mapping.extRangeInputList) {
+                eventMap.set(SDLButtonMapping::ButtonType::STICK, event.jaxis.axis, joystick.mapping.buttonMaps[extRangeInput].value); // insert axis range value
 
-                    // Check if the eventMap exists in the inverseMap
-                    if (joystick.mapping.inverseMap.find(eventMap) != joystick.mapping.inverseMap.end()) {
-                        auto emulatedInput = joystick.mapping.inverseMap[eventMap];
-                        eventMap.value = event.jaxis.value;
-                        eventMap.index = joystick.mapping.buttonMaps[trigger].value;  // hack new axis range into index eg. ANALOG_RANGE_NEG_TO_POS
-                        SDL_event_to_xbox_report(eventMap, emulatedInput, xbox_report, joystick);
-                    }
+                // Check if eventMap == stored button mapping, ensuring that extended range mode will be used if it is set
+                if (joystick.mapping.buttonMaps[extRangeInput] == eventMap) {
+                    // set index to mapped range value / and value to axis value (in special)
+                    eventMap.index = eventMap.value;
+                    eventMap.value = event.jaxis.value;
+                    SDL_event_to_xbox_report(eventMap, extRangeInput, xbox_report, joystick);
+                    input_is_set = true;
+                    break;
                 }
             }
+            if (input_is_set) break;
 
-            axis_value = (event.jaxis.value > 0) ? 1 : -1;
-            eventMap.set(SDLButtonMapping::ButtonType::STICK, event.jaxis.axis, axis_value);
+            // spoof mapped input range value based on axis value
+            eventMap.set(SDLButtonMapping::ButtonType::STICK, event.jaxis.axis, event.jaxis.value > 0 ? 1 : -1);
 
-            // Check if the eventMap exists in the inverseMap
+            // Check if the spoofed eventMap exists in the inverseMap
             if (joystick.mapping.inverseMap.find(eventMap) != joystick.mapping.inverseMap.end()) {
-                auto emulatedInput = joystick.mapping.inverseMap[eventMap];
-
-                // Check if special flag is set to pass on to eventMap
-                if (joystick.mapping.buttonMaps[emulatedInput].special > 1) {
-                    eventMap.special = joystick.mapping.buttonMaps[emulatedInput].special;
-                }
-
+                // set value from stick input
                 eventMap.value = event.jaxis.value;
-                SDL_event_to_xbox_report(eventMap, emulatedInput, xbox_report, joystick);
+                SDL_event_to_xbox_report(eventMap, joystick.mapping.inverseMap[eventMap], xbox_report, joystick);
             }
             break;
 

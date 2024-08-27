@@ -205,6 +205,7 @@ int joySender(Arguments& args) {
         if (args.host.empty()) {
             args.host = getHostAddress();
         }
+        if (APP_KILLED) return 0;
         TCPConnection client(args.host, args.port);
         client.set_silence(true);
         allGood = client.establish_connection();

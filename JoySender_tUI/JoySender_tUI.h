@@ -882,7 +882,7 @@ void get_xbox_report_from_activeInputs(SDLJoystickData& joystick, const std::vec
     }
 }
 
-// sets input to an active joystick input with extra stick scanning for mapping * mirrors get_sdljoystick_input from JoySender++.h 
+// sets input to an active joystick input with extra stick scanning for mapping * mirrors get_sdljoystick_input from GamepadMapping.hpp 
 void get_sdljoystick_mapping_input(const SDLJoystickData& joystick, SDLButtonMapping::ButtonMapInput& input) {
     // Get the joystick state
     SDL_UpdateJoysticks();
