@@ -420,6 +420,7 @@ int joySendertUI(Arguments& args) {
                 bytesReceived = client.receive_data(buffer, buffer_size);
                 if (bytesReceived > 0) {
                     inConnection = true;
+                    failed_connections = 0;
                 }
                 else {
                     swprintf(errorPointer, 46, L" << Connection To: %S Lost >> ", args.host.c_str());
