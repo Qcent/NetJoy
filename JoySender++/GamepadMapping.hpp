@@ -619,6 +619,8 @@ get_sdl_joystick_baseline(SDL_Joystick* joystick, int numSamples = 64) {
         // sleep for more accurate polling
         Sleep(5);
     }
+    // clear all joystick events generated during scan
+    SDL_FlushEvents(SDL_EVENT_JOYSTICK_AXIS_MOTION, SDL_EVENT_JOYSTICK_UPDATE_COMPLETE);
 
     // Calculate median, mode, range, and average for each input
     for (int j = 0; j < numHats + numButtons + numAxes; j++) {
@@ -638,6 +640,8 @@ get_sdl_joystick_baseline(SDL_Joystick* joystick, int numSamples = 64) {
 
 void get_sdljoystick_mapping_input(const SDLJoystickData& joystick, SDLButtonMapping::ButtonMapInput& input) {
     SDL_UpdateJoysticks();
+    // Clear all joystick events to prevent memory leaks
+    SDL_FlushEvents(SDL_EVENT_JOYSTICK_AXIS_MOTION, SDL_EVENT_JOYSTICK_UPDATE_COMPLETE);
     // Iterate over all Axes
     for (int i = 0; i < joystick.num_axes; i++) {
         int axis_value = SDL_GetJoystickAxis(joystick._ptr, i); // / 32767.0f;
@@ -658,6 +662,7 @@ void get_sdljoystick_mapping_input(const SDLJoystickData& joystick, SDLButtonMap
                     else if (axis_value < low_reading) low_reading = axis_value;
                 }
             }
+            SDL_FlushEvents(SDL_EVENT_JOYSTICK_AXIS_MOTION, SDL_EVENT_JOYSTICK_UPDATE_COMPLETE);
 
             // Analyze readings
             if (inital_reading <= 0 && low_reading <= 0 && high_reading <= 0) {
@@ -702,7 +707,6 @@ void get_sdljoystick_mapping_input(const SDLJoystickData& joystick, SDLButtonMap
 
 SDLButtonMapping::ButtonMapInput get_sdljoystick_input(const SDLJoystickData& joystick) {
     SDLButtonMapping::ButtonMapInput input;
-
     while (!APP_KILLED) {
 
         if (getKeyState(VK_ESCAPE)) {
@@ -729,6 +733,7 @@ void wait_for_no_sdljoystick_input(SDLJoystickData& joystick) {
     while (awaiting_silence && !APP_KILLED) {
         Sleep(20);
         SDL_UpdateJoysticks();
+        SDL_FlushEvents(SDL_EVENT_JOYSTICK_AXIS_MOTION, SDL_EVENT_JOYSTICK_UPDATE_COMPLETE);
 
         int axis_value = 0;
         int button_value = 0;
@@ -758,8 +763,8 @@ void wait_for_no_sdljoystick_input(SDLJoystickData& joystick) {
 }
 
 bool there_is_sdljoystick_input(SDLJoystickData& joystick) {
-
     SDL_UpdateJoysticks();
+    SDL_FlushEvents(SDL_EVENT_JOYSTICK_AXIS_MOTION, SDL_EVENT_JOYSTICK_UPDATE_COMPLETE);
 
     // Iterate over all joystick axes
     for (int i = 0; i < joystick.num_axes; i++) {

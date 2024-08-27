@@ -885,11 +885,12 @@ void get_xbox_report_from_activeInputs(SDLJoystickData& joystick, const std::vec
 // returns a list of active joystick inputs
 std::vector<SDLButtonMapping::ButtonMapInput> get_sdljoystick_input_list(const SDLJoystickData& joystick) {
     std::vector<SDLButtonMapping::ButtonMapInput> inputs;
-
     SDLButtonMapping::ButtonMapInput input;
 
     // Get the joystick state
     SDL_UpdateJoysticks();
+    // clear un-needed joystick events 
+    SDL_FlushEvents(SDL_EVENT_JOYSTICK_AXIS_MOTION, SDL_EVENT_JOYSTICK_UPDATE_COMPLETE);
 
     // Iterate over all joystick axes
     for (int i = 0; i < joystick.num_axes; i++) {
