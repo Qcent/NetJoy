@@ -207,7 +207,6 @@ int joySender(Arguments& args) {
         }
         if (APP_KILLED) return 0;
         TCPConnection client(args.host, args.port);
-        client.set_silence(true);
         allGood = client.establish_connection();
 
         // *******************
@@ -228,13 +227,14 @@ int joySender(Arguments& args) {
             }
 
             allGood = client.receive_data(buffer, buffer_size);
-            if (allGood > 0) {
-                inConnection = true;
-            }
-            else{
+            if (allGood < 1) {
                 g_outputText += "<< Connection Failed >> \r\n";
                 displayOutputText();
                 break;
+            }
+            else{
+                inConnection = true;   
+                client.set_silence(true);
             }
 
             // Set Lines for FPS and Latency output
