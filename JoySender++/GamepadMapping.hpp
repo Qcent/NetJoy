@@ -636,12 +636,74 @@ get_sdl_joystick_baseline(SDL_Joystick* joystick, int numSamples = 64) {
     return std::make_pair(std::make_tuple(numAxes, numButtons, numHats), std::make_tuple(avgReport, medianReport, modeReport, rangeReport));
 }
 
+void get_sdljoystick_mapping_input(const SDLJoystickData& joystick, SDLButtonMapping::ButtonMapInput& input) {
+    SDL_UpdateJoysticks();
+    // Iterate over all Axes
+    for (int i = 0; i < joystick.num_axes; i++) {
+        int axis_value = SDL_GetJoystickAxis(joystick._ptr, i); // / 32767.0f;
+        if (std::abs(axis_value - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) {
+
+            // Watch axis to see how far it moves in ~1/5 second
+            constexpr double totaltime_s = 1 / 5.0f;
+            constexpr int numsamples = 12;
+            constexpr int delay_ms = (totaltime_s / numsamples) * 1000;
+            int inital_reading, low_reading, high_reading;
+            inital_reading = low_reading = high_reading = axis_value;
+            for (int watching = 0; watching < numsamples; watching++) {
+                Sleep(delay_ms);
+                SDL_UpdateJoysticks();
+                axis_value = SDL_GetJoystickAxis(joystick._ptr, i);
+                if (std::abs(axis_value - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) {
+                    if (axis_value > high_reading) high_reading = axis_value;
+                    else if (axis_value < low_reading) low_reading = axis_value;
+                }
+            }
+
+            // Analyze readings
+            if (inital_reading <= 0 && low_reading <= 0 && high_reading <= 0) {
+                // All readings were negative
+                input.set(SDLButtonMapping::ButtonType::STICK, i, -1);
+            }
+            else if (inital_reading >= 0 && low_reading >= 0 && high_reading >= 0) {
+                // All readings were positive
+                input.set(SDLButtonMapping::ButtonType::STICK, i, 1);
+            }
+            else if (inital_reading < 0 && low_reading < 0 && high_reading > 0) {
+                // Values went from - to +
+                input.set(SDLButtonMapping::ButtonType::STICK, i, ANALOG_RANGE_NEG_TO_POS);
+            }
+            else if (inital_reading > 0 && high_reading > 0 && low_reading < 0) {
+                // Values went from + to -
+                input.set(SDLButtonMapping::ButtonType::STICK, i, ANALOG_RANGE_POS_TO_NEG);
+            }
+
+            return;
+        }
+    }
+
+    // Iterate over all Buttons
+    for (int i = 0; i < joystick.num_buttons; i++) {
+        if (SDL_GetJoystickButton(joystick._ptr, i)) {
+            input.set(SDLButtonMapping::ButtonType::BUTTON, i, 1);
+            return;
+        }
+    }
+
+    // Iterate over DPad/hats
+    for (int i = 0; i < joystick.num_hats; i++) {
+        int hat_direction = SDL_GetJoystickHat(joystick._ptr, i);
+        if (hat_direction != 0) {
+            input.set(SDLButtonMapping::ButtonType::HAT, i, hat_direction);
+            return;
+        }
+    }
+
+}
+
 SDLButtonMapping::ButtonMapInput get_sdljoystick_input(const SDLJoystickData& joystick) {
     SDLButtonMapping::ButtonMapInput input;
 
     while (!APP_KILLED) {
-        // Get the joystick state
-        SDL_UpdateJoysticks();
 
         if (getKeyState(VK_ESCAPE)) {
             while (getKeyState(VK_ESCAPE)) {
@@ -652,64 +714,9 @@ SDLButtonMapping::ButtonMapInput get_sdljoystick_input(const SDLJoystickData& jo
             return input;
         }
 
-        // Iterate over all joystick axes
-        for (int i = 0; i < joystick.num_axes; i++) {
-            int axis_value = SDL_GetJoystickAxis(joystick._ptr, i); // / 32767.0f;
-            if (std::abs(axis_value - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) {
-
-                // Watch axis to see how far it moves in ~1/5 second
-                constexpr double totaltime_s = 1 / 5.0f;
-                constexpr int numsamples = 12;
-                constexpr int delay_ms = (totaltime_s / numsamples) * 1000;
-                int inital_reading, low_reading, high_reading;
-                inital_reading = low_reading = high_reading = axis_value;
-                for (int watching = 0; watching < numsamples; watching++) {
-                    Sleep(delay_ms);
-                    SDL_UpdateJoysticks();
-                    axis_value = SDL_GetJoystickAxis(joystick._ptr, i);
-                    if (std::abs(axis_value - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) {
-                        if (axis_value > high_reading) high_reading = axis_value;
-                        else if (axis_value < low_reading) low_reading = axis_value;
-                    }
-                }
-
-                // Analyze readings
-                if (inital_reading <= 0 && low_reading <= 0 && high_reading <= 0) {
-                    // All readings were negative
-                    input.set(SDLButtonMapping::ButtonType::STICK, i, -1);
-                }
-                else if (inital_reading >= 0 && low_reading >= 0 && high_reading >= 0) {
-                    // All readings were positive
-                    input.set(SDLButtonMapping::ButtonType::STICK, i, 1);
-                }
-                else if (inital_reading < 0 && low_reading < 0 && high_reading > 0) {
-                    // Values went from - to +
-                    input.set(SDLButtonMapping::ButtonType::STICK, i, ANALOG_RANGE_NEG_TO_POS);
-                }
-                else if (inital_reading > 0 && high_reading > 0 && low_reading < 0) {
-                    // Values went from + to -
-                    input.set(SDLButtonMapping::ButtonType::STICK, i, ANALOG_RANGE_POS_TO_NEG);
-                }
-
-                return input;
-            }
-        }
-
-        // Iterate over all joystick buttons
-        for (int i = 0; i < joystick.num_buttons; i++) {
-            if (SDL_GetJoystickButton(joystick._ptr, i)) {
-                input.set(SDLButtonMapping::ButtonType::BUTTON, i, 1);
-                return input;
-            }
-        }
-
-        // Iterate over DPad hats and record their value
-        for (int i = 0; i < joystick.num_hats; i++) {
-            int hat_direction = SDL_GetJoystickHat(joystick._ptr, i);
-            if (hat_direction != 0) {
-                input.set(SDLButtonMapping::ButtonType::HAT, i, hat_direction);
-                return input;
-            }
+        get_sdljoystick_mapping_input(joystick, input);
+        if (input.input_type != SDLButtonMapping::ButtonType::UNSET) {
+            return input;
         }
 
         Sleep(20);
