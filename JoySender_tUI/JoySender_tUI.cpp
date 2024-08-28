@@ -225,7 +225,7 @@ int joySendertUI(Arguments& args) {
     //############################################################
     //# Main Loop keeps client running
     //# asks for new host if, inner Connection Loop, fails 3 times
-    while (!APP_KILLED) {        
+    while (!APP_KILLED) {
         // Acquire host address for connection attempt
         if (args.host.empty()) {       
 

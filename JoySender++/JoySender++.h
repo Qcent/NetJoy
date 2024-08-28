@@ -23,6 +23,7 @@ THE SOFTWARE.
 */
 
 #pragma once
+#define NOMINMAX
 
 #include <iostream>
 #include <conio.h>
@@ -40,7 +41,6 @@ constexpr auto OLDMAP_WARNING_MSG = "! WARNING OLD MAP FILE DETECTED, RE-MAPPING
 std::string g_outputText;
 
 volatile sig_atomic_t APP_KILLED = 0;
-void signalHandler(int signal);
 
 // Function safely returns environment variables
 std::string g_getenv(const char* variableName);

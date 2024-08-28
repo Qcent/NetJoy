@@ -822,63 +822,11 @@ void buttonStatesFromXboxReport(XUSB_REPORT& xboxReport) {
     }
 }
 
-// Used in remapping screen for visual button feedback * mirrors get_xbox_report_from_SDL_events() from GamepadMapping.hpp
+// Clears and sets a XUSB_REPORT from a vector of SDLButtonMapping::ButtonMapInput
 void get_xbox_report_from_activeInputs(SDLJoystickData& joystick, const std::vector<SDLButtonMapping::ButtonMapInput>& activeInputs, XUSB_REPORT& xbox_report) {
     xbox_report = { 0 };
-    SDLButtonMapping::ButtonMapInput dummyInput;
-    for (auto& activeInput : activeInputs) {
-        bool input_is_set = 0;
-        switch (activeInput.input_type) {
-
-        case SDLButtonMapping::ButtonType::BUTTON:
-            if (joystick.mapping.inverseMap.find(activeInput) != joystick.mapping.inverseMap.end()) {
-                SDL_event_to_xbox_report(activeInput, joystick.mapping.inverseMap[activeInput], xbox_report, joystick);
-            }
-            break;
-
-        case SDLButtonMapping::ButtonType::HAT:
-            // All dpad/hat directions must be assessed, as a single value is given for entire dpad state
-            for (int dpad_dir : DPAD_DIRECTIONS) {
-                // bitwise AND comparison of dpad directions (extracts single direction from possible multi direction)
-                if (activeInput.value & dpad_dir) {
-                    dummyInput.set(activeInput.input_type, activeInput.index, dpad_dir);
-
-                    // If the dummyInput exists in the inverseMap: set xbox_report accordingly
-                    if (joystick.mapping.inverseMap.find(dummyInput) != joystick.mapping.inverseMap.end()) {
-                        SDL_event_to_xbox_report(dummyInput, joystick.mapping.inverseMap[dummyInput], xbox_report, joystick);
-                    }
-                }
-            }
-            break;
-
-        case SDLButtonMapping::ButtonType::STICK:
-            // Ensure extended range mode by inserting mapped axis range value into the input signature for known extended range inputs
-            for (auto extRangeInput : joystick.mapping.extRangeInputList) {
-                dummyInput.set(activeInput.input_type, activeInput.index, joystick.mapping.buttonMaps[extRangeInput].value); // insert axis range value
-
-                // Check if dummy input == stored button mapping, ensuring that extended range mode will be used if it is set
-                if (joystick.mapping.buttonMaps[extRangeInput] == dummyInput) {
-                    // set index to mapped range value / and value to axis value (in special)
-                    dummyInput.index = dummyInput.value;
-                    dummyInput.value = activeInput.special;
-                    SDL_event_to_xbox_report(dummyInput, extRangeInput, xbox_report, joystick);
-                    input_is_set = true;
-                    break;
-                }
-            }
-            if (input_is_set) break;
-
-            // Check if the activeInput exists in the inverseMap
-            if (joystick.mapping.inverseMap.find(activeInput) != joystick.mapping.inverseMap.end()) {
-                // set value for stick with special
-                dummyInput.set(activeInput.input_type, activeInput.index, activeInput.special);
-                SDL_event_to_xbox_report(dummyInput, joystick.mapping.inverseMap[activeInput], xbox_report, joystick);
-            }
-            break;
-
-        default:
-            break;
-        }
+    for (const auto& activeInput : activeInputs) {
+        get_xbox_report_common(joystick, activeInput, activeInput.special, xbox_report);
     }
 }
 
@@ -915,6 +863,7 @@ std::vector<SDLButtonMapping::ButtonMapInput> get_sdljoystick_input_list(const S
         int hat_direction = SDL_GetJoystickHat(joystick._ptr, i);
         if (hat_direction != 0) {
             input.set(SDLButtonMapping::ButtonType::HAT, i, hat_direction);
+            input.special = input.value;
             inputs.push_back(input);
         }
     }

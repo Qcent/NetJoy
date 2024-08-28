@@ -100,6 +100,7 @@ public:
             special = -1;
         }
 
+        // Ignores special ... bug or feature? (feature)
         bool operator==(const ButtonMapInput& other) const {
             return (this->input_type == other.input_type) &&
                 (this->index == other.index) &&
@@ -987,7 +988,7 @@ void clear_XBOX_REPORT_value(const SDLButtonMapping::ButtonName emulatedInput, X
 }
 
 // Function will update an XUSB_REPORT from a SDLButtonMapping::ButtonMapInput targeting emulatedInput
-void SDL_event_to_xbox_report(const SDLButtonMapping::ButtonMapInput sdlEvent, const SDLButtonMapping::ButtonName emulatedInput, XUSB_REPORT& xboxReport, SDLJoystickData& joystick) {
+void input_event_to_xbox_report(const SDLButtonMapping::ButtonMapInput sdlEvent, const SDLButtonMapping::ButtonName emulatedInput, XUSB_REPORT& xboxReport, SDLJoystickData& joystick) {
     using inputName = SDLButtonMapping::ButtonName;
     using inputType = SDLButtonMapping::ButtonType;
     int absVal = 0;
@@ -1033,7 +1034,7 @@ void SDL_event_to_xbox_report(const SDLButtonMapping::ButtonMapInput sdlEvent, c
         break;
 
     case inputType::STICK:
-        absVal = max((abs(sdlEvent.value) - 1), 0); // prevents off by 1 errors when swapping INT16_MAX-INT16_MIN
+        absVal = std::max((abs(sdlEvent.value) - 1), 0); // prevents off by 1 errors when swapping INT16_MAX-INT16_MIN
         switch (emulatedInput) {
         case inputName::LEFT_STICK_LEFT:
             xboxReport.sThumbLX = -absVal;
@@ -1146,95 +1147,116 @@ void SDL_event_to_xbox_report(const SDLButtonMapping::ButtonMapInput sdlEvent, c
     }
 }
 
-// Builds a new XUSB_REPORT from current SDL_Events returns false if joystick is removed, else true
+// Turns button presses into input_events and eventual XUSB_REPORT values 
+void processButtonTypeButton(SDLJoystickData& joystick, SDLButtonMapping::ButtonMapInput inputMap, int inputValue, XUSB_REPORT& xbox_report) {
+    if (joystick.mapping.inverseMap.find(inputMap) != joystick.mapping.inverseMap.end()) {
+        auto emulatedInput = joystick.mapping.inverseMap[inputMap];
+        inputMap.value = inputValue;
+        input_event_to_xbox_report(inputMap, emulatedInput, xbox_report, joystick);
+    }
+}
+
+// Turns DPAD presses into input_events and eventual XUSB_REPORT values
+void processButtonTypeHat(SDLJoystickData& joystick, SDLButtonMapping::ButtonMapInput inputMap, int inputValue, XUSB_REPORT& xbox_report) {
+    for (int dpad_dir : DPAD_DIRECTIONS) {
+        if (inputValue & dpad_dir) {
+            inputMap.value = dpad_dir;
+            if (joystick.mapping.inverseMap.find(inputMap) != joystick.mapping.inverseMap.end()) {
+                input_event_to_xbox_report(inputMap, joystick.mapping.inverseMap[inputMap], xbox_report, joystick);
+            }
+        }
+    }
+}
+
+// Turns analog movement into input_events and eventual XUSB_REPORT values
+void processButtonTypeStick(SDLJoystickData& joystick, SDLButtonMapping::ButtonMapInput inputMap, int axisValue, XUSB_REPORT& xbox_report) {
+    // Ensure extended range mode by inserting mapped axis range-value into the input signature for known extended range inputs
+    SDLButtonMapping::ButtonMapInput dummyInput;
+    for (auto extRangeInput : joystick.mapping.extRangeInputList) {
+        dummyInput.set(inputMap.input_type, inputMap.index, joystick.mapping.buttonMaps[extRangeInput].value); // insert axis range-value
+
+        // Check if dummyInput == stored button mapping, ensuring that extended range mode will be used if it is set
+        if (joystick.mapping.buttonMaps[extRangeInput] == dummyInput) {
+            // set index to mapped range-value / and value to axis value (in special)
+            dummyInput.index = dummyInput.value;
+            dummyInput.value = axisValue;
+            input_event_to_xbox_report(dummyInput, extRangeInput, xbox_report, joystick);
+            return;
+        }
+    }
+
+    // Check if the inputMap exists in the inverseMap
+    if (joystick.mapping.inverseMap.find(inputMap) != joystick.mapping.inverseMap.end()) {
+        auto emulatedInput = joystick.mapping.inverseMap[inputMap];
+        // set value from stick input
+        inputMap.value = axisValue;
+        input_event_to_xbox_report(inputMap, emulatedInput, xbox_report, joystick);
+    }
+    return;
+}
+
+// Processes SDLButtonMapping::ButtonMapInput into XUSB_REPORT values through helper functions
+void get_xbox_report_common(SDLJoystickData& joystick, const SDLButtonMapping::ButtonMapInput& inputMap, int inputSpecial, XUSB_REPORT& xbox_report) {
+    switch (inputMap.input_type) {
+    case SDLButtonMapping::ButtonType::BUTTON:
+        processButtonTypeButton(joystick, inputMap, inputSpecial, xbox_report);
+        break;
+
+    case SDLButtonMapping::ButtonType::HAT:
+        processButtonTypeHat(joystick, inputMap, inputSpecial, xbox_report);
+        break;
+
+    case SDLButtonMapping::ButtonType::STICK:
+        processButtonTypeStick(joystick, inputMap, inputSpecial, xbox_report);
+        break;
+
+    default:
+        break;
+    }
+}
+
+// Updates a XUSB_REPORT from current SDL_Events returns false if joystick is removed, else true
 bool get_xbox_report_from_SDL_events(SDLJoystickData& joystick, XUSB_REPORT& xbox_report) {
     SDL_Event event;
-    SDLButtonMapping::ButtonMapInput eventMap;
     while (SDL_PollEvent(&event) != 0) {
-        int input_is_set = false;
         if (event.jdevice.which != joystick.joyID) {
-            continue; // bypass any events not from our joystick
+            continue;
         }
+        SDLButtonMapping::ButtonMapInput eventMap;
         switch (event.type) {
-        case SDL_EVENT_JOYSTICK_REMOVED:
-            return false;
-            break;
-
         case SDL_EVENT_JOYSTICK_BUTTON_DOWN:
-            eventMap.set(SDLButtonMapping::ButtonType::BUTTON, (int)event.jbutton.button, true);
-
-            // Check if the eventMap exists in the inverseMap
-            if (joystick.mapping.inverseMap.find(eventMap) != joystick.mapping.inverseMap.end()) {
-                SDL_event_to_xbox_report(eventMap, joystick.mapping.inverseMap[eventMap], xbox_report, joystick);
-            }
+            eventMap.set(SDLButtonMapping::ButtonType::BUTTON, event.jbutton.button, true);
+            get_xbox_report_common(joystick, eventMap, true, xbox_report);
             break;
 
         case SDL_EVENT_JOYSTICK_BUTTON_UP:
-            eventMap.set(SDLButtonMapping::ButtonType::BUTTON, (int)event.jbutton.button, true);
-
-            // Check if the eventMap exists in the inverseMap
-            if (joystick.mapping.inverseMap.find(eventMap) != joystick.mapping.inverseMap.end()) {
-                auto emulatedInput = joystick.mapping.inverseMap[eventMap];
-                eventMap.value = false;
-                SDL_event_to_xbox_report(eventMap, emulatedInput, xbox_report, joystick);
-            }
+            eventMap.set(SDLButtonMapping::ButtonType::BUTTON, event.jbutton.button, true);
+            get_xbox_report_common(joystick, eventMap, false, xbox_report);
             break;
 
         case SDL_EVENT_JOYSTICK_HAT_MOTION:
             // All values set by DPAD must be reset on DPAD value change
             for (auto const& input : joystick.mapping.dpadInputList) {
-                    clear_XBOX_REPORT_value(input, xbox_report);
+                clear_XBOX_REPORT_value(input, xbox_report);
             }
-
-            // All dpad/hat directions must be assessed, as a single value is given for entire dpad state
-            for (int dpad_dir : DPAD_DIRECTIONS) {
-                // bitwise AND comparison of dpad directions (extracts single direction from possible multi direction)
-                if (event.jhat.value & dpad_dir) {
-                    eventMap.set(SDLButtonMapping::ButtonType::HAT, (int)event.jhat.hat, dpad_dir);
-
-                    // If the eventMap exists in the inverseMap: set xbox_report accordingly
-                    if (joystick.mapping.inverseMap.find(eventMap) != joystick.mapping.inverseMap.end()) {
-                        SDL_event_to_xbox_report(eventMap, joystick.mapping.inverseMap[eventMap], xbox_report, joystick);
-                    }
-                }
-            }
+            eventMap.set(SDLButtonMapping::ButtonType::HAT, event.jhat.hat, false);
+            processButtonTypeHat(joystick, eventMap, event.jhat.value, xbox_report);
             break;
 
         case SDL_EVENT_JOYSTICK_AXIS_MOTION:
-            // Ensure extended range mode by inserting mapped axis range value into the input signature for known extended range inputs
-            for (auto extRangeInput : joystick.mapping.extRangeInputList) {
-                eventMap.set(SDLButtonMapping::ButtonType::STICK, event.jaxis.axis, joystick.mapping.buttonMaps[extRangeInput].value); // insert axis range value
-
-                // Check if eventMap == stored button mapping, ensuring that extended range mode will be used if it is set
-                if (joystick.mapping.buttonMaps[extRangeInput] == eventMap) {
-                    // set index to mapped range value / and value to axis value (in special)
-                    eventMap.index = eventMap.value;
-                    eventMap.value = event.jaxis.value;
-                    SDL_event_to_xbox_report(eventMap, extRangeInput, xbox_report, joystick);
-                    input_is_set = true;
-                    break;
-                }
-            }
-            if (input_is_set) break;
-
-            // spoof mapped input range value based on axis value
             eventMap.set(SDLButtonMapping::ButtonType::STICK, event.jaxis.axis, event.jaxis.value > 0 ? 1 : -1);
-
-            // Check if the spoofed eventMap exists in the inverseMap
-            if (joystick.mapping.inverseMap.find(eventMap) != joystick.mapping.inverseMap.end()) {
-                auto emulatedInput = joystick.mapping.inverseMap[eventMap];
-                // set value from stick input
-                eventMap.value = event.jaxis.value;
-                SDL_event_to_xbox_report(eventMap, emulatedInput, xbox_report, joystick);
-            }
+            processButtonTypeStick(joystick, eventMap, event.jaxis.value, xbox_report);
             break;
 
         case SDL_EVENT_QUIT:
             APP_KILLED = true;
+            return false;
+
+        default:
             break;
         }
     }
-    return 1;
+    return true;
 }
 
 // Will output XUSB_REPORT values to g_outputText
