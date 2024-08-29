@@ -5,7 +5,9 @@
 struct Arguments {
     std::string host = "";
     int port = 5000;
+#ifndef NetJoyTUI
     bool latency = true;
+#endif
     bool select = true;
     int mode = 1;
     int fps = 30;
@@ -14,20 +16,34 @@ struct Arguments {
 Arguments parse_arguments(int argc, char* argv[]) {
     Arguments args;
 
-    cxxopts::Options options("JoySender++", "Send joystick data over tcp/ip");
+#ifdef NetJoyTUI 
+    cxxopts::Options options("JoySender_tUI", "JoySender++ (tUI) : Send joystick data over tcp/ip");
+#else
+    cxxopts::Options options("JoySender++", "JoySender++ : Send joystick data over tcp/ip");
+#endif
     options.allow_unrecognised_options();
     options.add_options()
         ("n,host", "IP address of host/server", cxxopts::value<std::string>()->default_value(""))
         ("p,port", "Port to run on", cxxopts::value<int>()->default_value("5000"))
         ("f,fps", "How many times to attempt to communicate with server per second", cxxopts::value<int>()->default_value("30"))
         ("m,mode", "Operational Mode: 1: Xbox360 Emulation, 2: DS4 Emulation", cxxopts::value<int>()->default_value("1"))
+#ifndef NetJoyTUI 
         ("l,latency", "Show latency output", cxxopts::value<bool>()->implicit_value("true"))
+#endif        
         ("a,auto", "Auto select first joystick", cxxopts::value<bool>()->implicit_value("true"))
         ("h,help", "Display this help message");
 
     options.parse_positional("host");
+    cxxopts::ParseResult result;
 
-    auto result = options.parse(argc, argv);
+    try {
+        result = options.parse(argc, argv);
+    }
+    catch (const std::exception& e) {
+        std::cerr << e.what() << std::endl;
+        std::cout << options.help() << std::endl;
+        exit(0);
+    }
 
     if (result.count("help")) {
         std::cout << options.help() << std::endl;
@@ -42,7 +58,9 @@ Arguments parse_arguments(int argc, char* argv[]) {
 
     args.host = result["host"].as<std::string>();
     args.port = result["port"].as<int>();
+#ifndef NetJoyTUI 
     args.latency = result["latency"].as<bool>();
+#endif
     args.select = result["auto"].as<bool>();
     args.mode = result["mode"].as<int>();
     args.fps = result["fps"].as<int>();
