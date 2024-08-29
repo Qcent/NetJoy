@@ -34,6 +34,9 @@ THE SOFTWARE.
 #include "TCPConnection.h"
 #include "FPSCounter.hpp"
 
+#undef min
+#undef max
+
 #include "./../JoySender++/JoySender++.h"
 #include "./../JoySender++/GamepadMapping.hpp"
 #include "./../JoySender++/DS4Manager.hpp"
@@ -826,7 +829,7 @@ void buttonStatesFromXboxReport(XUSB_REPORT& xboxReport) {
 void get_xbox_report_from_activeInputs(SDLJoystickData& joystick, const std::vector<SDLButtonMapping::ButtonMapInput>& activeInputs, XUSB_REPORT& xbox_report) {
     xbox_report = { 0 };
     for (const auto& activeInput : activeInputs) {
-        get_xbox_report_common(joystick, activeInput, activeInput.special, xbox_report);
+        get_xbox_report_common(joystick, activeInput, activeInput.range, xbox_report);
     }
 }
 
@@ -845,7 +848,7 @@ std::vector<SDLButtonMapping::ButtonMapInput> get_sdljoystick_input_list(const S
         int axis_value = SDL_GetJoystickAxis(joystick._ptr, i); // / 32767.0f;
         if (std::abs(axis_value - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) {
             input.set(SDLButtonMapping::ButtonType::STICK, i, axis_value < 0 ? -1 : 1);
-            input.special = axis_value;
+            input.range = axis_value;
             inputs.push_back(input);
         }
     }
@@ -863,7 +866,7 @@ std::vector<SDLButtonMapping::ButtonMapInput> get_sdljoystick_input_list(const S
         int hat_direction = SDL_GetJoystickHat(joystick._ptr, i);
         if (hat_direction != 0) {
             input.set(SDLButtonMapping::ButtonType::HAT, i, hat_direction);
-            input.special = input.value;
+            input.range = input.value;
             inputs.push_back(input);
         }
     }
@@ -1149,7 +1152,7 @@ int tUISelectJoystickDialog(SDLJoystickData& joystick, textUI& screen) {
     }
 
     // Enforce max joysticks
-    numJoysticks = min(numJoysticks, MAX_JOYSTICKS);
+    numJoysticks = std::min(numJoysticks, MAX_JOYSTICKS);
     mouseButton* availableJoystickBtn = new mouseButton[numJoysticks];
 
     auto cleanMemory = [&]() {
@@ -1640,7 +1643,7 @@ std::string tUIGetHostAddress(textUI& screen) {
                     octet[octNum].insert(L'0');
                     octet[octNum].Draw();
                 }
-                octNum = max(0, octNum - 1);
+                octNum = std::max(0, octNum - 1);
                 setOctetCursorPos();
             }
             
@@ -1670,7 +1673,7 @@ std::string tUIGetHostAddress(textUI& screen) {
             }
                     
             firstDot = 0;
-            octNum = min(octNum+1,4);
+            octNum = std::min(octNum+1,4);
             octet[octNum].cursorToBegin();
             setOctetCursorPos();
         }
@@ -2253,8 +2256,8 @@ int tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::B
                     && received_input.input_type == SDLButtonMapping::ButtonType::STICK) {
                     if ((received_input.value == ANALOG_RANGE_NEG_TO_POS)
                         || (received_input.value == ANALOG_RANGE_POS_TO_NEG)) {
-                        received_input.special = received_input.value;
-                        received_input.value = (received_input.special == ANALOG_RANGE_NEG_TO_POS) ? -1 : 1;
+                        received_input.range = received_input.value;
+                        received_input.value = (received_input.range == ANALOG_RANGE_NEG_TO_POS) ? -1 : 1;
                     }
                 }
 
