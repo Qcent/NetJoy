@@ -51,6 +51,8 @@ int MAPPING_FLAG = 0;
 int OLDMAP_FLAG = 0;
 HANDLE g_hConsoleInput;
 
+void signalHandler(int signal);
+
 //----------------------------------------------------------------------------
 // lifted from : https://cplusplus.com/forum/windows/10731/
 struct console
