@@ -26,6 +26,13 @@ THE SOFTWARE.
 #include "GamepadMapping.hpp"
 #include "DS4Manager.hpp"
 
+void signalHandler(int signal) {
+    if (signal == SIGINT) {
+        APP_KILLED = 1;
+        Sleep(5);
+    }
+}
+
 // For FPS and Latency Output
 void overwriteFPS(const std::string& text) {
     // Move the cursor to the beginning of the last line
@@ -434,11 +441,4 @@ int main(int argc, char **argv)
     showConsoleCursor();
 
     return 1;
-}
-
-void signalHandler(int signal) {
-    if (signal == SIGINT) {
-        APP_KILLED = 1;
-        Sleep(5);
-    }
 }
