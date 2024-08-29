@@ -988,12 +988,12 @@ void clear_XBOX_REPORT_value(const SDLButtonMapping::ButtonName emulatedInput, X
 }
 
 // Function will update an XUSB_REPORT from a SDLButtonMapping::ButtonMapInput targeting emulatedInput
-void input_event_to_xbox_report(const SDLButtonMapping::ButtonMapInput sdlEvent, const SDLButtonMapping::ButtonName emulatedInput, XUSB_REPORT& xboxReport, SDLJoystickData& joystick) {
+void input_event_to_xbox_report(const SDLButtonMapping::ButtonMapInput input_event, const SDLButtonMapping::ButtonName emulatedInput, XUSB_REPORT& xboxReport, SDLJoystickData& joystick) {
     using inputName = SDLButtonMapping::ButtonName;
     using inputType = SDLButtonMapping::ButtonType;
     int absVal = 0;
 
-    switch (sdlEvent.input_type) {
+    switch (input_event.input_type) {
     case inputType::HAT:
         switch (emulatedInput) {
         case inputName::LEFT_STICK_LEFT:
@@ -1034,7 +1034,7 @@ void input_event_to_xbox_report(const SDLButtonMapping::ButtonMapInput sdlEvent,
         break;
 
     case inputType::STICK:
-        absVal = std::max((abs(sdlEvent.value) - 1), 0); // prevents off by 1 errors when swapping INT16_MAX-INT16_MIN
+        absVal = std::max((abs(input_event.value) - 1), 0); // prevents off by 1 errors when swapping INT16_MAX-INT16_MIN
         switch (emulatedInput) {
         case inputName::LEFT_STICK_LEFT:
             xboxReport.sThumbLX = -absVal;
@@ -1061,22 +1061,22 @@ void input_event_to_xbox_report(const SDLButtonMapping::ButtonMapInput sdlEvent,
             xboxReport.sThumbRY = -absVal;
             break;
         case inputName::LEFT_TRIGGER:
-            if (sdlEvent.index == ANALOG_RANGE_NEG_TO_POS) {
-                xboxReport.bLeftTrigger = SignedShortToUnsignedByte(sdlEvent.value);
+            if (input_event.index == ANALOG_RANGE_NEG_TO_POS) {
+                xboxReport.bLeftTrigger = SignedShortToUnsignedByte(input_event.value);
             }
-            else if (sdlEvent.index == ANALOG_RANGE_POS_TO_NEG) {
-                xboxReport.bLeftTrigger = SignedShortToUnsignedByteReversed(sdlEvent.value);
+            else if (input_event.index == ANALOG_RANGE_POS_TO_NEG) {
+                xboxReport.bLeftTrigger = SignedShortToUnsignedByteReversed(input_event.value);
             }
             else {
                 xboxReport.bLeftTrigger = ShortToByte(absVal);
             }
             break;
         case inputName::RIGHT_TRIGGER:
-            if (sdlEvent.index == ANALOG_RANGE_NEG_TO_POS) {
-                xboxReport.bRightTrigger = SignedShortToUnsignedByte(sdlEvent.value);
+            if (input_event.index == ANALOG_RANGE_NEG_TO_POS) {
+                xboxReport.bRightTrigger = SignedShortToUnsignedByte(input_event.value);
             }
-            else if (sdlEvent.index == ANALOG_RANGE_POS_TO_NEG) {
-                xboxReport.bRightTrigger = SignedShortToUnsignedByteReversed(sdlEvent.value);
+            else if (input_event.index == ANALOG_RANGE_POS_TO_NEG) {
+                xboxReport.bRightTrigger = SignedShortToUnsignedByteReversed(input_event.value);
             }
             else {
                 xboxReport.bRightTrigger = ShortToByte(absVal);
@@ -1087,13 +1087,13 @@ void input_event_to_xbox_report(const SDLButtonMapping::ButtonMapInput sdlEvent,
             xboxReport.wButtons &= ~toXUSB[emulatedInput];
 
             // for sticks that use *special* full range (INT16_MIN - INT16_MAX)
-            if ((sdlEvent.special == ANALOG_RANGE_NEG_TO_POS
-                && sdlEvent.value < (INT16_MIN + AXIS_INPUT_DEADZONE))
-                || (sdlEvent.special == ANALOG_RANGE_POS_TO_NEG
-                    && sdlEvent.value > (INT16_MAX - AXIS_INPUT_DEADZONE)))
+            if ((input_event.special == ANALOG_RANGE_NEG_TO_POS
+                && input_event.value < (INT16_MIN + AXIS_INPUT_DEADZONE))
+                || (input_event.special == ANALOG_RANGE_POS_TO_NEG
+                    && input_event.value > (INT16_MAX - AXIS_INPUT_DEADZONE)))
                 break;
             // for sticks that use signed axis            
-            else if (sdlEvent.special == -1 && (std::abs(sdlEvent.value - joystick.avgBaseline[sdlEvent.index]) < AXIS_INPUT_DEADZONE))
+            else if (input_event.special == -1 && (std::abs(input_event.value - joystick.avgBaseline[input_event.index]) < AXIS_INPUT_DEADZONE))
                 break;
 
             // Return corresponding XBOX_BUTTON value based on emulatedInput
@@ -1107,37 +1107,37 @@ void input_event_to_xbox_report(const SDLButtonMapping::ButtonMapInput sdlEvent,
     case inputType::BUTTON:
         switch (emulatedInput) {
         case inputName::LEFT_STICK_LEFT:
-            xboxReport.sThumbLX = sdlEvent.value * INT16_MIN;
+            xboxReport.sThumbLX = input_event.value * INT16_MIN;
             break;
         case inputName::LEFT_STICK_RIGHT:
-            xboxReport.sThumbLX = sdlEvent.value * INT16_MAX;
+            xboxReport.sThumbLX = input_event.value * INT16_MAX;
             break;
         case inputName::LEFT_STICK_UP:
-            xboxReport.sThumbLY = sdlEvent.value * INT16_MAX;
+            xboxReport.sThumbLY = input_event.value * INT16_MAX;
             break;
         case inputName::LEFT_STICK_DOWN:
-            xboxReport.sThumbLY = sdlEvent.value * INT16_MIN;
+            xboxReport.sThumbLY = input_event.value * INT16_MIN;
             break;
         case inputName::RIGHT_STICK_LEFT:
-            xboxReport.sThumbRX = sdlEvent.value * INT16_MIN;
+            xboxReport.sThumbRX = input_event.value * INT16_MIN;
             break;
         case inputName::RIGHT_STICK_RIGHT:
-            xboxReport.sThumbRX = sdlEvent.value * INT16_MAX;
+            xboxReport.sThumbRX = input_event.value * INT16_MAX;
             break;
         case inputName::RIGHT_STICK_UP:
-            xboxReport.sThumbRY = sdlEvent.value * INT16_MAX;
+            xboxReport.sThumbRY = input_event.value * INT16_MAX;
             break;
         case inputName::RIGHT_STICK_DOWN:
-            xboxReport.sThumbRY = sdlEvent.value * INT16_MIN;
+            xboxReport.sThumbRY = input_event.value * INT16_MIN;
             break;
         case inputName::LEFT_TRIGGER:
-            xboxReport.bLeftTrigger = sdlEvent.value * UINT8_MAX;
+            xboxReport.bLeftTrigger = input_event.value * UINT8_MAX;
             break;
         case inputName::RIGHT_TRIGGER:
-            xboxReport.bRightTrigger = sdlEvent.value * UINT8_MAX;
+            xboxReport.bRightTrigger = input_event.value * UINT8_MAX;
             break;
         default:
-            xboxReport.wButtons += (sdlEvent.value ? 1 : -1) * toXUSB[emulatedInput];
+            xboxReport.wButtons += (input_event.value ? 1 : -1) * toXUSB[emulatedInput];
             break;
         }
         break;
