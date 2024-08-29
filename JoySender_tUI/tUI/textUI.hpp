@@ -493,8 +493,8 @@ public:
         if (_currentPosition == _length)
             _input[_currentPosition-1] = L'\0';
         else
-            swprintf(_input + _currentPosition, min(_length - (_currentPosition + 1), _maxLength - (_currentPosition + 1)) + 1, L"%s", _input + _currentPosition + 1);
-                
+            swprintf(_input + _currentPosition, std::min(_length - (_currentPosition + 1), _maxLength - (_currentPosition + 1)) + 1, L"%s", _input + _currentPosition + 1);
+
         --_length;
         --_currentPosition;
     }
@@ -502,7 +502,7 @@ public:
     void del() {
         if (_currentPosition == _length) return;
 
-        swprintf(_input + _currentPosition + 1, min(_length - (_currentPosition + 2), _maxLength - (_currentPosition + 2)) + 1, L"%s", _input + _currentPosition + 2);
+        swprintf(_input + _currentPosition + 1, std::min(_length - (_currentPosition + 2), _maxLength - (_currentPosition + 2)) + 1, L"%s", _input + _currentPosition + 2);
         --_length;
     }
 
@@ -518,7 +518,7 @@ public:
         if (_currentPosition == _maxLength) return;
 
         _input[_currentPosition] = chR;
-        _input[_currentPosition+1] = L'\0';
+        _input[_currentPosition + 1] = L'\0';
         ++_currentPosition;
         if (_currentPosition > _length)
             ++_length;
@@ -526,12 +526,12 @@ public:
 
     void cursorRight(unsigned int move = 1) {
         if (_currentPosition == _length) return;
-        _currentPosition += min(move, _length - _currentPosition);
+        _currentPosition += std::min(move, _length - _currentPosition);
     }
 
     void cursorLeft(unsigned int move = 1) {
         if (!_currentPosition) return;
-        _currentPosition -= min(move, _currentPosition);
+        _currentPosition -= std::min(move, _currentPosition);
     }
 
     void cursorToBegin() {
@@ -635,7 +635,7 @@ public:
             _length++;
         }
 
-        _lines = max(1,_length / _width);
+        _lines = std::max(1, _length / _width);
         _callback = nullptr;
         _partner = nullptr;
         _id = 0;
@@ -653,7 +653,7 @@ public:
         while (text[_length] != L'\0') {
             _length++;
         }
-        _lines = max(1, _length / _width);
+        _lines = std::max(1, _length / _width);
 
         _callback = nullptr;
         _partner = nullptr;
@@ -671,7 +671,7 @@ public:
         while (text[_length] != L'\0') {
             _length++;
         }
-        _lines = max(1, _length / _width);
+        _lines = std::max(1, _length / _width);
 
         _callback = nullptr;
         _partner = nullptr;
@@ -701,7 +701,7 @@ public:
     }
 
     void Update() {
-        if(_callback != nullptr) _callback(*this);
+        if (_callback != nullptr) _callback(*this);
 
         if (_status & MOUSE_DOWN)       // clicked
             setTextColor(_selectColor);
@@ -711,17 +711,17 @@ public:
             setTextColor(_highlightColor);
         else                            // default
             setTextColor(_defaultColor);
-        
+
         int line = 0;
         setCursorPosition(_pos);
         for (int i = 1; i - 1 < _length; i++) {
             if (_text[i - 1] == '\t') {
                 // advance cursor
-                setCursorPosition(_pos.X + i%_width, _pos.Y + line);
+                setCursorPosition(_pos.X + i % _width, _pos.Y + line);
             }
             else
                 std::wcout << _text[i - 1];
-            if (i % _width == 0 && i < _length){
+            if (i % _width == 0 && i < _length) {
                 line++;
                 setCursorPosition(_pos.X, _pos.Y + line);
             }
@@ -730,7 +730,7 @@ public:
     }
 
     void Clear(int color = -1) {
-        if(color>-1)
+        if (color > -1)
             setTextColor(color);
         else
             setTextColor(_defaultColor);
@@ -774,7 +774,7 @@ public:
     }
 
     void CheckMouseHover(COORD mousePos) {
-        if (mousePos.X >= _pos.X && mousePos.X <= _pos.X + _width-1 && mousePos.Y >= _pos.Y && mousePos.Y <= _pos.Y + _lines - 1) {
+        if (mousePos.X >= _pos.X && mousePos.X <= _pos.X + _width - 1 && mousePos.Y >= _pos.Y && mousePos.Y <= _pos.Y + _lines - 1) {
             if (!(_status & MOUSE_HOVERED)) {
                 _status = MOUSE_HOVERED;
                 if (_Settings & UNHOVERABLE) return;
@@ -787,18 +787,18 @@ public:
         }
     }
 
-    void CheckMouseClick(BYTE mouseState) {      
+    void CheckMouseClick(BYTE mouseState) {
         if (_Settings & UNCLICKABLE) return;
         if (_status & MOUSE_HOVERED) {
 
             if (mouseState == MOUSE_DOWN && !(_status & MOUSE_DOWN)) {
-                _status |= MOUSE_DOWN; 
+                _status |= MOUSE_DOWN;
                 _status &= ~MOUSE_UP;
                 Update();
             }
             else if (_status & MOUSE_DOWN) { // mouse up
-                _status &= ~MOUSE_DOWN; 
-                _status |= MOUSE_UP; 
+                _status &= ~MOUSE_DOWN;
+                _status |= MOUSE_UP;
                 Update();
             }
         }
@@ -914,9 +914,9 @@ public:
     void SetBackdropColor(WORD col) {
         _backdropColor = col;
     }
-    
+
     WORD GetBackdropColor() {
-       return _backdropColor;
+        return _backdropColor;
     }
 
     void DrawBackdrop() {
@@ -936,7 +936,7 @@ public:
             _textInputs[i]->Draw();
         }
     }
-    
+
     void ReDraw() {
         DrawBackdrop();
         DrawButtons();
@@ -970,7 +970,7 @@ public:
     }
 
     void CheckMouseClick(BYTE mouseState) {
-        for (int i = 0; i < max(_buttonsCount, _inputsCount); i++) {
+        for (int i = 0; i < std::max(_buttonsCount, _inputsCount); i++) {
             if (i < _buttonsCount)
                 _buttons[i]->CheckMouseClick(mouseState);
             if (i < _inputsCount)
@@ -979,7 +979,7 @@ public:
     }
 
     void CheckMouseHover(COORD mousePos) {
-        for (int i = 0; i < max(_buttonsCount,_inputsCount); i++) {
+        for (int i = 0; i < std::max(_buttonsCount,_inputsCount); i++) {
             if(i < _buttonsCount)
                 _buttons[i]->CheckMouseHover(mousePos);
             if (i < _inputsCount)
