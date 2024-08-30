@@ -71,12 +71,12 @@ public:
         LEFT_TRIGGER,
         RIGHT_TRIGGER,
         LEFT_STICK_LEFT,
-        LEFT_STICK_UP,
         LEFT_STICK_RIGHT,
+        LEFT_STICK_UP,
         LEFT_STICK_DOWN,
         RIGHT_STICK_LEFT,
-        RIGHT_STICK_UP,
         RIGHT_STICK_RIGHT,
+        RIGHT_STICK_UP,
         RIGHT_STICK_DOWN,
     };
 
@@ -494,6 +494,7 @@ BYTE ShortToByte(SHORT value){
     // Round the scaled value to the nearest integer
     BYTE byteValue = static_cast<BYTE>(std::round(scaledValue));
 
+    if (byteValue < 3) byteValue &= byteValue; // filter low values
     return byteValue;
 }
 
@@ -994,11 +995,38 @@ void clear_XBOX_REPORT_value(const SDLButtonMapping::ButtonName emulatedInput, X
     }
 }
 
+
+// For handling full analog range for trigger outputs, must accept BYTE and SHORT as target
+template<typename T>
+void setTriggerValue(T& target, int16_t range, int16_t value, int16_t absVal) {
+    if (range == ANALOG_RANGE_NEG_TO_POS) {
+        target = SignedShortToUnsignedByte(value);
+    }
+    else if (range == ANALOG_RANGE_POS_TO_NEG) {
+        target = SignedShortToUnsignedByteReversed(value);
+    }
+    else {
+        target = ShortToByte(absVal);
+    }
+}
+
 // Function will update an XUSB_REPORT from a SDLButtonMapping::ButtonMapInput targeting emulatedInput
 void input_event_to_xbox_report(const SDLButtonMapping::ButtonMapInput input_event, const SDLButtonMapping::ButtonName emulatedInput, XUSB_REPORT& xboxReport, SDLJoystickData& joystick) {
     using inputName = SDLButtonMapping::ButtonName;
     using inputType = SDLButtonMapping::ButtonType;
-    int absVal = 0;
+    int16_t absVal = 0;
+
+    auto setStickValue = [&](SHORT& target, int16_t range, int16_t value) {
+        if (range == ANALOG_RANGE_NEG_TO_POS) {
+            target = value;
+        }
+        else if (range == ANALOG_RANGE_POS_TO_NEG) {
+            target = -value;
+        }
+        else {
+            target = absVal;
+        }
+        };
 
     switch (input_event.input_type) {
     case inputType::HAT:
@@ -1041,53 +1069,33 @@ void input_event_to_xbox_report(const SDLButtonMapping::ButtonMapInput input_eve
         break;
 
     case inputType::STICK:
-        absVal = std::max((abs(input_event.value) - 1), 0); // prevents off by 1 errors when swapping INT16_MAX-INT16_MIN
+        absVal = abs(input_event.value);
         switch (emulatedInput) {
         case inputName::LEFT_STICK_LEFT:
-            xboxReport.sThumbLX = -absVal;
-            break;
+            absVal = -absVal;
         case inputName::LEFT_STICK_RIGHT:
-            xboxReport.sThumbLX = absVal;
-            break;
-        case inputName::LEFT_STICK_UP:
-            xboxReport.sThumbLY = absVal;
+            setStickValue(xboxReport.sThumbLX, input_event.range, input_event.value);
             break;
         case inputName::LEFT_STICK_DOWN:
-            xboxReport.sThumbLY = -absVal;
+            absVal = -absVal;
+        case inputName::LEFT_STICK_UP:
+            setStickValue(xboxReport.sThumbLY, input_event.range, input_event.value);
             break;
         case inputName::RIGHT_STICK_LEFT:
-            xboxReport.sThumbRX = -absVal;
-            break;
+            absVal = -absVal;
         case inputName::RIGHT_STICK_RIGHT:
-            xboxReport.sThumbRX = absVal;
-            break;
-        case inputName::RIGHT_STICK_UP:
-            xboxReport.sThumbRY = absVal;
+            setStickValue(xboxReport.sThumbRX, input_event.range, input_event.value);
             break;
         case inputName::RIGHT_STICK_DOWN:
-            xboxReport.sThumbRY = -absVal;
+            absVal = -absVal;
+        case inputName::RIGHT_STICK_UP:
+            setStickValue(xboxReport.sThumbRY, input_event.range, input_event.value);
             break;
         case inputName::LEFT_TRIGGER:
-            if (input_event.range == ANALOG_RANGE_NEG_TO_POS) {
-                xboxReport.bLeftTrigger = SignedShortToUnsignedByte(input_event.value);
-            }
-            else if (input_event.range == ANALOG_RANGE_POS_TO_NEG) {
-                xboxReport.bLeftTrigger = SignedShortToUnsignedByteReversed(input_event.value);
-            }
-            else {
-                xboxReport.bLeftTrigger = ShortToByte(absVal);
-            }
+            setTriggerValue(xboxReport.bLeftTrigger, input_event.range, (std::abs(input_event.value) > AXIS_INPUT_DEADZONE) ? input_event.value : 0, absVal);
             break;
         case inputName::RIGHT_TRIGGER:
-            if (input_event.range == ANALOG_RANGE_NEG_TO_POS) {
-                xboxReport.bRightTrigger = SignedShortToUnsignedByte(input_event.value);
-            }
-            else if (input_event.range == ANALOG_RANGE_POS_TO_NEG) {
-                xboxReport.bRightTrigger = SignedShortToUnsignedByteReversed(input_event.value);
-            }
-            else {
-                xboxReport.bRightTrigger = ShortToByte(absVal);
-            }
+            setTriggerValue(xboxReport.bRightTrigger, input_event.range, (std::abs(input_event.value) > AXIS_INPUT_DEADZONE) ? input_event.value : 0, absVal);
             break;
         default:
             // remove value from buttons
@@ -1108,7 +1116,6 @@ void input_event_to_xbox_report(const SDLButtonMapping::ButtonMapInput input_eve
 
             break;
         }
-
         break;
 
     case inputType::BUTTON:
@@ -1177,12 +1184,13 @@ void processButtonTypeHat(SDLJoystickData& joystick, SDLButtonMapping::ButtonMap
 
 // Turns analog movement into input_events and eventual XUSB_REPORT values
 void processButtonTypeStick(SDLJoystickData& joystick, SDLButtonMapping::ButtonMapInput& inputMap, int16_t axisValue, XUSB_REPORT& xbox_report) {
+    axisValue = std::max(INT16_MIN+1, (int)axisValue);
     // Ensure extended range mode by inserting mapped axis range-value into the input signature for known extended range inputs
     SDLButtonMapping::ButtonMapInput dummyInput;
     for (auto extRangeInput : joystick.mapping.extRangeInputList) {
         dummyInput.set(inputMap.input_type, inputMap.index, joystick.mapping.buttonMaps[extRangeInput].value); // insert axis range-value
 
-        // Check if dummyInput == stored button mapping, ensuring that extended range mode will be used if it is set
+        // Check if dummyInput == stored button mapping
         if (joystick.mapping.buttonMaps[extRangeInput] == dummyInput) {
             // set range to mapped range-value / and value to axis value (in range)
             dummyInput.range = dummyInput.value;
