@@ -35,8 +35,8 @@ THE SOFTWARE.
 #define AXIS_INPUT_DEADZONE 3000    // like threshold but used for main loop joystick reading
 
 #define ANALOG_RANGE_NONE       0
-#define ANALOG_RANGE_NEG        1
-#define ANALOG_RANGE_POS        2
+#define ANALOG_RANGE_NEG       -1
+#define ANALOG_RANGE_POS        1
 #define ANALOG_RANGE_NEG_TO_POS 3
 #define ANALOG_RANGE_POS_TO_NEG 4
 
@@ -676,11 +676,11 @@ void get_sdljoystick_mapping_input(const SDLJoystickData& joystick, SDLButtonMap
             // Analyze readings
             if (inital_reading <= 0 && low_reading <= 0 && high_reading <= 0) {
                 // All readings were negative
-                input.set(SDLButtonMapping::ButtonType::STICK, i, -1);
+                input.set(SDLButtonMapping::ButtonType::STICK, i, ANALOG_RANGE_NEG);
             }
             else if (inital_reading >= 0 && low_reading >= 0 && high_reading >= 0) {
                 // All readings were positive
-                input.set(SDLButtonMapping::ButtonType::STICK, i, 1);
+                input.set(SDLButtonMapping::ButtonType::STICK, i, ANALOG_RANGE_POS);
             }
             else if (inital_reading < 0 && low_reading < 0 && high_reading > 0) {
                 // Values went from - to +
@@ -995,7 +995,6 @@ void clear_XBOX_REPORT_value(const SDLButtonMapping::ButtonName emulatedInput, X
     }
 }
 
-
 // For handling full analog range for trigger outputs, must accept BYTE and SHORT as target
 template<typename T>
 void setTriggerValue(T& target, int16_t range, int16_t value, int16_t absVal) {
@@ -1266,10 +1265,6 @@ bool get_xbox_report_from_SDL_events(SDLJoystickData& joystick, XUSB_REPORT& xbo
             eventMap.set(SDLButtonMapping::ButtonType::STICK, event.jaxis.axis, event.jaxis.value > 0 ? 1 : -1);
             processButtonTypeStick(joystick, eventMap, event.jaxis.value, xbox_report);
             break;
-
-        case SDL_EVENT_QUIT:
-            APP_KILLED = true;
-            return false;
 
         default:
             break;

@@ -46,9 +46,9 @@ THE SOFTWARE.
 #define CANCELLED_FLAG      -2
 #define DISCONNECT_ERROR    -3
 
-int RESTART_FLAG = 0;
-int MAPPING_FLAG = 0;
-int OLDMAP_FLAG = 0;
+byte RESTART_FLAG = 0;
+byte MAPPING_FLAG = 0;
+bool OLDMAP_FLAG = 0;
 HANDLE g_hConsoleInput;
 
 void signalHandler(int signal);
@@ -831,7 +831,10 @@ void buttonStatesFromXboxReport(XUSB_REPORT& xboxReport) {
 void get_xbox_report_from_activeInputs(SDLJoystickData& joystick, const std::vector<SDLButtonMapping::ButtonMapInput>& activeInputs, XUSB_REPORT& xbox_report) {
     xbox_report = { 0 };
     for (const auto& activeInput : activeInputs) {
-        get_xbox_report_common(joystick, activeInput, activeInput.range, xbox_report);
+        if (activeInput.input_type == SDLButtonMapping::ButtonType::BUTTON) 
+            get_xbox_report_common(joystick, activeInput, activeInput.value, xbox_report);
+        else
+            get_xbox_report_common(joystick, activeInput, activeInput.range, xbox_report);
     }
 }
 
@@ -849,7 +852,7 @@ std::vector<SDLButtonMapping::ButtonMapInput> get_sdljoystick_input_list(const S
     for (int i = 0; i < joystick.num_axes; i++) {
         int axis_value = SDL_GetJoystickAxis(joystick._ptr, i); // / 32767.0f;
         if (std::abs(axis_value - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) {
-            input.set(SDLButtonMapping::ButtonType::STICK, i, axis_value < 0 ? -1 : 1);
+            input.set(SDLButtonMapping::ButtonType::STICK, i, axis_value < 0 ? ANALOG_RANGE_NEG : ANALOG_RANGE_POS);
             input.range = axis_value;
             inputs.push_back(input);
         }
