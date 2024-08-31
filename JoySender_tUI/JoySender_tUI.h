@@ -49,91 +49,28 @@ THE SOFTWARE.
 byte RESTART_FLAG = 0;
 byte MAPPING_FLAG = 0;
 bool OLDMAP_FLAG = 0;
-HANDLE g_hConsoleInput;
 
 void signalHandler(int signal);
-
-//----------------------------------------------------------------------------
-// lifted from : https://cplusplus.com/forum/windows/10731/
-struct console
-{
-    console(unsigned width, unsigned height)
-    {
-        SMALL_RECT r;
-        COORD      c;
-        hConOut = GetStdHandle(STD_OUTPUT_HANDLE);
-        GetConsoleScreenBufferInfo(hConOut, &csbi);
-
-        r.Left = r.Top = 0;
-        r.Right = width;
-        r.Bottom = height + 1;
-        SetConsoleWindowInfo(hConOut, TRUE, &r);
-
-        c.X = width;
-        c.Y = height;
-        SetConsoleScreenBufferSize(hConOut, c);
-    }
-
-    ~console()
-    {
-        SetConsoleTextAttribute(hConOut, csbi.wAttributes);
-        SetConsoleScreenBufferSize(hConOut, csbi.dwSize);
-        SetConsoleWindowInfo(hConOut, TRUE, &csbi.srWindow);
-    }
-
-    HANDLE                     hConOut;
-    CONSOLE_SCREEN_BUFFER_INFO csbi;
-};
 
 ///////
 /// tUI.h 
 //////
 #include "tUI/textUI.h"
 
-void setErrorMsg(const wchar_t* text, size_t length);
-void updateFPS(const wchar_t* text, size_t length);
 void exitAppCallback(mouseButton& button);
 void joystickSelectCallback(mouseButton& button);
 void newControllerColorsCallback(mouseButton& button);
 void printCurrentController(SDLJoystickData& activeGamepad);
-void checkForQuit();
-bool checkKey(int key, bool pressed);
 char IpInputLoop();
 int screenLoop(textUI& screen);
 int tUISelectJoystickDialog(SDLJoystickData& joystick, textUI& screen);
 int tUISelectDS4Dialog(std::vector<HidDeviceInfo>devList, textUI& screen);
 std::string tUIGetHostAddress(textUI& screen);
 void threadedEstablishConnection(TCPConnection& client, int& retVal);
-bool checkKey(int key, bool pressed);
 int tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonName>& inputList);
 int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen);
 
 #define MAP_BUTTON_CLICKED 10000  // a value to add to an input index to indicate it was clicked on
-
-#define IS_PRESSED      1
-#define IS_RELEASED     0
-std::unordered_map<int, bool> g_keyStateMap;
-// function checks for KEYCODE state & logs to dict. returns true when state change mirrors the bool pressed
-bool checkKey(int key, bool pressed) {
-    bool state = GetAsyncKeyState(key) & 0x8000;
-    if (state != g_keyStateMap[key]) {
-        g_keyStateMap[key] = state;
-        if (state) {
-            // key is pressed
-            if (pressed)
-                return 1;
-        }
-        else {
-            // key is released
-            if (!pressed)
-                return 1;
-        }
-    }
-    return 0;
-}
-
-const int consoleWidth = 72;
-const int consoleHeight = 20;
 
 #pragma warning(disable : 4996)
 // Converts strings to wide strings and back again
@@ -152,7 +89,6 @@ wchar_t* msgPointer1 = fpsPointer + 10;   // max length 100
 wchar_t* msgPointer2 = msgPointer1 + 100;   // max length 100
 wchar_t* msgPointer3 = msgPointer2 + 100;   // max length 165
 
-textUI g_screen;
 textBox errorOut(4, 22, 45, 0, ALIGN_CENTER, errorPointer, BRIGHT_RED);
 
 textBox hostMsg(1, 8, 20, 0, ALIGN_LEFT, hostPointer, BRIGHT_GREEN);
@@ -175,206 +111,6 @@ void updateFPS(const wchar_t* text, size_t length) {
     fpsMsg.SetText(fpsPointer);
     fpsMsg.Draw();
 }
-
-
-// ********************************
-// FullColourScheme
-
-// Package up all the colors needed for maximum color expression
-struct FullColorScheme {
-    const wchar_t* name;
-    tUIColorPkg menuColors;
-    tUIColorPkg controllerColors;
-    WORD menuBg;
-    WORD controllerBg;
-};
-
-#define NUM_COLOR_SCHEMES   5
-#define RANDOMSCHEME        0
-
-FullColorScheme fullColorSchemes[NUM_COLOR_SCHEMES +1] = {
-    { L"Random",
-        {
-        // Menu Colors
-        WHITE | (MAGENTA AS_BG),			// Header
-        WHITE | (RED AS_BG),		        // Error
-        WHITE | (CYAN AS_BG),				// message 1
-        WHITE | (BRIGHT_RED AS_BG)			// message 2
-    },
-    {
-        // Controller Colors
-        BLACK | (BRIGHT_MAGENTA AS_BG),	    // outline | faceColor 
-        WHITE | (BRIGHT_MAGENTA AS_BG),		// buttonColor
-        BLUE | (BRIGHT_MAGENTA AS_BG),	    // highlightColor
-        WHITE | (CYAN AS_BG)	            // selectColor
-    },
-        // Menu background
-        WHITE | (BRIGHT_RED AS_BG),
-        // Controller background
-        BLACK | (MAGENTA AS_BG),
-    },
-
-
-    { L"Plum",
-        {
-        // Menu Colors
-        WHITE | (MAGENTA AS_BG),			// Header
-        WHITE | (RED AS_BG),		        // Error
-        WHITE | (CYAN AS_BG),				// message 1
-        WHITE | (BRIGHT_RED AS_BG)			// message 2
-    },
-        {
-        // Controller Colors
-        BLACK | (BRIGHT_MAGENTA AS_BG),	    // outline | faceColor 
-        WHITE | (BRIGHT_MAGENTA AS_BG),		// buttonColor
-        BLUE | (BRIGHT_MAGENTA AS_BG),	    // highlightColor
-        WHITE | (CYAN AS_BG)	            // selectColor
-    },
-        // Menu background
-        WHITE | (BRIGHT_RED AS_BG),
-        // Controller background
-        BLACK | (MAGENTA AS_BG),
-    },
-
-
-     { L"Watermelon",
-        {
-        // Menu Colors
-        BLACK | (GREEN AS_BG),			// Header
-        WHITE | (RED AS_BG),		    // Error
-        BLACK | (BRIGHT_CYAN AS_BG),	// message 1
-        BLUE | (BRIGHT_GREEN AS_BG)		// message 2
-    },
-        {
-        // Controller Colors
-        BRIGHT_GREEN | (BRIGHT_RED AS_BG),	// outline | faceColor 
-        BLACK | (BRIGHT_RED AS_BG),		    // buttonColor
-        BRIGHT_GREEN | (BRIGHT_RED AS_BG),  // highlightColor
-        BLACK | (BRIGHT_GREEN AS_BG)        // selectColor
-    },
-        // Menu background
-        BLACK | (CYAN AS_BG),
-        // Controller background
-        BRIGHT_GREEN | (BRIGHT_BLUE AS_BG),
-    },
-
-
-     { L"Blueberry",
-        {
-        // Menu Colors
-        WHITE | (BRIGHT_MAGENTA AS_BG),		// Header
-        WHITE | (RED AS_BG),		        // Error
-        BLUE | (BRIGHT_CYAN AS_BG),			// message 1
-        BRIGHT_CYAN | (MAGENTA AS_BG)		// message 2
-    },
-        {
-        // Controller Colors
-        CYAN | (CYAN AS_BG),	        // outline | faceColor 
-        WHITE | (CYAN AS_BG),		    // buttonColor
-        BLUE | (CYAN AS_BG),            // highlightColor
-        BRIGHT_CYAN | (BRIGHT_MAGENTA AS_BG)  // selectColor
-    },
-        // Menu background
-        CYAN | (MAGENTA AS_BG),
-        // Controller background
-        CYAN | (BLUE AS_BG),
-    },
-
-
-    { L"Citrus",
-       {
-        // Menu Colors
-        BRIGHT_BLUE | (BRIGHT_GREEN AS_BG),	// Header
-        WHITE | (RED AS_BG),		        // Error
-        BLACK | (BRIGHT_CYAN AS_BG),	// message 1
-        WHITE | (CYAN AS_BG)			    // message 2
-    },
-    {
-        // Controller Colors
-        BRIGHT_GREEN | (BRIGHT_GREEN AS_BG),	// outline | faceColor 
-        BLUE | (BRIGHT_GREEN AS_BG),		    // buttonColor
-        WHITE | (BRIGHT_GREEN AS_BG),           // highlightColor
-        WHITE | (YELLOW AS_BG)      // selectColor
-    },
-        // Menu background
-        BRIGHT_BLUE | (BRIGHT_GREEN AS_BG),
-        // Controller background
-        BRIGHT_GREEN | (BRIGHT_RED AS_BG),
-    },
-
-
-    { L"Emily's Bougie Baby",
-        {
-        // Menu Colors
-        BLACK | (YELLOW AS_BG),			// Header
-        WHITE | (RED AS_BG),		    // Error
-        WHITE | (BLUE AS_BG),			// message 1
-        BLUE | (BLACK AS_BG)			// message 2
-    },
-        {
-        // Controller Colors
-        YELLOW | (BLACK AS_BG),	        // outline | faceColor 
-        YELLOW | (BLACK AS_BG),		    // buttonColor
-        BRIGHT_YELLOW | (BLACK AS_BG),  // highlightColor
-        WHITE | (YELLOW AS_BG)  // selectColor
-    },
-        // Menu background
-        RED | (BLACK AS_BG),
-        // Controller background
-        YELLOW | (BLACK AS_BG),
-    }
-
-};
-
-// takes a color package representing controller button colors and converts to screen button colors for mouse hovering
-tUIColorPkg controllerButtonsToScreenButtons(tUIColorPkg& inButs) {
-    return tUIColorPkg(
-        inButs.col2,    // default
-        inButs.col3,    // highlight
-        inButs.col4,    // select
-        inButs.col3     // active // used for ip input
-    );
-}
-
-// converts a simple color scheme to a full color scheme *random color scheme generation can be converted to a full scheme
-FullColorScheme fullSchemeFromSimpleScheme(ColorScheme& simp, WORD bg) {
-    FullColorScheme ret = {
-        L"Random",
-        {
-            // Menu Colors
-            BLACK | (GREY AS_BG),			// Header
-            BLACK | (RED AS_BG),		        // Error
-            BLACK | (BRIGHT_GREY AS_BG),		// message 1
-            BLACK | (WHITE AS_BG)			// message 2
-        },
-        {
-            // Controller Colors
-            static_cast<WORD>(simp.outlineColor | simp.faceColor),	    // outline | faceColor 
-            static_cast<WORD>(simp.buttonColor | simp.faceColor),		// buttonColor
-            static_cast<WORD>(simp.highlightColor | simp.faceColor),	    // highlightColor
-            simp.selectColor                         // selectColor 
-        },
-        // Menu background
-        BLACK | (WHITE AS_BG),
-        // Controller background
-        static_cast<WORD>(simp.outlineColor | bg)
-    };
-
-    return ret;
-}
-
-// converts a a full color scheme to a simple scheme *needed for draw and redraw controller face functions
-ColorScheme simpleSchemeFromFullScheme(FullColorScheme& full) {
-    return ColorScheme{
-        static_cast<WORD>(full.controllerColors.col1 FG_ONLY),
-        static_cast<WORD>(full.controllerColors.col1 BG_ONLY),
-        static_cast<WORD>(full.controllerColors.col2 FG_ONLY),
-        static_cast<WORD>(full.controllerColors.col3 FG_ONLY),
-        static_cast<WORD>(full.controllerColors.col4),
-        L" "
-    };
-}
-
 
 
 // ********************************
@@ -945,12 +681,6 @@ void printCurrentController(SDLJoystickData& activeGamepad) {
     std::wcout << g_toWide(g_outputText);
 }
 
-// checks if the Q button has been pressed and sets APP_KILLED to true
-void checkForQuit() {
-    if (IsAppActiveWindow() && checkKey(0x51, IS_PRESSED) && getKeyState(VK_SHIFT)) // Q for Quit
-        APP_KILLED = true;
-}
-
 // accepts keyboard input for ip addresses
 char IpInputLoop() {
     if (!IsAppActiveWindow()) { 
@@ -1019,46 +749,6 @@ void uiOpenOrCreateMapping(SDLJoystickData& joystick, textUI& screen) {
         // launch the mapping inputs screen
         tUIRemapInputsScreen(joystick, screen);
     }
-}
-
-// used in a loop, looks for mouse input and compares to buttons on screen
-int screenLoop(textUI& screen) {
-    int retVal = 0;
-    DWORD eventsAvailable;
-    GetNumberOfConsoleInputEvents(g_hConsoleInput, &eventsAvailable);
-
-    if (eventsAvailable > 0) {
-        INPUT_RECORD inputRecord;
-        DWORD eventsRead;
-
-        if (!ReadConsoleInput(g_hConsoleInput, &inputRecord, 1, &eventsRead)) {
-            return -1;
-        }
-
-        // Check for mouse input events
-        if (inputRecord.EventType == MOUSE_EVENT) {
-            MOUSE_EVENT_RECORD& mouseEvent = inputRecord.Event.MouseEvent;
-            COORD mousePos = mouseEvent.dwMousePosition;
-
-            if (mouseEvent.dwEventFlags == MOUSE_MOVED) {
-                // Check if mouse is hovering over the buttons
-                screen.CheckMouseHover(mousePos);
-            }
-
-            if (mouseEvent.dwEventFlags == 0) {
-                // Mouse button event
-                if (mouseEvent.dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED) {
-                    screen.CheckMouseClick(MOUSE_DOWN);
-                    retVal = MOUSE_DOWN;
-                }
-                else {
-                    screen.CheckMouseClick(MOUSE_UP);
-                    retVal = MOUSE_UP;
-                }
-            }
-        }
-    }
-    return retVal;
 }
 
 
@@ -2306,50 +1996,4 @@ int tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::B
     joystick.mapping.populateExtraMaps();
 
     return 0;
-}
-
-///  
-/// ANIMATIONS.h
-///  
-int g_frameNum = 0;  //
-const int CX_ANI_FRAME_COUNT = 12;
-
-const wchar_t* ConnectAnimation[CX_ANI_FRAME_COUNT+1] = {
-    {L" (>                               ) "},
-    {L" (<>                              ) "},
-    {L" (   <>                           ) "},
-    {L" (      <>                        ) "},
-    {L" (         <>                     ) "},
-    {L" (            <>                  ) "},
-    {L" (               <>               ) "},
-    {L" (                  <>            ) "},
-    {L" (                     <>         ) "},
-    {L" (                        <>      ) "},
-    {L" (                           <>   ) "},
-    {L" (                              <>) "},
-    {L" (                               <) "}
-};
-
-// function will inc/dec &counter up to maxCount and down to 0
-// for animating back and forth through frames
-__declspec(noinline) void countUpDown(int& counter, int maxCount) { // * a counter value outside of (0 - maxCount) will cause issues
-    static int dir = 1; // 1: up, -1: down
-
-    // this non intuitive block makes sure we always count up from 0
-    if (!counter) {
-        dir = -1;
-    }
-
-    // if 0 or maxCount, direction of counting will be reversed
-    if (!(counter < maxCount && counter > 0)) {
-        dir *= -1;
-    }
-    
-    counter += dir; // count by one in direction +1 or -1
-}
-
-// function will loop from 0 to maxCount
-// for animation cyclically through frames
-void loopCount(int& counter, int maxCount) {
-    counter = (counter + 1) % (maxCount+1);
 }
