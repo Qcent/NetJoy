@@ -250,67 +250,6 @@ ColorScheme simpleSchemeFromFullScheme(FullColorScheme& full) {
 // ********************************
 // tUI Helper Functions
 
-// Function safely return environment variables
-std::string g_getenv(const char* variableName) {
-    std::string value;
-    size_t requiredSize = 0;
-    getenv_s(&requiredSize, nullptr, 0, variableName);
-    if (requiredSize > 0) {
-        value.resize(requiredSize);
-        getenv_s(&requiredSize, &value[0], requiredSize, variableName);
-        value.pop_back(); // Remove the null-terminating character
-    }
-    return value;
-}
-
-#define IS_PRESSED      1
-#define IS_RELEASED     0
-std::unordered_map<int, bool> g_keyStateMap;
-// function checks for KEYCODE state & logs to dict. returns true when state change mirrors the bool pressed
-bool checkKey(int key, bool pressed) {
-    bool state = GetAsyncKeyState(key) & 0x8000;
-    if (state != g_keyStateMap[key]) {
-        g_keyStateMap[key] = state;
-        if (state) {
-            // key is pressed
-            if (pressed)
-                return 1;
-        }
-        else {
-            // key is released
-            if (!pressed)
-                return 1;
-        }
-    }
-    return 0;
-}
-
-// Function to detect if keyboard key is pressed
-bool getKeyState(int KEYCODE) {
-    return GetAsyncKeyState(KEYCODE) & 0x8000;
-}
-
-// Function determines if app is the active window
-bool IsAppActiveWindow()
-{
-    HWND consoleWindow = GetConsoleWindow();
-    HWND foregroundWindow = GetForegroundWindow();
-
-    return (consoleWindow == foregroundWindow);
-}
-
-// Function to convert strings to wide strings
-std::wstring g_toWide(std::string& str) {
-    std::wstring wideString(str.begin(), str.end());
-    return wideString;
-}
-
-// checks if the Q button has been pressed and sets APP_KILLED to true
-void checkForQuit() {
-    if (IsAppActiveWindow() && checkKey('Q', IS_PRESSED) && getKeyState(VK_SHIFT)) // Q for Quit
-        APP_KILLED = true;
-}
-
 // used in a loop, looks for mouse input and compares to buttons on screen
 int screenLoop(textUI& screen) {
     int retVal = 0;
