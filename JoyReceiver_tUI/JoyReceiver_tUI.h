@@ -446,6 +446,14 @@ void threadedAwaitConnection(TCPConnection& server, int& retVal, char* clientIP)
 }
 
 #define BUILD_CX_EGG() \
+    auto roll_new_color = [&]() { \
+        GET_NEW_COLOR_SCHEME(); \
+        errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2); \
+        fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3); \
+        }; \
+    auto redraw_cx_tUI = [&]() { \
+        COLOR_AND_DRAW_CX_tUI(); \
+        }; \
     mouseButton colorEgg(50, consoleHeight - 3, 1, L"©"); \
     \
     screen.AddButton(&colorEgg); \
@@ -468,4 +476,89 @@ void threadedAwaitConnection(TCPConnection& server, int& retVal, char* clientIP)
         (findSafeFGColor(fullColorSchemes[g_currentColorScheme].menuBg BG_ONLY, colorList, colorList.begin()) | fullColorSchemes[g_currentColorScheme].menuBg BG_ONLY) : \
         (fullColorSchemes[g_currentColorScheme].controllerColors.col3 FG_ONLY | fullColorSchemes[g_currentColorScheme].menuBg BG_ONLY) \
     ); \
+}
+
+#define ESTABLISH_ANIMATED_CX_tUI() \
+{ \
+    BUILD_CX_EGG(); \
+    COLOR_CX_EGG(); \
+    colorEgg.Draw(); \
+\
+    /* Set up animation variables */ \
+    int frameDelay = 0; \
+    int footFrameNum = 0; \
+    mouseButton leftBorderPiece(3, 18, 2, L"\\\t\t\t \t"); \
+    mouseButton rightBorderPiece(68, 18, 5, L"\t/   \t\t:}-     "); \
+    leftBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg); \
+    rightBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg); \
+\
+    mouseButton ani2(3, 18, 10, FooterAnimation[footFrameNum]); \
+    ani2.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg); \
+    int lastAni1Frame = g_frameNum - 1; \
+    int lastAni2Frame = footFrameNum - 1; \
+\
+    /* Set up thread */ \
+    allGood = WSAEWOULDBLOCK; \
+    std::thread connectThread(threadedAwaitConnection, std::ref(server), std::ref(allGood), std::ref(connectionIP)); \
+\
+    while (!APP_KILLED && allGood == WSAEWOULDBLOCK) { \
+        /* Animation 1 */ \
+        if (lastAni2Frame != g_frameNum) { \
+            lastAni2Frame = g_frameNum; \
+            output2.SetText(ConnectAnimationLeft[g_frameNum]); \
+            output2.SetPosition((consoleWidth / 2) - 16, 7); \
+            output2.Draw(); \
+\
+            output2.SetText(ConnectAnimationRight[g_frameNum]); \
+            output2.SetPosition((consoleWidth / 2) + 15, 7); \
+            output2.Draw(); \
+        } \
+        if (frameDelay % 13 == 0) { \
+            loopCount(g_frameNum, CX_ANI_FRAME_COUNT); \
+        } \
+\
+        /* Animation 2 */ \
+        if (lastAni2Frame != footFrameNum) { \
+            lastAni2Frame = footFrameNum; \
+            ani2.SetText(FooterAnimation[footFrameNum]); \
+\
+            for (int i = 0; i < 7; ++i) { \
+                ani2.SetPosition(3 + (i * 10), 18); \
+                ani2.Draw(); \
+            } \
+\
+            /* Redraw border pieces */ \
+            leftBorderPiece.Draw(); \
+            rightBorderPiece.Draw(); \
+        } \
+        if (frameDelay % 4 == 0) { \
+            if ((frameDelay % 600) <= 300) { \
+                revLoopCount(footFrameNum, FOOTER_ANI_FRAME_COUNT); \
+            } else { \
+                loopCount(footFrameNum, FOOTER_ANI_FRAME_COUNT); \
+            } \
+        } \
+\
+        /* Check input */ \
+        checkForQuit(); \
+        if (g_mode == true) { \
+            g_mode = false; \
+            roll_new_color(); \
+            redraw_cx_tUI(); \
+\
+            leftBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg); \
+            rightBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg); \
+            ani2.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg); \
+\
+            COLOR_CX_EGG(); \
+        } \
+        screenLoop(screen); \
+\
+        if (!APP_KILLED && allGood == WSAEWOULDBLOCK) { \
+            Sleep(20); \
+            ++frameDelay; \
+        } \
+    } \
+    connectThread.detach(); \
+    screen.RemoveButton(&colorEgg); \
 }

@@ -131,124 +131,22 @@ int main(int argc, char* argv[]) {
     quitButton.setCallback(&exitAppCallback);
     newColorsButton.setCallback(&newControllerColorsCallback);
 
-    // hack in some color change for connect screen
-        // new color scheme
-    auto roll_new_color = [&](){
-        GET_NEW_COLOR_SCHEME();
-
-        errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2);
-        fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
-    };
-    auto redraw_cx_tUI = [&]() {
-        COLOR_AND_DRAW_CX_tUI();
-    };
-
         // establish a color scheme
-    roll_new_color();
-
-    
+    GET_NEW_COLOR_SCHEME();
+    errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2);
+    fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
+        
     ///********************************
 
     // Make Connection Loop
     while (!APP_KILLED) {
-
         // Set and Draw connection screen
         BUILD_CONNECTION_tUI();
         COLOR_AND_DRAW_CX_tUI();
 
         // Wait to establish a connection in separate thread while animating the screen
-        {
-            BUILD_CX_EGG();
-            COLOR_CX_EGG();
-            colorEgg.Draw();
+        ESTABLISH_ANIMATED_CX_tUI();
 
-            // set up animation variables
-            int frameDelay = 0;
-            int footFrameNum = 0;
-            mouseButton leftBorderPiece(3, 18, 2, L"\\\t\t\t \t");
-            mouseButton rightBorderPiece(68, 18, 5, L"\t/   \t\t:}-     ");
-            leftBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
-            rightBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
-
-            mouseButton ani2(3, 18, 10, FooterAnimation[footFrameNum]);
-            ani2.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
-            int lastAni1Frame = g_frameNum-1;
-            int lastAni2Frame = footFrameNum-1;
-            
-            // set up thread
-            //int runFrame = 1;
-            allGood = WSAEWOULDBLOCK;
-            std::thread connectThread(threadedAwaitConnection, std::ref(server), std::ref(allGood), std::ref(connectionIP));
-            //std::thread frameThread(threadedFrameAdvance, std::ref(runFrame), 500, std::ref(g_frameNum), CX_ANI_FRAME_COUNT);
-            
-            while (!APP_KILLED && allGood == WSAEWOULDBLOCK) {
-                // animation 1
-                    // draw
-                if (lastAni2Frame != g_frameNum) {
-                    lastAni2Frame = g_frameNum;
-                    output2.SetText(ConnectAnimationLeft[g_frameNum]);
-                    output2.SetPosition((consoleWidth / 2) - 16, 7); // left side
-                    output2.Draw();
-
-                    output2.SetText(ConnectAnimationRight[g_frameNum]);
-                    output2.SetPosition((consoleWidth / 2) + 15, 7); // right side
-                    output2.Draw();
-                }
-                    // advance frame
-                if (frameDelay % 13 == 0) {
-                    loopCount(g_frameNum, CX_ANI_FRAME_COUNT);
-                }
-
-                // animation 2
-                    // draw
-                if (lastAni2Frame != footFrameNum) {
-                    lastAni2Frame = footFrameNum;
-                    ani2.SetText(FooterAnimation[footFrameNum]);
-
-                    for (int i = 0; i < 7; ++i) {
-                        ani2.SetPosition(3+(i*10), 18);
-                        ani2.Draw();
-                    }
-
-                    // redraw border pieces
-                    leftBorderPiece.Draw();
-                    rightBorderPiece.Draw();
-                }
-                    // advance frame
-                if (frameDelay % 4 == 0) {
-                    if ((frameDelay % 600) <= 300) {
-                        revLoopCount(footFrameNum, FOOTER_ANI_FRAME_COUNT);  // reverse loop
-                    }
-                    else {
-                        loopCount(footFrameNum, FOOTER_ANI_FRAME_COUNT);  // loop
-                        //countUpDown(g_frameNum, CX_ANI_FRAME_COUNT);    // bounce
-                    }
-                }
-
-                // check input
-                checkForQuit();
-                if (checkKey('C', IS_PRESSED) || g_mode == true) {
-                    g_mode = false;
-                    roll_new_color();
-                    redraw_cx_tUI();
-
-                    leftBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
-                    rightBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
-                    ani2.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
-
-                    COLOR_CX_EGG();
-                }
-                screenLoop(screen);
-                
-                if (!APP_KILLED && allGood == WSAEWOULDBLOCK) {
-                    Sleep(20);
-                    ++frameDelay;
-                }
-            }
-            //runFrame = 0;
-            connectThread.detach();
-            screen.RemoveButton(&colorEgg);
-        }
         if (allGood == WSAEINVAL) {
             swprintf(errorPointer, 52, L" Unable to use port : %d \r\n Program will exit", args.port);
             MessageBox(NULL, errorPointer, L"JoyReceiver Error", MB_ICONERROR | MB_OK);
@@ -298,7 +196,6 @@ int main(int argc, char* argv[]) {
             setErrorMsg(L" << Virtual Gamepad Plugin Failed >> ", 38);
             errorOut.Draw();
             //std::cerr << "Virtual Gamepad plugin failed with error code: 0x" << std::hex << vigemErr << std::endl;
-            //return -1;
             APP_KILLED = 1;
         }
 
@@ -334,7 +231,6 @@ int main(int argc, char* argv[]) {
                 setErrorMsg(L" << Registering DS4 Rumble Callback Failed >> ", 47);
                 errorOut.Draw();
                 //std::cerr << "Registering DS4 Rumble callback failed with error code: 0x" << std::hex << vigemErr << std::endl;
-                //APP_KILLED = 1;
             }
 #endif
         }
@@ -345,7 +241,6 @@ int main(int argc, char* argv[]) {
                 setErrorMsg(L" << Registering 360 Rumble Callback Failed >> ", 47);
                 errorOut.Draw();
                 //std::cerr << "Registering 360 Rumble callback failed with error code: 0x" << std::hex << vigemErr << std::endl;
-                //APP_KILLED = 1;
             }
         }
 
