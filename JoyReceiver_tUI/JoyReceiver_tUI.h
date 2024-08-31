@@ -305,8 +305,6 @@ void countUpDown(int& counter, int maxCount);
 // Converts strings to wide strings and back again
 std::wstring_convert<std::codecvt_utf8<wchar_t>> g_converter;
 
-HANDLE g_hConsoleInput;
-textUI g_screen;
 int g_mode = 1;
 int g_currentColorScheme;
 ColorScheme g_simpleScheme;

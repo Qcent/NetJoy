@@ -13,6 +13,9 @@
 constexpr int consoleWidth = 72;
 constexpr int consoleHeight = 20;
 
+HANDLE g_hConsoleInput;
+textUI g_screen;
+
 //----------------------------------------------------------------------------
 // lifted from : https://cplusplus.com/forum/windows/10731/
 struct console
