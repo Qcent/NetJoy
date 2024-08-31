@@ -1,3 +1,8 @@
+//
+// Basic instrumentation profiler by Cherno ( https://gist.github.com/TheCherno ) Nov, 2019
+// Streamlined by Dave Churchill ( https://gist.github.com/davechurchill ) Jan, 2020
+// 
+
 #pragma once
  
 #include <string>
@@ -9,11 +14,13 @@
  
 #define PROFILING 1
 #ifdef PROFILING
-#define BEGIN_PROFILING_SESSION(name)   Instrumentor::Instance().beginSession(name);
+    #define BEGIN_PROFILING_SESSION(name)   Instrumentor::Instance().beginSession(name);
     #define PROFILE_SCOPE(name)     InstrumentationTimer timer##__LINE__(name)
     #define PROFILE_FUNCTION()      PROFILE_SCOPE(__FUNCTION__)
 #else
+    #define BEGIN_PROFILING_SESSION(name)
     #define PROFILE_SCOPE(name)
+    #define PROFILE_FUNCTION()
 #endif
  
 struct ProfileResult
