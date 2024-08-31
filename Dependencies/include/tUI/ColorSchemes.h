@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2023 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2024 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -135,7 +135,7 @@ bool sameFG_BG(WORD fg, WORD bg) {
 	return (fg & 0x000f) == ((bg & 0x00f0) >> 4);
 }
 
-// Function can switch color so FG 
+// Function can switch color of FG 
 WORD inverseFGColor(WORD color) {
 	byte fg_color = color FG_ONLY;
 	WORD inverse = 0xF ^ fg_color;
