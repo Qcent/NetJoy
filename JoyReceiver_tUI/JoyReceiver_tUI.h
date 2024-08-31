@@ -72,16 +72,6 @@ public:
 //////
 #include "./../JoySender_tUI/tUI/textUI.h"
 
-void setErrorMsg(const wchar_t* text, size_t length);
-void updateFPS(const wchar_t* text, size_t length);
-void exitAppCallback(mouseButton& button);
-void newControllerColorsCallback(mouseButton& button);
-void checkForQuit();
-bool checkKey(int key, bool pressed);
-int screenLoop(textUI& screen);
-void loopCount(int& counter, int maxCount);
-void countUpDown(int& counter, int maxCount);
-
 #pragma warning(disable : 4996)
 // Converts strings to wide strings and back again
 std::wstring_convert<std::codecvt_utf8<wchar_t>> g_converter;
