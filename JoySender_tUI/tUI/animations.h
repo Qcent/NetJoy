@@ -68,7 +68,7 @@ const wchar_t* FooterAnimation[CX_ANI_FRAME_COUNT + 1] = {
 
 // function will inc/dec &counter up to maxCount and down to 0
 // for animating back and forth through frames
-//__declspec(noinline) // gets optimized out in Release x64?
+__declspec(noinline) // gets optimized out in Release x64? yes!
 void countUpDown(int& counter, int maxCount) { // * a counter value outside of (0 - maxCount) will cause issues
     static int dir = 1; // 1: up, -1: down
 
