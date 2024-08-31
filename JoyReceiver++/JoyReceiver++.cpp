@@ -22,8 +22,8 @@ THE SOFTWARE.
 
 */
 
-#include "TCPConnection.h"
 #include "ArgumentParser.hpp"
+#include "TCPConnection.h"
 #include "FPSCounter.hpp"
 #include "JoyReceiver++.h"
 
@@ -37,7 +37,7 @@ int main(int argc, char* argv[]) {
     DS4_REPORT_EX ds4_report_ex;
 
     int allGood;
-    UINT8 ErrCount = 0;
+    UINT8 connection_error_count = 0;
     char buffer[64];
     int buffer_size = sizeof(buffer);
     int bytesReceived;
@@ -73,7 +73,6 @@ int main(int argc, char* argv[]) {
     if (vigemClient == nullptr)
     {
         std::cerr << "Uh, not enough memory to initialize ViGEM gamepad?!" << std::endl;
-        //return -1;
         APP_KILLED = 1;
     }
     // Connect to ViGEM Bus
@@ -81,7 +80,6 @@ int main(int argc, char* argv[]) {
     if (!VIGEM_SUCCESS(vigemErr))
     {
         std::cerr << "ViGEm Bus connection failed with error code: 0x" << std::hex << vigemErr << std::endl;
-        //return -1;
         APP_KILLED = 1;
     }
 
@@ -95,7 +93,6 @@ int main(int argc, char* argv[]) {
     ///********************************
     // Make Connection Loop
     while (!APP_KILLED) {
-        ErrCount = 0;
         std::cout << "Waiting for Connection on port : " << args.port
             << "\n\t\t LAN : " << localIP << "\n\t\t WAN : " << externalIP << std::endl;
 
@@ -113,7 +110,7 @@ int main(int argc, char* argv[]) {
                 allGood = WSAGetLastError();
                 if (allGood == WSAEWOULDBLOCK) {
                     // No client connection is immediately available
-                    Sleep(10); // Sleep for 10 milliseconds
+                    Sleep(10);
                 }
                 else if (allGood == WSAEINVAL) {
                     // Invalid argument error * seems to trigger when we don't have access to the specified port
@@ -125,9 +122,9 @@ int main(int argc, char* argv[]) {
                 else {
                     // An error occurred during accept()
                     std::cerr << "Failed to accept client connection: " << allGood << std::endl;
-                    ++ErrCount;
-                    if (ErrCount > 10) { 
-                        std::cout << "<< Exiting >>" << std::endl;
+                    ++connection_error_count;
+                    if (connection_error_count > 10) { 
+                        std::cout << "<< Multiple Network Errors : Exiting >>" << std::endl;
                         APP_KILLED = true; 
                         break; // Exit the loop or handle the error condition
                     }
@@ -137,7 +134,7 @@ int main(int argc, char* argv[]) {
                 // A client connection is established
                 // Process the connection
                 // Create a new thread or perform other operations on the clientSocket?
-                
+                connection_error_count = 0;
                 // Break the loop, or this will continue attempting to accept more connections
                 break;
             }
@@ -176,7 +173,6 @@ int main(int argc, char* argv[]) {
         if (!VIGEM_SUCCESS(vigemErr))
         {
             std::cerr << "Virtual Gamepad plugin failed with error code: 0x" << std::hex << vigemErr << std::endl;
-            //return -1;
             APP_KILLED = 1;
         }
 
@@ -210,7 +206,6 @@ int main(int argc, char* argv[]) {
             if (!VIGEM_SUCCESS(vigemErr))
             {
                 std::cerr << "Registering DS4 Rumble callback failed with error code: 0x" << std::hex << vigemErr << std::endl;
-                //APP_KILLED = 1;
             }
 #endif
         }
@@ -219,7 +214,6 @@ int main(int argc, char* argv[]) {
             if (!VIGEM_SUCCESS(vigemErr))
             {
                 std::cerr << "Registering 360 Rumble callback failed with error code: 0x" << std::hex << vigemErr << std::endl;
-                //APP_KILLED = 1;
             }
         }
 
