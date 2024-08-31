@@ -113,7 +113,7 @@ int main(int argc, char* argv[]) {
 
     // Set Version into backdrop
     {
-        int versionStartPoint = 73 * 3 + 31;
+        constexpr int versionStartPoint = 73 * 3 + 31;
         const int verLength = wcslen(APP_VERSION_NUM);
 
         for (int i = 0; i < verLength; i++) {
