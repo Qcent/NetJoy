@@ -70,7 +70,7 @@ public:
 ///////
 /// textUI 
 //////
-#include "./../JoySender_tUI/tUI/textUI.h"
+#include "tUI/textUI.h"
 
 #pragma warning(disable : 4996)
 // Converts strings to wide strings and back again

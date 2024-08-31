@@ -53,7 +53,7 @@ bool OLDMAP_FLAG = 0;
 void signalHandler(int signal);
 
 ///////
-/// tUI.h 
+/// textUI 
 //////
 #include "tUI/textUI.h"
 
