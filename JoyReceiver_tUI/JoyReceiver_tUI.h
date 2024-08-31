@@ -103,7 +103,187 @@ public:
 
     };
 
-    SDLButtonMapping(){}
+    using ButtonMap = std::unordered_map<ButtonName, ButtonMapInput>;
+
+    ButtonMap buttonMaps;
+    std::vector<ButtonName> stickButtonNames;
+    std::vector<ButtonName> triggerButtonNames;
+    std::vector<ButtonName> thumbButtonNames;
+    std::vector<ButtonName> shoulderButtonNames;
+    std::vector<ButtonName> dpadButtonNames;
+    std::vector<ButtonName> genericButtonNames;
+
+    SDLButtonMapping()
+        : buttonMaps({ {ButtonName::DPAD_UP, ButtonMapInput()},
+                      {ButtonName::DPAD_DOWN, ButtonMapInput()},
+                      {ButtonName::DPAD_LEFT, ButtonMapInput()},
+                      {ButtonName::DPAD_RIGHT, ButtonMapInput()},
+                      {ButtonName::START, ButtonMapInput()},
+                      {ButtonName::BACK, ButtonMapInput()},
+                      {ButtonName::LEFT_THUMB, ButtonMapInput()},
+                      {ButtonName::RIGHT_THUMB, ButtonMapInput()},
+                      {ButtonName::LEFT_SHOULDER, ButtonMapInput()},
+                      {ButtonName::RIGHT_SHOULDER, ButtonMapInput()},
+                      {ButtonName::GUIDE, ButtonMapInput()},
+                      {ButtonName::A, ButtonMapInput()},
+                      {ButtonName::B, ButtonMapInput()},
+                      {ButtonName::X, ButtonMapInput()},
+                      {ButtonName::Y, ButtonMapInput()},
+                      {ButtonName::LEFT_TRIGGER, ButtonMapInput()},
+                      {ButtonName::RIGHT_TRIGGER, ButtonMapInput()},
+                      {ButtonName::LEFT_STICK_LEFT, ButtonMapInput()},
+                      {ButtonName::LEFT_STICK_UP, ButtonMapInput()},
+                      {ButtonName::LEFT_STICK_RIGHT, ButtonMapInput()},
+                      {ButtonName::LEFT_STICK_DOWN, ButtonMapInput()},
+                      {ButtonName::RIGHT_STICK_LEFT, ButtonMapInput()},
+                      {ButtonName::RIGHT_STICK_UP, ButtonMapInput()},
+                      {ButtonName::RIGHT_STICK_RIGHT, ButtonMapInput()},
+                      {ButtonName::RIGHT_STICK_DOWN, ButtonMapInput()} }),
+        stickButtonNames(generateButtonList(ButtonType::STICK)),
+        triggerButtonNames(generateButtonList(ButtonType::TRIGGER)),
+        thumbButtonNames(generateButtonList(ButtonType::THUMB)),
+        shoulderButtonNames(generateButtonList(ButtonType::SHOULDER)),
+        dpadButtonNames(generateButtonList(ButtonType::HAT)),
+        genericButtonNames(generateGenericButtonList()) {}
+
+    std::vector<ButtonName> getSetButtonNames() const {
+        std::vector<ButtonName> setButtons;
+        for (const auto& buttonMap : buttonMaps) {
+            if (buttonMap.second.input_type != ButtonType::UNSET) {
+                setButtons.push_back(buttonMap.first);
+            }
+        }
+        return setButtons;
+    }
+
+    std::vector<ButtonName> getUnsetButtonNames() const {
+        std::vector<ButtonName> unsetButtons;
+        for (const auto& buttonMap : buttonMaps) {
+            if (buttonMap.second.input_type == ButtonType::UNSET) {
+                unsetButtons.push_back(buttonMap.first);
+            }
+        }
+        return unsetButtons;
+    }
+
+
+    static std::string getButtonNameString(ButtonName buttonName) {
+        switch (buttonName) {
+        case ButtonName::DPAD_UP: return "DPAD_UP";
+        case ButtonName::DPAD_DOWN: return "DPAD_DOWN";
+        case ButtonName::DPAD_LEFT: return "DPAD_LEFT";
+        case ButtonName::DPAD_RIGHT: return "DPAD_RIGHT";
+        case ButtonName::START: return "START";
+        case ButtonName::BACK: return "BACK";
+        case ButtonName::LEFT_THUMB: return "LEFT_THUMB";
+        case ButtonName::RIGHT_THUMB: return "RIGHT_THUMB";
+        case ButtonName::LEFT_SHOULDER: return "LEFT_SHOULDER";
+        case ButtonName::RIGHT_SHOULDER: return "RIGHT_SHOULDER";
+        case ButtonName::GUIDE: return "GUIDE";
+        case ButtonName::A: return "A";
+        case ButtonName::B: return "B";
+        case ButtonName::X: return "X";
+        case ButtonName::Y: return "Y";
+        case ButtonName::LEFT_TRIGGER: return "LEFT_TRIGGER";
+        case ButtonName::RIGHT_TRIGGER: return "RIGHT_TRIGGER";
+        case ButtonName::LEFT_STICK_LEFT: return "LEFT_STICK_LEFT";
+        case ButtonName::LEFT_STICK_UP: return "LEFT_STICK_UP";
+        case ButtonName::LEFT_STICK_RIGHT: return "LEFT_STICK_RIGHT";
+        case ButtonName::LEFT_STICK_DOWN: return "LEFT_STICK_DOWN";
+        case ButtonName::RIGHT_STICK_LEFT: return "RIGHT_STICK_LEFT";
+        case ButtonName::RIGHT_STICK_UP: return "RIGHT_STICK_UP";
+        case ButtonName::RIGHT_STICK_RIGHT: return "RIGHT_STICK_RIGHT";
+        case ButtonName::RIGHT_STICK_DOWN: return "RIGHT_STICK_DOWN";
+
+        default: return "UNKNOWN";
+        }
+    }
+
+    static std::string getButtonTypeString(ButtonType buttonType) {
+        switch (buttonType) {
+        case ButtonType::HAT: return "DPAD";
+        case ButtonType::STICK: return "STICK";
+        case ButtonType::THUMB: return "THUMB";
+        case ButtonType::TRIGGER: return "TRIGGER";
+        case ButtonType::BUTTON: return "BUTTON";
+        case ButtonType::SHOULDER: return "SHOULDER";
+        case ButtonType::UNSET: return "UNSET";
+        default: return "UNKNOWN";
+        }
+    }
+
+
+    std::string displayInput(ButtonName buttonName) {
+        if (buttonMaps.count(buttonName) > 0) {
+            const auto& buttonInput = buttonMaps.at(buttonName);
+            return "Name: " + getButtonNameString(buttonName) + ", Input Type: " + getButtonTypeString(buttonInput.input_type) +
+                ", Index: " + std::to_string(buttonInput.index) +
+                ", Value: " + std::to_string(buttonInput.value);
+        }
+        else {
+            return "Button not found: " + getButtonNameString(buttonName);
+        }
+    }
+
+    static std::wstring displayInput(ButtonMapInput input) {
+        if (input.input_type == SDLButtonMapping::ButtonType::UNSET)
+            return L" (UNSET) ";
+        std::string out = getButtonTypeString(input.input_type) + " " +
+            std::to_string(input.index) + ": " +
+            std::to_string(input.value);
+
+        return g_toWide(out);
+    }
+
+private:
+
+    std::vector<ButtonName> generateButtonList(ButtonType buttonType) const {
+
+        auto compareByName = [this](ButtonName id1, ButtonName id2) {
+            return getButtonNameString(id1) < getButtonNameString(id2);
+        };
+
+        std::vector<ButtonName> buttonList;
+        for (const auto& buttonMap : buttonMaps) {
+            const auto& buttonID = buttonMap.first;
+            const std::string buttonName = getButtonNameString(buttonID);
+            const auto& buttonInput = buttonMap.second;
+            const auto bType = getButtonTypeString(buttonType);
+            if (buttonName.find(bType) != std::string::npos) {
+                buttonList.push_back(buttonID);
+            }
+        }
+        if (buttonType != ButtonType::HAT) {
+            // Sort the buttonList vector alphabetically
+            std::sort(buttonList.begin(), buttonList.end());
+        }
+        return buttonList;
+    }
+
+    std::vector<ButtonName> generateGenericButtonList() const {
+        // Sort the genericButtons vector by length using the custom comparator
+        auto compareByNameLength = [this](ButtonName id1, ButtonName id2) {
+            std::string name1 = getButtonNameString(id1);
+            std::string name2 = getButtonNameString(id2);
+            return name1.length() < name2.length();
+        };
+
+        std::vector<ButtonName> genericButtons;
+        for (const auto& buttonMap : buttonMaps) {
+            const auto& buttonID = buttonMap.first;
+            const std::string buttonName = getButtonNameString(buttonID);
+            const auto& buttonInput = buttonMap.second;
+            if (buttonName.find("DPAD") == std::string::npos &&
+                buttonName.find("SHOULDER") == std::string::npos &&
+                buttonName.find("THUMB") == std::string::npos &&
+                buttonName.find("TRIGGER") == std::string::npos &&
+                buttonName.find("STICK") == std::string::npos) {
+                genericButtons.push_back(buttonID);
+            }
+        }
+        std::sort(genericButtons.begin(), genericButtons.end(), compareByNameLength);
+        return genericButtons;
+    }
 };
 
 ///////
@@ -125,6 +305,8 @@ void countUpDown(int& counter, int maxCount);
 // Converts strings to wide strings and back again
 std::wstring_convert<std::codecvt_utf8<wchar_t>> g_converter;
 
+HANDLE g_hConsoleInput;
+textUI g_screen;
 int g_mode = 1;
 int g_currentColorScheme;
 ColorScheme g_simpleScheme;
