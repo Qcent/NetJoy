@@ -1,6 +1,5 @@
 # VStudio Directories
 *.vs
-*.aps
 
 # Prerequisites
 *.d
@@ -12,6 +11,7 @@
 *.obj
 
 # Precompiled Headers
+*.aps
 *.gch
 *.pch
 
@@ -35,7 +35,10 @@
 *.app
 *.ps1
 
-#Other Directories
+# Other Data
+*.json
+
+# Other Directories
 JoyReceiver++/JoyReceiver++/
 JoyReceiver++/x64
 JoyReceiver++/Release
