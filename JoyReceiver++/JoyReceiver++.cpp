@@ -27,6 +27,18 @@ THE SOFTWARE.
 #include "FPSCounter.hpp"
 #include "JoyReceiver++.h"
 
+void overwriteFPS(const std::string& text) {
+    // Move the cursor to the beginning of the last line
+    std::cout << "\033[F";
+    // Write the new text
+    std::cout << text + "  " << std::endl;
+}
+void overwriteLatency(const std::string& text) {
+    repositionConsoleCursor(-1, 27);
+    std::cout << text << std::endl;
+}
+
+
 int main(int argc, char* argv[]) {
     Arguments args = parse_arguments(argc, argv);
     FPSCounter fps_counter;
