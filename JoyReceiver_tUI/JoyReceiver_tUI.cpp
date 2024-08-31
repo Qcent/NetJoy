@@ -26,6 +26,7 @@ THE SOFTWARE.
 #include "TCPConnection.h"
 #include "FPSCounter.hpp"
 #include "JoyReceiver_tUI.h"
+#include "./../JoySender_tUI/tUI/textUI.h"
 
 console con(consoleWidth, consoleHeight);
 
