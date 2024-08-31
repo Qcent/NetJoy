@@ -123,31 +123,29 @@ int main(int argc, char* argv[]) {
 
     //
     // Set up for tUI screen
-
-    // establish a color scheme
-    g_currentColorScheme = generateRandomInt(0, NUM_COLOR_SCHEMES);       // will be used as index for fullColorSchemes
-    if (g_currentColorScheme == RANDOMSCHEME)
-    {
-        WORD newRandomBG = generateRandomInt(0, 15) AS_BG;
-
-        static ColorScheme randomScheme;
-        randomScheme = createRandomScheme();
-
-        fullColorSchemes[RANDOMSCHEME] = fullSchemeFromSimpleScheme(randomScheme, newRandomBG);
-    }
-    g_simpleScheme = simpleSchemeFromFullScheme(fullColorSchemes[g_currentColorScheme]);  // Set for compatibility with DrawControllerFace
-
-    // set element properties
+        // set element properties
     textUI& screen = g_screen;
     CoupleControllerButtons(); // sets up controller outline/highlight coupling for nice looks & button ids
     setErrorMsg(L"\0", 1); // initialize error message as empty string
     fpsMsg.SetPosition(51, 1, 7, 1, ALIGN_LEFT);                // fps output
     quitButton.setCallback(&exitAppCallback);
     newColorsButton.setCallback(&newControllerColorsCallback);
-    
-    // colors   
-    errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2); 
-    fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
+
+    // hack in some color change for connect screen
+        // new color scheme
+    auto roll_new_color = [&](){
+        GET_NEW_COLOR_SCHEME();
+
+        errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2);
+        fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
+    };
+    auto redraw_cx_tUI = [&]() {
+        COLOR_AND_DRAW_CX_tUI();
+    };
+
+        // establish a color scheme
+    roll_new_color();
+
     
     ///********************************
 
@@ -155,43 +153,15 @@ int main(int argc, char* argv[]) {
     while (!APP_KILLED) {
 
         // Set and Draw connection screen
-        {
-            WORD headingColor = makeSafeColors(fullColorSchemes[g_currentColorScheme].controllerColors.col4);
-            output2.SetColor(headingColor); // for connection animation
-            screen.SetBackdrop(JoyRecvMain_Backdrop);
-            screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg);
-            quitButton.SetPosition(11, 17);
-            screen.AddButton(&quitButton);
-            screen.SetButtonsColors(controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors));
-            screen.ReDraw();
-
-            errorOut.SetPosition(consoleWidth / 2, 5, 50, 0, ALIGN_CENTER);
-            errorOut.Draw();
-
-            output1.SetPosition(consoleWidth / 2 + 2, 7, 50, 1, ALIGN_CENTER);
-            output1.SetText(L" Waiting For Connection ");
-            output1.SetColor(headingColor);
-            output1.Draw();
-
-            // Show PORT and IPs
-            setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
-            setCursorPosition(26, 9);
-            std::wcout << L" ";
-            std::wcout << args.port;
-            std::wcout << L" ";
-
-            setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);
-            setCursorPosition(28, 11);
-            std::wcout << L" " + localIP + L" ";
-
-            setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
-            setCursorPosition(28, 13);
-            std::wcout << L" " + externalIP + L" ";
-        }
-
+        BUILD_CONNECTION_tUI();
+        COLOR_AND_DRAW_CX_tUI();
 
         // Wait to establish a connection in separate thread while animating the screen
         {
+            BUILD_CX_EGG();
+            COLOR_CX_EGG();
+            colorEgg.Draw();
+
             // set up animation variables
             int frameDelay = 0;
             int footFrameNum = 0;
@@ -250,7 +220,6 @@ int main(int argc, char* argv[]) {
                         revLoopCount(footFrameNum, FOOTER_ANI_FRAME_COUNT);  // reverse loop
                     }
                     else {
-
                         loopCount(footFrameNum, FOOTER_ANI_FRAME_COUNT);  // loop
                         //countUpDown(g_frameNum, CX_ANI_FRAME_COUNT);    // bounce
                     }
@@ -258,6 +227,17 @@ int main(int argc, char* argv[]) {
 
                 // check input
                 checkForQuit();
+                if (checkKey('C', IS_PRESSED) || g_mode == true) {
+                    g_mode = false;
+                    roll_new_color();
+                    redraw_cx_tUI();
+
+                    leftBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
+                    rightBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
+                    ani2.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
+
+                    COLOR_CX_EGG();
+                }
                 screenLoop(screen);
                 
                 if (!APP_KILLED && allGood == WSAEWOULDBLOCK) {
@@ -267,6 +247,7 @@ int main(int argc, char* argv[]) {
             }
             //runFrame = 0;
             connectThread.detach();
+            screen.RemoveButton(&colorEgg);
         }
         if (allGood == WSAEINVAL) {
             swprintf(errorPointer, 52, L" Unable to use port : %d \r\n Program will exit", args.port);

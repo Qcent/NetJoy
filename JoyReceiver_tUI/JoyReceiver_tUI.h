@@ -371,3 +371,101 @@ void threadedAwaitConnection(TCPConnection& server, int& retVal, char* clientIP)
         }
     }
 }
+
+
+// ^*%*^*&^*%*^*&^*%*^*&^*%*^*&^*%*^*&^*%*^*&^*%*^*&^*%*^*&^
+// tUI Helper Defines
+
+#define POPULATE_COLOR_LIST() \
+{ \
+    int colorseed = generateRandomInt(1100000000, 2147483647); \
+    \
+    for (int byteIndex = 0; byteIndex < sizeof(int); ++byteIndex) { \
+        unsigned char byteValue = (colorseed >> (byteIndex * 8)) & 0xFF; \
+        for (int nibbleIndex = 0; nibbleIndex < 2; ++nibbleIndex) { \
+            unsigned char nibble = (byteValue >> (nibbleIndex * 4)) & 0x0F; \
+            colorList.push_back(nibble); \
+        } \
+    }\
+}
+
+#define GET_NEW_COLOR_SCHEME() \
+{\
+    g_currentColorScheme = generateRandomInt(0, NUM_COLOR_SCHEMES);       /* will be used as index for fullColorSchemes */ \
+    if (g_currentColorScheme == RANDOMSCHEME) \
+    { \
+        WORD newRandomBG = generateRandomInt(0, 15) AS_BG; \
+        static ColorScheme randomScheme; \
+        randomScheme = createRandomScheme(); \
+        fullColorSchemes[RANDOMSCHEME] = fullSchemeFromSimpleScheme(randomScheme, newRandomBG); \
+    } \
+    g_simpleScheme = simpleSchemeFromFullScheme(fullColorSchemes[g_currentColorScheme]);  /* Set for compatibility with DrawControllerFace */ \
+}
+
+
+#define BUILD_CONNECTION_tUI() \
+{ \
+    screen.SetBackdrop(JoyRecvMain_Backdrop); \
+    quitButton.SetPosition(11, 17); \
+    screen.AddButton(&quitButton); \
+\
+    errorOut.SetPosition(consoleWidth / 2, 5, 50, 0, ALIGN_CENTER); \
+\
+    output1.SetPosition(consoleWidth / 2 + 2, 7, 50, 1, ALIGN_CENTER); \
+    output1.SetText(L" Waiting For Connection "); \
+\
+}
+
+#define COLOR_AND_DRAW_CX_tUI() \
+{ \
+    WORD headingColor = makeSafeColors(fullColorSchemes[g_currentColorScheme].controllerColors.col4); \
+    output2.SetColor(headingColor); /* for connection animation */ \
+    screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg); \
+    screen.SetButtonsColors(controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors)); \
+    screen.ReDraw(); \
+\
+    errorOut.Draw(); \
+\
+    output1.SetColor(headingColor); \
+    output1.Draw(); \
+\
+    /* Show PORT and IPs */ \
+    setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col4); \
+    setCursorPosition(26, 9); \
+    std::wcout << L" "; \
+    std::wcout << args.port; \
+    std::wcout << L" "; \
+\
+    setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col1); \
+    setCursorPosition(28, 11); \
+    std::wcout << L" " + localIP + L" "; \
+\
+    setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col3); \
+    setCursorPosition(28, 13); \
+    std::wcout << L" " + externalIP + L" "; \
+}
+
+#define BUILD_CX_EGG() \
+    mouseButton colorEgg(50, consoleHeight - 3, 1, L"©"); \
+    \
+    screen.AddButton(&colorEgg); \
+    g_mode = false; /* hijack this (at the moment) unused global int */ \
+    colorEgg.setCallback([](mouseButton& btn) { \
+        if (btn.Status() & MOUSE_UP) { \
+            btn.SetStatus(MOUSE_OUT); \
+            g_mode = true; \
+        } \
+        }); \
+
+#define COLOR_CX_EGG() \
+{ \
+    std::vector<WORD> colorList; \
+    POPULATE_COLOR_LIST(); \
+    colorEgg.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg); \
+    colorEgg.SetHighlightColor(fullColorSchemes[g_currentColorScheme].menuBg); \
+    colorEgg.SetSelectColor( \
+        CheckContrastMismatch(fullColorSchemes[g_currentColorScheme].controllerColors.col3 FG_ONLY, fullColorSchemes[g_currentColorScheme].menuBg BG_ONLY) ? \
+        (findSafeFGColor(fullColorSchemes[g_currentColorScheme].menuBg BG_ONLY, colorList, colorList.begin()) | fullColorSchemes[g_currentColorScheme].menuBg BG_ONLY) : \
+        (fullColorSchemes[g_currentColorScheme].controllerColors.col3 FG_ONLY | fullColorSchemes[g_currentColorScheme].menuBg BG_ONLY) \
+    ); \
+}
