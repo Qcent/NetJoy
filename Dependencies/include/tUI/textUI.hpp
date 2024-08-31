@@ -956,6 +956,23 @@ public:
         _buttonsCount++;
     }
 
+    void RemoveButton(mouseButton* ptr) {
+        if (_buttonsCount == 0) return;
+        bool popped = false;
+        for (int i = 0; i < _buttonsCount; i++) {
+            if (_buttons[i] == ptr) {
+                popped = true;
+            }
+            else if (popped) {
+                _buttons[i - 1] = _buttons[i];
+            }
+        }
+        if (popped) {
+            _buttons[_buttonsCount - 1] = nullptr;
+            _buttonsCount--;
+        }
+    }
+
     void ClearInputs() {
         for (int i = 0; i < MAX_SCREEN_INPUTS; ++i) {
             _textInputs[i] = nullptr;
