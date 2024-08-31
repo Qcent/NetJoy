@@ -221,7 +221,7 @@ int main(int argc, char* argv[]) {
         // Send response back to client
         feedbackData = "Go for Joy!";
         allGood = server.send_data(feedbackData.c_str(), static_cast<int>(feedbackData.length()));
-        if (!allGood) {
+        if (allGood < 1) {
             std::cout << "<< Connection Failed >>" << std::endl;
             break;
         }
