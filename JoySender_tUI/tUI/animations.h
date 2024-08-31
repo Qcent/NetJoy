@@ -81,3 +81,12 @@ void revLoopCount(int& counter, int maxCount) {
     if (counter < 0)
         counter = maxCount-1;
 }
+
+// for smooth and controllable animation advance frames in a separate thread
+// not currently used
+void threadedFrameAdvance(int& run, int delay, int& counter, int maxCount) {
+    while (!APP_KILLED && run) {
+        Sleep(delay);
+        loopCount(counter, maxCount);
+    }
+}

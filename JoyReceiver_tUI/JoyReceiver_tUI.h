@@ -371,12 +371,3 @@ void threadedAwaitConnection(TCPConnection& server, int& retVal, char* clientIP)
         }
     }
 }
-
-// for smooth and controllable animation advance frames in a separate thread
-// not currently used
-void threadedFrameAdvance(int& run, int delay, int& counter, int maxCount) {
-    while(!APP_KILLED && run){
-        Sleep(delay);
-        loopCount(counter, maxCount);
-    }
-}
