@@ -271,7 +271,7 @@ int main(int argc, char* argv[]) {
         //
         // Receive Operating Mode and Client Timing
         bytesReceived = server.receive_data(buffer, buffer_size);
-        if (!bytesReceived) {
+        if (bytesReceived < 1) {
 
             int len = clientIP.size() + 33;
             swprintf(errorPointer, len, L" << Connection From: %s Failed >> ", clientIP.c_str());
@@ -354,7 +354,7 @@ int main(int argc, char* argv[]) {
         // Send response back to client
         feedbackData = "Go for Joy!";
         allGood = server.send_data(feedbackData.c_str(), static_cast<int>(feedbackData.length()));
-        if (!allGood) {
+        if (allGood < 1) {
             int len = clientIP.size() + 30;
             swprintf(errorPointer, len, L" << Connection To: %s Failed >> ", clientIP.c_str());
             errorOut.SetWidth(len);

@@ -161,7 +161,7 @@ int main(int argc, char* argv[]) {
         //
         // Receive Operating Mode and Client Timing
         bytesReceived = server.receive_data(buffer, buffer_size);
-        if (!bytesReceived) {
+        if (bytesReceived < 1) {
             std::cout << "<< Connection Failed >>" << std::endl;
             break;
         }
