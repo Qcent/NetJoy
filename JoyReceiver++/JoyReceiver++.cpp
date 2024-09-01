@@ -48,6 +48,7 @@ int main(int argc, char* argv[]) {
     XUSB_REPORT xbox_report;
     DS4_REPORT_EX ds4_report_ex;
 
+    std::unique_lock<std::mutex> lock(mtx, std::defer_lock);
     int allGood;
     UINT8 connection_error_count = 0;
     char buffer[64];
@@ -188,38 +189,11 @@ int main(int argc, char* argv[]) {
             APP_KILLED = 1;
         }
 
-        // Register Rumble callback notifications
+        // Register 360 rumble callback or spin up ds4 feedback thread
         if (op_mode == 2) {
-
-#if 0
-            std::thread ds4RumbleThread([&vigemClient, &gamepad]() {
-                PDS4_OUTPUT_BUFFER buffer = {};
-                while (!APP_KILLED) {
-                    // Perform computations and update shared variables
-                    auto vigemErr = vigem_target_ds4_await_output_report(vigemClient, gamepad, buffer);
-                    if (!VIGEM_SUCCESS(vigemErr)) {
-                        std::cerr << "Registering DS4 Rumble callback failed with error code: 0x" << std::hex << vigemErr << std::endl;
-                        // APP_KILLED = 1;
-                    }
-                    else {
-                        std::lock_guard<std::mutex> lock(mtx); // Lock the mutex
-
-                        buffer;
-                        // Update the shared variable from buffer
-                        // feedbackData = static_cast<char>(LargeMotor);
-                        // feedbackData += static_cast<char>(SmallMotor);
-                    }
-                }
-                });
-#else
-            
-            #pragma warning(disable : 4996)
-            vigemErr = vigem_target_ds4_register_notification(vigemClient, gamepad, &ds4_rumble, &feedbackData);
-            if (!VIGEM_SUCCESS(vigemErr))
-            {
-                std::cerr << "Registering DS4 Rumble callback failed with error code: 0x" << std::hex << vigemErr << std::endl;
-            }
-#endif
+            ds4ThreadStop = false;
+            ds4Rumbler = std::thread(ds4RumbleThread, std::ref(vigemClient), std::ref(gamepad));
+            ds4Rumbler.detach();
         }
         else {
             vigemErr = vigem_target_x360_register_notification(vigemClient, gamepad, &xbox_rumble, &feedbackData);
@@ -231,15 +205,13 @@ int main(int argc, char* argv[]) {
 
         //
         // Send response back to client
-        feedbackData = "Go for Joy!";
-        allGood = server.send_data(feedbackData.c_str(), static_cast<int>(feedbackData.length()));
+        allGood = server.send_data("Go for Joy!", 12);
         if (allGood < 1) {
             std::cout << "<< Connection Failed >>" << std::endl;
             break;
         }
         
         // prep for loop
-        feedbackData = "Rumble Data";
         std::cout << std::endl << std::endl;
         fps_counter.reset();
 
@@ -280,7 +252,9 @@ int main(int argc, char* argv[]) {
 
             //*******************************
             // Send response back to client :: Rumble data
-            allGood = server.send_data(feedbackData.c_str(), static_cast<int>(feedbackData.length()));
+            lock.lock();
+            allGood = server.send_data(feedbackData, 2);
+            lock.unlock();
             if (allGood < 1)
                 break;
         }
@@ -290,8 +264,10 @@ int main(int argc, char* argv[]) {
             std::cout << "<< Connection Lost >>" << std::endl;
         }
 
-        // Unregister rumble callbacks // deprecated?
-        if (op_mode == 2) vigem_target_ds4_unregister_notification(gamepad);
+        // Unregister rumble callback // shutdown ds4 feedback thread
+        if (op_mode == 2) { 
+            ds4ThreadStop = true; 
+        }
         else vigem_target_x360_unregister_notification(gamepad);
         // Free resources (this disconnects the virtual device)
         vigem_target_remove(vigemClient, gamepad);
