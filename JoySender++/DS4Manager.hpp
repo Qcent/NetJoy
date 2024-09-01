@@ -283,7 +283,7 @@ struct ReportOut11 {
 
 // Create a buffer to store reports in
 const DWORD ds4_InBuffSize = 547; // 547 is smallest value that will receive DS4 report using ReadFileInputReport() via BT, USB can be as low as 64?
-BYTE ds4_InReportBuf[ds4_InBuffSize];
+BYTE ds4_InReportBuf[ds4_InBuffSize] = { 0 };
 
 // Create an output buffer for sending ReportOut11/ReportOut05 structures
 BYTE ds4_OutReportBuf[sizeof(ReportOut11)];
