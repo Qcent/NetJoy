@@ -446,7 +446,7 @@ int joySendertUI(Arguments& args) {
 
             //
             // Catch hot key button presses
-            if (IsAppActiveWindow() && !MAPPING_FLAG && getKeyState(VK_SHIFT)) {
+            if (!MAPPING_FLAG && getKeyState(VK_SHIFT) && IsAppActiveWindow()) {
                 if (checkKey('C', IS_PRESSED)) {
                     // change colors
                     button_Guide_highlight.SetStatus(MOUSE_UP);
