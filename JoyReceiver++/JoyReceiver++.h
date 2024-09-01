@@ -55,11 +55,6 @@ void ds4RumbleThread(PVIGEM_CLIENT vigemClient, PVIGEM_TARGET gamepad) {
             std::memcpy(feedbackData, &buffer.Buffer[4], 5 * sizeof(char));
             lock.unlock();
         }
-        else {
-            lock.lock();
-            std::memset(feedbackData, '\0', sizeof(feedbackData));
-            lock.unlock();
-        }
     }
 }
 
