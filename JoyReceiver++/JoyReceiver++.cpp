@@ -40,24 +40,8 @@ void overwriteLatency(const std::string& text) {
 
 
 int main(int argc, char* argv[]) {
-    Arguments args = parse_arguments(argc, argv);
-    FPSCounter fps_counter;
-    FPSCounter latencyTimer;
-    TCPConnection server(args.port);
-    PVIGEM_TARGET gamepad;
-    XUSB_REPORT xbox_report;
-    DS4_REPORT_EX ds4_report_ex;
+    JOYRECEIVER_INIT_VARIABLES();
 
-    std::unique_lock<std::mutex> lock(mtx, std::defer_lock);
-    int allGood;
-    UINT8 connection_error_count = 0;
-    char buffer[64];
-    int buffer_size = sizeof(buffer);
-    int bytesReceived;
-    double expectedFrameDelay = 0;
-    std::string externalIP;
-    std::string localIP;
-    std::string fpsOutput;
     auto do_fps_counting = [&fps_counter](int report_frequency = 30) {
         if (fps_counter.increment_frame_count() >= report_frequency) {
             double fps = fps_counter.get_fps();
@@ -81,26 +65,9 @@ int main(int argc, char* argv[]) {
 
     hideConsoleCursor();
 
-    // Initialize ViGEM Bus connection
-    const auto vigemClient = vigem_alloc();
-    if (vigemClient == nullptr)
-    {
-        std::cerr << "Uh, not enough memory to initialize ViGEM gamepad?!" << std::endl;
-        APP_KILLED = 1;
-    }
-    // Connect to ViGEM Bus
-    auto vigemErr = vigem_connect(vigemClient);
-    if (!VIGEM_SUCCESS(vigemErr))
-    {
-        std::cerr << "ViGEm Bus connection failed with error code: 0x" << std::hex << vigemErr << std::endl;
-        APP_KILLED = 1;
-    }
+    JOYRECEIVER_INIT_VIGEM_BUS();
 
-    externalIP = server.get_external_ip();
-    localIP = server.get_local_ip();
-    server.set_silence(true);
-    server.start_server();
-    //server.set_silence(false);
+    JOYRECEIVER_DETERMINE_IPS_START_SERVER();
 
     std::system("cls");
     ///********************************
@@ -109,101 +76,23 @@ int main(int argc, char* argv[]) {
         std::cout << "Waiting for Connection on port : " << args.port
             << "\n\t\t LAN : " << localIP << "\n\t\t WAN : " << externalIP << std::endl;
 
-        //
         // Await Connection in Non Blocking Mode
-        //
-        server.set_server_blocking(false);
-        std::pair<SOCKET, sockaddr_in> connectionResult;
-        SOCKET clientSocket;
-        while (!APP_KILLED) {
-            // Attempt to accept a client connection in non Blocking mode
-            connectionResult = server.await_connection();
-            clientSocket = connectionResult.first;
-            if (clientSocket == INVALID_SOCKET) {
-                allGood = WSAGetLastError();
-                if (allGood == WSAEWOULDBLOCK) {
-                    // No client connection is immediately available
-                    Sleep(10);
-                }
-                else if (allGood == WSAEINVAL) {
-                    // Invalid argument error * seems to trigger when we don't have access to the specified port
-                    std::cout << " << Unable to use port : " << args.port << " >>\r\n";
-                    std::cout << "<< Exiting >>" << std::endl;
-                    APP_KILLED = true;
-                    break;
-                }
-                else {
-                    // An error occurred during accept()
-                    std::cerr << "Failed to accept client connection: " << allGood << std::endl;
-                    ++connection_error_count;
-                    if (connection_error_count > 10) { 
-                        std::cout << "<< Multiple Network Errors : Exiting >>" << std::endl;
-                        APP_KILLED = true; 
-                        break; // Exit the loop or handle the error condition
-                    }
-                }
-            }
-            else {
-                // A client connection is established
-                // Process the connection
-                // Create a new thread or perform other operations on the clientSocket?
-                connection_error_count = 0;
-                // Break the loop, or this will continue attempting to accept more connections
-                break;
-            }
-        }
-        if (APP_KILLED) break;
+        JOYRECEIVER_CONSOLE_AWAIT_CONNECTION();
 
-        // clientSocket will have inherited non blocking mode
-        // Return both sockets to blocking mode
-        server.set_client_blocking(true);
-        server.set_server_blocking(true);
-
-        //
         // Receive Operating Mode and Client Timing
         bytesReceived = server.receive_data(buffer, buffer_size);
         if (bytesReceived < 1) {
             std::cout << "<< Connection Failed >>" << std::endl;
             break;
         }
-        std::vector<std::string> split_settings = split(std::string(buffer, bytesReceived), ':');
-        int client_timing = std::stoi(split_settings[0]);
-        int op_mode = (split_settings.size() > 1) ? std::stoi(split_settings[1]) : 0;
-        expectedFrameDelay = 1000.0 / client_timing;
-
-        auto emMode = op_mode == 2 ? "DS4" : "XBOX";
-        std::cout << "Client Timing: " << client_timing << "fps" << "\t" << "Emulating " << emMode << " Controller" << std::endl;
-
-        if (op_mode == 2) { // Emulating a DS4 controller
-            gamepad = vigem_target_ds4_alloc();
-        }
-        else {              // Emulating an XBOX360 controller
-            gamepad = vigem_target_x360_alloc();
-        }
-
-        // Add gamepad to the vigemClient bus, this equals a plug-in event
-        vigemErr = vigem_target_add(vigemClient, gamepad);
-        if (!VIGEM_SUCCESS(vigemErr))
+        
+        JOYRECEIVER_GET_MODE_AND_TIMING_FROM_BUFFER();
         {
-            std::cerr << "Virtual Gamepad plugin failed with error code: 0x" << std::hex << vigemErr << std::endl;
-            APP_KILLED = 1;
+            std::cout << "  Emulating " << ((op_mode == 2) ? "DS4" : "XBOX") << " Controller @ " << client_timing << "fps" << std::endl;
         }
 
-        // Register 360 rumble callback or spin up ds4 feedback thread
-        if (op_mode == 2) {
-            ds4ThreadStop = false;
-            ds4Rumbler = std::thread(ds4RumbleThread, std::ref(vigemClient), std::ref(gamepad));
-            ds4Rumbler.detach();
-        }
-        else {
-            vigemErr = vigem_target_x360_register_notification(vigemClient, gamepad, &xbox_rumble, &feedbackData);
-            if (!VIGEM_SUCCESS(vigemErr))                                              
-            {
-                std::cerr << "Registering 360 Rumble callback failed with error code: 0x" << std::hex << vigemErr << std::endl;
-            }
-        }
+        JOYRECEIVER_PLUGIN_VIGEM_CONTROLLER();
 
-        //
         // Send response back to client
         allGood = server.send_data("Go for Joy!", 12);
         if (allGood < 1) {
@@ -215,8 +104,7 @@ int main(int argc, char* argv[]) {
         std::cout << std::endl << std::endl;
         fps_counter.reset();
 
-        //
-        // Start Receive Joystick Data Loop
+        /* Start Receive Joystick Data Loop */
         while (!APP_KILLED) {
             //*****************************
             // Receive joystick input from client to the buffer
@@ -258,25 +146,19 @@ int main(int argc, char* argv[]) {
             if (allGood < 1)
                 break;
         }
+        /* End of Receive Joystick Data Loop */
         
         if (!APP_KILLED) {
             std::system("cls");
             std::cout << "<< Connection Lost >>" << std::endl;
         }
 
-        // Unregister rumble callback // shutdown ds4 feedback thread
-        if (op_mode == 2) { 
-            ds4ThreadStop = true; 
-        }
-        else vigem_target_x360_unregister_notification(gamepad);
-        // Free resources (this disconnects the virtual device)
-        vigem_target_remove(vigemClient, gamepad);
-        vigem_target_free(gamepad);
+        // Unregister rumble notifications // unplug virtual deveice
+        JOYRECEIVER_UNPLUG_VIGEM_CONTROLLER();
     }
 
     // Release connection to the ViGEM Bus
-    vigem_disconnect(vigemClient);
-    vigem_free(vigemClient);
+    JOYRECEIVER_SHUTDOWN_VIGEM_BUS();
 
     swallowInput();
     showConsoleCursor();
