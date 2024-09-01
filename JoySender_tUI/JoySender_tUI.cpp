@@ -38,7 +38,7 @@ int joySendertUI(Arguments& args) {
     // for joystick mapping and sharing joystick data between functions
     SDLJoystickData activeGamepad;
     XUSB_REPORT xbox_report = {0};      // xbox
-    BYTE* hid_report = ds4_InReportBuf; // ds4
+    BYTE* ds4_report = ds4_InReportBuf; // ds4
 
     // Lambda Functions and variables for FPS and FPS Limiting calculations
     FPSCounter fps_counter;
@@ -159,7 +159,7 @@ int joySendertUI(Arguments& args) {
         GetDS4Report();
 
         // first byte is used to determine where stick input starts
-        ds4DataOffset = hid_report[0] == 0x11 ? DS4_VIA_BT : DS4_VIA_USB;
+        ds4DataOffset = ds4_report[0] == 0x11 ? DS4_VIA_BT : DS4_VIA_USB;
 
         int attempts = 0;   // DS4 fails to properly initialize when connecting to pc (after power up) via BT so lets hack in multiple attempts
         while (attempts < 2) {
@@ -510,9 +510,9 @@ int joySendertUI(Arguments& args) {
             // Read from Input
             if (args.mode == 2) {
                 //# Read the next HID report from DS4 controller
-                allGood = GetDS4Report(); // *hid_report will be set
-                // activate screen buttons from *hid_report
-                buttonStatesFromDS4Report();
+                allGood = GetDS4Report(); // *ds4_report will be set
+                // activate screen buttons from *ds4_report
+                buttonStatesFromDS4Report(&ds4_report[ds4DataOffset]);
             }
             else {
                 //# set the XBOX REPORT from SDL inputs
@@ -533,7 +533,7 @@ int joySendertUI(Arguments& args) {
             //  Send joystick input to server
             if (args.mode == 2) {
                 //# Shift bytearray to index of first stick value
-                allGood = client.send_data(reinterpret_cast<const char*>(hid_report + ds4DataOffset), DS4_REPORT_NETWORK_DATA_SIZE);
+                allGood = client.send_data(reinterpret_cast<const char*>(ds4_report + ds4DataOffset), DS4_REPORT_NETWORK_DATA_SIZE);
             }
             else {
                 allGood = client.send_data(reinterpret_cast<const char*>(&xbox_report), sizeof(xbox_report));
