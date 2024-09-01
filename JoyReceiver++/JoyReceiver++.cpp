@@ -100,7 +100,7 @@ int main(int argc, char* argv[]) {
             break;
         }
         
-        // prep for loop
+        // Prep UI for loop
         std::cout << std::endl << std::endl;
         fps_counter.reset();
 
@@ -111,18 +111,6 @@ int main(int argc, char* argv[]) {
             bytesReceived = server.receive_data(buffer, buffer_size);
             if (bytesReceived < 1) {
                 break;
-            }
-
-            // FPS output
-            if (args.latency) {
-                fpsOutput = do_fps_counting();  
-                if (!fpsOutput.empty()) {
-                    overwriteFPS("FPS: " + fpsOutput);
-                }
-                latencyOutput = do_latency_timing();
-                if (latencyOutput) {
-                    overwriteLatency("Latency: " + formatDecimalString(std::to_string(((latencyOutput * 1000)- expectedFrameDelay) / 2), 5) + " ms    ");
-                }
             }
 
             //******************************
@@ -143,8 +131,21 @@ int main(int argc, char* argv[]) {
             lock.lock();
             allGood = server.send_data(feedbackData, 2);
             lock.unlock();
-            if (allGood < 1)
+            if (allGood < 1) {
                 break;
+            }
+
+            // FPS output
+            if (args.latency) {
+                fpsOutput = do_fps_counting();
+                if (!fpsOutput.empty()) {
+                    overwriteFPS("FPS: " + fpsOutput);
+                }
+                latencyOutput = do_latency_timing();
+                if (latencyOutput) {
+                    overwriteLatency("Latency: " + formatDecimalString(std::to_string(((latencyOutput * 1000) - expectedFrameDelay) / 2), 5) + " ms    ");
+                }
+            }
         }
         /* End of Receive Joystick Data Loop */
         
