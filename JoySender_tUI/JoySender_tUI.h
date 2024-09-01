@@ -38,8 +38,6 @@ THE SOFTWARE.
 #undef max
 
 #include "./../JoySender++/JoySender++.h"
-#include "./../JoySender++/GamepadMapping.hpp"
-#include "./../JoySender++/DS4Manager.hpp"
 
 #define APP_VERSION_NUM     L"2.0.0.0"
 
