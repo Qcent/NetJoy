@@ -4,32 +4,16 @@
 #include <conio.h>
 #include <thread>
 #include <mutex>
-#include "utilities.hpp"
 
 #pragma comment(lib, "setupapi.lib")
 #pragma comment(lib, "VIGEmClient.lib")
 
+volatile sig_atomic_t APP_KILLED = 0;
 std::mutex mtx;
 char feedbackData[5] = { 0 }; // For sending rumble data back to joySender
-volatile sig_atomic_t APP_KILLED = 0;
 void signalHandler(int signal);
 
-void displayBytes(BYTE* buffer, DWORD bufferSize) {
-    for (DWORD i = 0; i < bufferSize; i++) {
-        if (i % 18 == 0) printf("\r\n");
-        // Check if the current byte is "CC"
-        if (buffer[i] == 0xCC) {
-            // Check if the next three bytes are also "CC"
-            if (i + 3 < bufferSize && buffer[i + 1] == 0xCC && buffer[i + 2] == 0xCC && buffer[i + 3] == 0xCC) {
-                // std::cout << "\nEncountered CC sequence, exiting..." << std::endl;
-                printf("\r\n");
-                return;  // Terminate the function
-            }
-        }
-        printf("%02X ", buffer[i]);
-    }
-    printf("\r\n");
-}
+#include "utilities.hpp"
 
 std::thread ds4Rumbler;
 bool ds4ThreadStop = true;
@@ -38,7 +22,7 @@ void ds4RumbleThread(PVIGEM_CLIENT vigemClient, PVIGEM_TARGET gamepad) {
     std::unique_lock<std::mutex> lock(mtx, std::defer_lock);
     while (!APP_KILLED && !ds4ThreadStop) {
 
-        auto vigemErr = vigem_target_ds4_await_output_report_timeout(vigemClient, gamepad, 350, &buffer);
+        auto vigemErr = vigem_target_ds4_await_output_report_timeout(vigemClient, gamepad, 3000, &buffer);
         if (!VIGEM_SUCCESS(vigemErr) && vigemErr != VIGEM_ERROR_TIMED_OUT) {
             std::cerr << "DS4 Rumble callback failed with error code: 0x" << std::hex << vigemErr << std::endl;
             lock.lock();
@@ -47,6 +31,14 @@ void ds4RumbleThread(PVIGEM_CLIENT vigemClient, PVIGEM_TARGET gamepad) {
         }
         else if (vigemErr != VIGEM_ERROR_TIMED_OUT) {
 #if 0 
+            auto displayBytes = [](BYTE* buffer, DWORD bufferSize) {
+                for (DWORD i = 0; i < bufferSize; i++) {
+                    if (i % 18 == 0) printf("\r\n");
+                    printf("%02X ", buffer[i]);
+                }
+                printf("\r\n");
+                };
+
             std::cout << "Buffer Data: ";
             displayBytes(buffer.Buffer, 64);
             repositionConsoleCursor(-5, 0);
