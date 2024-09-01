@@ -31,23 +31,11 @@ THE SOFTWARE.
 console con(consoleWidth, consoleHeight);
 
 int main(int argc, char* argv[]) {
-    Arguments args = parse_arguments(argc, argv);
-    FPSCounter fps_counter;
-    TCPConnection server(args.port);
-    PVIGEM_TARGET gamepad;
-    XUSB_REPORT xbox_report;
-    DS4_REPORT_EX ds4_report_ex;
+    JOYRECEIVER_INIT_VARIABLES();
 
-    std::unique_lock<std::mutex> lock(mtx, std::defer_lock);
-    int allGood;
-    char buffer[64];
-    int buffer_size = sizeof(buffer);
-    int bytesReceived;
-    std::wstring externalIP;
-    std::wstring localIP;
-    char connectionIP[INET_ADDRSTRLEN];
     std::wstring clientIP;
-    std::string fpsOutput;
+    char connectionIP[INET_ADDRSTRLEN];
+
     auto do_fps_counting = [&fps_counter](int report_frequency = 30) {
         if (fps_counter.increment_frame_count() >= report_frequency) {
             double fps = fps_counter.get_fps();
@@ -55,29 +43,13 @@ int main(int argc, char* argv[]) {
             return formatDecimalString(std::to_string(fps), 2);
         }
         return std::string();
-    };
-   
+        };
+
     // Register the signal handler function
     std::signal(SIGINT, signalHandler);
-       
+
     // Initialize ViGEM Bus connection
-    const auto vigemClient = vigem_alloc();
-    if (vigemClient == nullptr)
-    {
-        //setErrorMsg(L" << Not Enough Memory To Initialize ViGEm >> ", 46);
-        std::cerr << "Uh, not enough memory to initialize ViGEM gamepad?!" << std::endl;
-        //return -1;
-        APP_KILLED = 1;
-    }
-    // Connect to ViGEM Bus
-    auto vigemErr = vigem_connect(vigemClient);
-    if (!VIGEM_SUCCESS(vigemErr))
-    {
-        //setErrorMsg(L" << ViGEm Bus Connection Failed >> ", 36);
-        std::cerr << "ViGEm Bus connection failed with error code: 0x" << std::hex << vigemErr << std::endl;
-        //return -1;
-        APP_KILLED = 1;
-    }
+    JOYRECEIVER_INIT_VIGEM_BUS();
 
     // Quit if error occurred
     if (APP_KILLED) {
@@ -85,42 +57,10 @@ int main(int argc, char* argv[]) {
     }
 
     // Get IPs and start server
-    externalIP = g_converter.from_bytes(server.get_external_ip());
-    localIP = g_converter.from_bytes(server.get_local_ip());
-    server.set_silence(true);
-    server.start_server();
-    //server.set_silence(false); // we don't want the server talking on our tUI screens
+    JOYRECEIVER_DETERMINE_IPS_START_SERVER();
 
-
-    //
     // Set Up Console Window
-
-    // Get the console input handle to enable mouse input
-    g_hConsoleInput = GetStdHandle(STD_INPUT_HANDLE);
-    DWORD mode;
-    GetConsoleMode(g_hConsoleInput, &mode);                     // Disable Quick Edit Mode // working??
-    SetConsoleMode(g_hConsoleInput, ENABLE_MOUSE_INPUT | mode & ~ENABLE_QUICK_EDIT_MODE);
-
-    // Set the console to UTF-8 mode
-    auto _ =_setmode(_fileno(stdout), _O_U8TEXT);
-
-    // Set Version into window title
-    wchar_t winTitle[30];
-    wcscpy(winTitle, L"JoyReceiver++ tUI ");
-    wcscat(winTitle, APP_VERSION_NUM);
-    SetConsoleTitleW(winTitle);
-    
-    hideConsoleCursor();
-
-    // Set Version into backdrop
-    {
-        constexpr int versionStartPoint = 73 * 3 + 31;
-        const int verLength = wcslen(APP_VERSION_NUM);
-
-        for (int i = 0; i < verLength; i++) {
-            JoyRecvMain_Backdrop[versionStartPoint + i] = APP_VERSION_NUM[i];
-        }
-    }
+    SET_tUI_CONSOLE_MODE();
 
     //
     // Set up for tUI screen
@@ -145,77 +85,34 @@ int main(int argc, char* argv[]) {
         BUILD_CONNECTION_tUI();
         COLOR_AND_DRAW_CX_tUI();
 
-        // Wait to establish a connection in separate thread while animating the screen
-        ESTABLISH_ANIMATED_CX_tUI();
+        // Await Connection in separate thread while animating the screen
+        JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION();
 
+        // Possible errors handling
         if (allGood == WSAEINVAL) {
             swprintf(errorPointer, 52, L" Unable to use port : %d \r\n Program will exit", args.port);
             MessageBox(NULL, errorPointer, L"JoyReceiver Error", MB_ICONERROR | MB_OK);
         }
-
         if (APP_KILLED) break;
         if (allGood < 0) {
             setErrorMsg(L" << Error While Establishing Connection >> ", 44);
             break;
         }
 
-        // clientSocket will have inherited non blocking mode
-        // Return both sockets to blocking mode
-        server.set_client_blocking(true);
-        server.set_server_blocking(true);
-
-        // set wstring clientIP
-        clientIP = g_converter.from_bytes(connectionIP);
-
-        //
         // Receive Operating Mode and Client Timing
         bytesReceived = server.receive_data(buffer, buffer_size);
         if (bytesReceived < 1) {
-
             int len = clientIP.size() + 33;
             swprintf(errorPointer, len, L" << Connection From: %s Failed >> ", clientIP.c_str());
             errorOut.SetWidth(len);
             errorOut.SetText(errorPointer);
             break;
         }
-        std::vector<std::string> split_settings = split(std::string(buffer, bytesReceived), ':');
-        int client_timing = std::stoi(split_settings[0]);
-        int op_mode = (split_settings.size() > 1) ? std::stoi(split_settings[1]) : 0;
-        g_mode = op_mode;
 
-        if (op_mode == 2) { // Emulating a DS4 controller
-            gamepad = vigem_target_ds4_alloc();
-        }
-        else {              // Emulating an XBOX360 controller
-            gamepad = vigem_target_x360_alloc();
-        }
+        JOYRECEIVER_GET_MODE_AND_TIMING_FROM_BUFFER();
 
-        // Add gamepad to the vigemClient bus, this equals a plug-in event
-        vigemErr = vigem_target_add(vigemClient, gamepad);
-        if (!VIGEM_SUCCESS(vigemErr))
-        {
-            setErrorMsg(L" << Virtual Gamepad Plugin Failed >> ", 38);
-            errorOut.Draw();
-            //std::cerr << "Virtual Gamepad plugin failed with error code: 0x" << std::hex << vigemErr << std::endl;
-            APP_KILLED = 1;
-        }
+        JOYRECEIVER_PLUGIN_VIGEM_CONTROLLER();
 
-        // Register 360 rumble callback or spin up ds4 feedback thread
-        if (op_mode == 2) {
-            ds4ThreadStop = false;
-            ds4Rumbler = std::thread(ds4RumbleThread, std::ref(vigemClient), std::ref(gamepad));
-            ds4Rumbler.detach();
-        }
-        else {
-            vigemErr = vigem_target_x360_register_notification(vigemClient, gamepad, &xbox_rumble, &feedbackData);
-            if (!VIGEM_SUCCESS(vigemErr))
-            {
-                setErrorMsg(L" << Registering 360 Rumble Callback Failed >> ", 47);
-                errorOut.Draw();
-            }
-        }
-
-        //
         // Send response back to client
         allGood = server.send_data("Go for Joy!", 12);
         if (allGood < 1) {
@@ -226,65 +123,14 @@ int main(int argc, char* argv[]) {
             break;
         }
 
-        // Set UI
-        {
-            screen.ClearButtons();
-
-            // backdrop
-            int QUITLINE;
-            if (op_mode == 2) {
-                screen.SetBackdrop(DS4_Backdrop);
-                QUITLINE = DS4_QUIT_LINE;
-                BuildDS4Face();
-            }
-            else {
-                screen.SetBackdrop(XBOX_Backdrop);
-                QUITLINE = XBOX_QUIT_LINE;
-                BuildXboxFace();
-            }
-
-            // messages
-            swprintf(msgPointer1, 43, L" << Connection From: %s  >> ", clientIP.c_str());
-            output1.SetText(msgPointer1);
-            output1.SetPosition(3, 1, 43, 1, ALIGN_LEFT);
-            output1.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg);
-
-            swprintf(clientPointer, 18, L" %s ", clientIP.c_str());
-            clientMsg.SetText(clientPointer);
-            clientMsg.SetPosition(23, 1, 38, 1, ALIGN_LEFT);
-            clientMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
-
-            // buttons
-            SetControllerButtonPositions(op_mode);
-            quitButton.SetPosition(consoleWidth / 2 - 5, QUITLINE);
-            newColorsButton.SetPosition(consoleWidth / 2 - 8, QUITLINE - 2);
-            screen.AddButton(&quitButton);
-            screen.AddButton(&newColorsButton);
-
-
-            // colors / drawing
-                // set controller to color scheme colors with some contrast correction for bg color then draws the controller face
-            DrawControllerFace(screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, op_mode);
-
-            tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
-
-            // color non controller buttons and draw them
-            screen.SetButtonsColors(buttonColors);
-            screen.DrawButtons();
-
-            output1.Draw();
-            clientMsg.Draw();
-        }
-
+        // Prep UI for loop
+        BUILD_MAIN_LOOP_tUI();
         fps_counter.reset();
 
-        //
-        // Start Receive Joystick Data Loop
+        /* Start Receive Joystick Data Loop */
         while (!APP_KILLED) {
-
             screenLoop(screen);
 
-            //
             // Catch hot key button presses
             if (IsAppActiveWindow() && getKeyState(VK_SHIFT)) {
                 if (checkKey('C', IS_PRESSED)) {
@@ -297,7 +143,6 @@ int main(int argc, char* argv[]) {
                     break;
                 }
             }
-
 
             //*****************************
             // Receive joystick input from client to the buffer
@@ -329,10 +174,11 @@ int main(int argc, char* argv[]) {
                 buttonStatesFromXboxReport(xbox_report);
             }
 
-
             //*******************************
             // Send response back to client :: Rumble data
+            lock.lock();
             allGood = server.send_data(feedbackData, 2);
+            lock.unlock();
             if (allGood < 1) {
                 int len = clientIP.size() + 29;
                 swprintf(errorPointer, len, L" << Connection To: %s Lost >> ", clientIP.c_str());
@@ -349,26 +195,18 @@ int main(int argc, char* argv[]) {
                 fpsMsg.Draw();
             }
         }
+        /* End of Receive Joystick Data Loop */
 
         if (!APP_KILLED) {
             screen.ClearButtons();
         }
 
-        // Unregister rumble callbacks // deprecated?
-        if (op_mode == 2) ds4ThreadStop = true;
-        else vigem_target_x360_unregister_notification(gamepad);
-        // Free resources (this disconnects the virtual device)
-        vigem_target_remove(vigemClient, gamepad);
-        vigem_target_free(gamepad);
+        // Unregister rumble notifications // unplug virtual deveice
+        JOYRECEIVER_UNPLUG_VIGEM_CONTROLLER();
     }
 
-
     // Release connection to the ViGEM Bus
-    vigem_disconnect(vigemClient);
-    vigem_free(vigemClient);
-
-    // Close TCPConnection
-    server.~TCPConnection();
+    JOYRECEIVER_SHUTDOWN_VIGEM_BUS();
 
     swallowInput();
     setCursorPosition(0, consoleHeight);

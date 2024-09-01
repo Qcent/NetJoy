@@ -369,6 +369,33 @@ void threadedAwaitConnection(TCPConnection& server, int& retVal, char* clientIP)
 // ^*%*^*&^*%*^*&^*%*^*&^*%*^*&^*%*^*&^*%*^*&^*%*^*&^*%*^*&^
 // tUI Helper Defines
 
+#define SET_tUI_CONSOLE_MODE() \
+{ \
+    /* Get the console input handle to enable mouse input */ \
+    g_hConsoleInput = GetStdHandle(STD_INPUT_HANDLE); \
+    DWORD mode; \
+    GetConsoleMode(g_hConsoleInput, &mode); \
+    /* Disable Quick Edit Mode */ \
+    SetConsoleMode(g_hConsoleInput, ENABLE_MOUSE_INPUT | (mode & ~ENABLE_QUICK_EDIT_MODE)); \
+\
+    /* Set the console to UTF-8 mode */ \
+    auto _ = _setmode(_fileno(stdout), _O_U8TEXT); \
+\
+    /* Set Version into window title */ \
+    wchar_t winTitle[30]; \
+    wcscpy(winTitle, L"JoyReceiver++ tUI "); \
+    wcscat(winTitle, APP_VERSION_NUM); \
+    SetConsoleTitleW(winTitle); \
+\
+    hideConsoleCursor(); \
+\
+    /* Set Version into backdrop */ \
+    constexpr int versionStartPoint = 73 * 3 + 31; \
+    const int verLength = wcslen(APP_VERSION_NUM); \
+    for (int i = 0; i < verLength; i++) { \
+        JoyRecvMain_Backdrop[versionStartPoint + i] = APP_VERSION_NUM[i]; } \
+}
+
 #define POPULATE_COLOR_LIST() \
 { \
     int colorseed = generateRandomInt(1100000000, 2147483647); \
@@ -431,11 +458,11 @@ void threadedAwaitConnection(TCPConnection& server, int& retVal, char* clientIP)
 \
     setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col1); \
     setCursorPosition(28, 11); \
-    std::wcout << L" " + localIP + L" "; \
+    std::wcout << L" " +  g_converter.from_bytes(localIP) + L" "; \
 \
     setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col3); \
     setCursorPosition(28, 13); \
-    std::wcout << L" " + externalIP + L" "; \
+    std::wcout << L" " +  g_converter.from_bytes(externalIP) + L" "; \
 }
 
 #define BUILD_CX_EGG() \
@@ -471,7 +498,7 @@ void threadedAwaitConnection(TCPConnection& server, int& retVal, char* clientIP)
     ); \
 }
 
-#define ESTABLISH_ANIMATED_CX_tUI() \
+#define JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION() \
 { \
     BUILD_CX_EGG(); \
     COLOR_CX_EGG(); \
@@ -554,4 +581,59 @@ void threadedAwaitConnection(TCPConnection& server, int& retVal, char* clientIP)
     } \
     connectThread.detach(); \
     screen.RemoveButton(&colorEgg); \
+\
+    if (!APP_KILLED) { \
+        /* return  to blocking mode */ \
+        server.set_client_blocking(true); \
+        server.set_server_blocking(true); \
+        /* set wstring clientIP */ \
+        clientIP = g_converter.from_bytes(connectionIP); \
+    } \
+}
+
+#define BUILD_MAIN_LOOP_tUI() \
+{ \
+    screen.ClearButtons(); \
+\
+    /* Backdrop setup */ \
+    int QUITLINE; \
+    if (op_mode == 2) { \
+        screen.SetBackdrop(DS4_Backdrop); \
+        QUITLINE = DS4_QUIT_LINE; \
+        BuildDS4Face(); \
+    } else { \
+        screen.SetBackdrop(XBOX_Backdrop); \
+        QUITLINE = XBOX_QUIT_LINE; \
+        BuildXboxFace(); \
+    } \
+\
+    /* Messages setup */ \
+    swprintf(msgPointer1, 43, L" << Connection From: %s  >> ", clientIP.c_str()); \
+    output1.SetText(msgPointer1); \
+    output1.SetPosition(3, 1, 43, 1, ALIGN_LEFT); \
+    output1.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg); \
+\
+    swprintf(clientPointer, 18, L" %s ", clientIP.c_str()); \
+    clientMsg.SetText(clientPointer); \
+    clientMsg.SetPosition(23, 1, 38, 1, ALIGN_LEFT); \
+    clientMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4); \
+\
+    /* Buttons setup */ \
+    SetControllerButtonPositions(op_mode); \
+    quitButton.SetPosition(consoleWidth / 2 - 5, QUITLINE); \
+    newColorsButton.SetPosition(consoleWidth / 2 - 8, QUITLINE - 2); \
+    screen.AddButton(&quitButton); \
+    screen.AddButton(&newColorsButton); \
+\
+    /* Colors and drawing */ \
+    DrawControllerFace(screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, op_mode); \
+\
+    tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors); \
+\
+    /* Color non-controller buttons and draw them */ \
+    screen.SetButtonsColors(buttonColors); \
+    screen.DrawButtons(); \
+\
+    output1.Draw(); \
+    clientMsg.Draw(); \
 }
