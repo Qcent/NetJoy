@@ -38,8 +38,9 @@ int main(int argc, char* argv[]) {
     XUSB_REPORT xbox_report;
     DS4_REPORT_EX ds4_report_ex;
 
+    std::unique_lock<std::mutex> lock(mtx, std::defer_lock);
     int allGood;
-    char buffer[128];
+    char buffer[64];
     int buffer_size = sizeof(buffer);
     int bytesReceived;
     std::wstring externalIP;
@@ -199,40 +200,11 @@ int main(int argc, char* argv[]) {
             APP_KILLED = 1;
         }
 
-        // Register Rumble callback notifications
+        // Register 360 rumble callback or spin up ds4 feedback thread
         if (op_mode == 2) {
-
-#if 0
-            std::thread ds4RumbleThread([&vigemClient, &gamepad]() {
-                PDS4_OUTPUT_BUFFER buffer = {};
-                while (!APP_KILLED) {
-                    // Perform computations and update shared variables
-                    auto vigemErr = vigem_target_ds4_await_output_report(vigemClient, gamepad, buffer);
-                    if (!VIGEM_SUCCESS(vigemErr)) {
-                        std::cerr << "Registering DS4 Rumble callback failed with error code: 0x" << std::hex << vigemErr << std::endl;
-                        // APP_KILLED = 1;
-                    }
-                    else {
-                        std::lock_guard<std::mutex> lock(mtx); // Lock the mutex
-
-                        buffer;
-                        // Update the shared variable from buffer
-                        // feedbackData = static_cast<char>(LargeMotor);
-                        // feedbackData += static_cast<char>(SmallMotor);
-                    }
-                }
-                });
-#else
-            
-            #pragma warning(disable : 4996)
-            vigemErr = vigem_target_ds4_register_notification(vigemClient, gamepad, &ds4_rumble, &feedbackData);
-            if (!VIGEM_SUCCESS(vigemErr))
-            {
-                setErrorMsg(L" << Registering DS4 Rumble Callback Failed >> ", 47);
-                errorOut.Draw();
-                //std::cerr << "Registering DS4 Rumble callback failed with error code: 0x" << std::hex << vigemErr << std::endl;
-            }
-#endif
+            ds4ThreadStop = false;
+            ds4Rumbler = std::thread(ds4RumbleThread, std::ref(vigemClient), std::ref(gamepad));
+            ds4Rumbler.detach();
         }
         else {
             vigemErr = vigem_target_x360_register_notification(vigemClient, gamepad, &xbox_rumble, &feedbackData);
@@ -240,15 +212,12 @@ int main(int argc, char* argv[]) {
             {
                 setErrorMsg(L" << Registering 360 Rumble Callback Failed >> ", 47);
                 errorOut.Draw();
-                //std::cerr << "Registering 360 Rumble callback failed with error code: 0x" << std::hex << vigemErr << std::endl;
             }
         }
 
-
         //
         // Send response back to client
-        feedbackData = "Go for Joy!";
-        allGood = server.send_data(feedbackData.c_str(), static_cast<int>(feedbackData.length()));
+        allGood = server.send_data("Go for Joy!", 12);
         if (allGood < 1) {
             int len = clientIP.size() + 30;
             swprintf(errorPointer, len, L" << Connection To: %s Failed >> ", clientIP.c_str());
@@ -256,10 +225,8 @@ int main(int argc, char* argv[]) {
             errorOut.SetText(errorPointer);
             break;
         }
-        
-        // prep for loop
-        feedbackData = "Rumble Data";
-            // set UI
+
+        // Set UI
         {
             screen.ClearButtons();
 
@@ -282,7 +249,7 @@ int main(int argc, char* argv[]) {
             output1.SetPosition(3, 1, 43, 1, ALIGN_LEFT);
             output1.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg);
 
-            swprintf(clientPointer, 16, L" %s ", clientIP.c_str());
+            swprintf(clientPointer, 18, L" %s ", clientIP.c_str());
             clientMsg.SetText(clientPointer);
             clientMsg.SetPosition(23, 1, 38, 1, ALIGN_LEFT);
             clientMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
@@ -293,7 +260,7 @@ int main(int argc, char* argv[]) {
             newColorsButton.SetPosition(consoleWidth / 2 - 8, QUITLINE - 2);
             screen.AddButton(&quitButton);
             screen.AddButton(&newColorsButton);
-            
+
 
             // colors / drawing
                 // set controller to color scheme colors with some contrast correction for bg color then draws the controller face
@@ -301,7 +268,7 @@ int main(int argc, char* argv[]) {
 
             tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
 
-                // color non controller buttons and draw them
+            // color non controller buttons and draw them
             screen.SetButtonsColors(buttonColors);
             screen.DrawButtons();
 
@@ -349,7 +316,7 @@ int main(int argc, char* argv[]) {
                 // Cast the buffer to an DS4_REPORT_EX pointer
                 ds4_report_ex = *reinterpret_cast<DS4_REPORT_EX*>(buffer);
                 vigem_target_ds4_update_ex(vigemClient, gamepad, ds4_report_ex);
-               
+
                 // activate screen buttons from ds4_report_ex
                 buttonStatesFromDS4Report(reinterpret_cast<BYTE*>(buffer));
             }
@@ -365,7 +332,7 @@ int main(int argc, char* argv[]) {
 
             //*******************************
             // Send response back to client :: Rumble data
-            allGood = server.send_data(feedbackData.c_str(), static_cast<int>(feedbackData.length()));
+            allGood = server.send_data(feedbackData, 2);
             if (allGood < 1) {
                 int len = clientIP.size() + 29;
                 swprintf(errorPointer, len, L" << Connection To: %s Lost >> ", clientIP.c_str());
@@ -377,17 +344,18 @@ int main(int argc, char* argv[]) {
             // FPS output
             fpsOutput = do_fps_counting();
             if (!fpsOutput.empty()) {
-                updateFPS(g_converter.from_bytes(fpsOutput + "   ").c_str(), 8);
+                swprintf(fpsPointer, 8, L" %S   ", fpsOutput.c_str());
+                fpsMsg.SetText(fpsPointer);
+                fpsMsg.Draw();
             }
-            
         }
-        
+
         if (!APP_KILLED) {
             screen.ClearButtons();
         }
 
         // Unregister rumble callbacks // deprecated?
-        if (op_mode == 2) vigem_target_ds4_unregister_notification(gamepad);
+        if (op_mode == 2) ds4ThreadStop = true;
         else vigem_target_x360_unregister_notification(gamepad);
         // Free resources (this disconnects the virtual device)
         vigem_target_remove(vigemClient, gamepad);

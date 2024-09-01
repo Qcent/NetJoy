@@ -14,25 +14,6 @@ char feedbackData[5] = { 0 }; // For sending rumble data back to joySender
 volatile sig_atomic_t APP_KILLED = 0;
 void signalHandler(int signal);
 
-
-// Define the callback functions for Rumble Support 
-VOID CALLBACK xbox_rumble( PVIGEM_CLIENT Client, PVIGEM_TARGET Target, 
-    UCHAR LargeMotor, UCHAR SmallMotor, UCHAR LedNumber, LPVOID UserData){
-#if 0
-    static int count = 1;
-    repositionConsoleCursor(-2, 6);
-    std::cout << "Rumble Calls:" << count++ << "\t ";
-    repositionConsoleCursor(0, 22);
-    std::cout << "LargeMotor:" << (int)LargeMotor << "   ";
-    repositionConsoleCursor(0, 37);
-    std::cout << "SmallMotor:" << (int)SmallMotor << "   " << "   ";
-    repositionConsoleCursor(2, 0);
-#endif
-    // Set the UserData with the desired value
-    feedbackData[0] = static_cast<char>(LargeMotor);
-    feedbackData[1] = static_cast<char>(SmallMotor);
-}
-
 void displayBytes(BYTE* buffer, DWORD bufferSize) {
     for (DWORD i = 0; i < bufferSize; i++) {
         if (i % 18 == 0) printf("\r\n");
@@ -45,7 +26,7 @@ void displayBytes(BYTE* buffer, DWORD bufferSize) {
                 return;  // Terminate the function
             }
         }
-        printf("%02X ", buffer[i]);        
+        printf("%02X ", buffer[i]);
     }
     printf("\r\n");
 }
@@ -56,7 +37,7 @@ void ds4RumbleThread(PVIGEM_CLIENT vigemClient, PVIGEM_TARGET gamepad) {
     DS4_OUTPUT_BUFFER buffer;
     std::unique_lock<std::mutex> lock(mtx, std::defer_lock);
     while (!APP_KILLED && !ds4ThreadStop) {
-        
+
         auto vigemErr = vigem_target_ds4_await_output_report_timeout(vigemClient, gamepad, 350, &buffer);
         if (!VIGEM_SUCCESS(vigemErr) && vigemErr != VIGEM_ERROR_TIMED_OUT) {
             std::cerr << "DS4 Rumble callback failed with error code: 0x" << std::hex << vigemErr << std::endl;
@@ -64,7 +45,7 @@ void ds4RumbleThread(PVIGEM_CLIENT vigemClient, PVIGEM_TARGET gamepad) {
             std::memset(feedbackData, '\0', sizeof(feedbackData));
             lock.unlock();
         }
-        else if(vigemErr != VIGEM_ERROR_TIMED_OUT){
+        else if (vigemErr != VIGEM_ERROR_TIMED_OUT) {
 #if 0 
             std::cout << "Buffer Data: ";
             displayBytes(buffer.Buffer, 64);
@@ -80,4 +61,22 @@ void ds4RumbleThread(PVIGEM_CLIENT vigemClient, PVIGEM_TARGET gamepad) {
             lock.unlock();
         }
     }
+}
+
+// Define the callback function for x3360 rumble support 
+VOID CALLBACK xbox_rumble( PVIGEM_CLIENT Client, PVIGEM_TARGET Target, 
+    UCHAR LargeMotor, UCHAR SmallMotor, UCHAR LedNumber, LPVOID UserData){
+#if 0
+    static int count = 1;
+    repositionConsoleCursor(-2, 6);
+    std::cout << "Rumble Calls:" << count++ << "\t ";
+    repositionConsoleCursor(0, 22);
+    std::cout << "LargeMotor:" << (int)LargeMotor << "   ";
+    repositionConsoleCursor(0, 37);
+    std::cout << "SmallMotor:" << (int)SmallMotor << "   " << "   ";
+    repositionConsoleCursor(2, 0);
+#endif
+    // Set the UserData with the desired value
+    feedbackData[0] = static_cast<char>(LargeMotor);
+    feedbackData[1] = static_cast<char>(SmallMotor);
 }

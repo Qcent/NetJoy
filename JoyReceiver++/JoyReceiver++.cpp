@@ -197,7 +197,7 @@ int main(int argc, char* argv[]) {
         }
         else {
             vigemErr = vigem_target_x360_register_notification(vigemClient, gamepad, &xbox_rumble, &feedbackData);
-            if (!VIGEM_SUCCESS(vigemErr))
+            if (!VIGEM_SUCCESS(vigemErr))                                              
             {
                 std::cerr << "Registering 360 Rumble callback failed with error code: 0x" << std::hex << vigemErr << std::endl;
             }
