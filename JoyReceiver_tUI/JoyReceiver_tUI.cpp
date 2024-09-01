@@ -149,9 +149,9 @@ int main(int argc, char* argv[]) {
             }
 
             //*******************************
-            // Send response back to client :: Rumble data
+            // Send response back to client :: Rumble + lightbar data
             lock.lock();
-            allGood = server.send_data(feedbackData, 2);
+            allGood = server.send_data(feedbackData, 5);
             lock.unlock();
             if (allGood < 1) {
                 int len = INET_ADDRSTRLEN + 29;
