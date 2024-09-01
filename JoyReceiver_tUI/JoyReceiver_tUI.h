@@ -96,17 +96,10 @@ textBox output2(3, 21, 60, 0, ALIGN_LEFT, msgPointer2, BRIGHT_BLUE);
 textBox output3(3, 24, 60, 0, ALIGN_LEFT, msgPointer3, BRIGHT_BLUE);
 
 //
-// text buffer setting functions
-
+// text buffer setting function
 void setErrorMsg(const wchar_t* text, size_t length) {
     wcsncpy_s(errorPointer, length, text, _TRUNCATE);
     errorOut.SetText(errorPointer);
-}
-
-void updateFPS(const wchar_t* text, size_t length) {
-    wcsncpy_s(fpsPointer, length, text, _TRUNCATE);
-    fpsMsg.SetText(fpsPointer);
-    fpsMsg.Draw();
 }
 
  
@@ -450,10 +443,10 @@ void threadedAwaitConnection(TCPConnection& server, int& retVal, char* clientIP)
         GET_NEW_COLOR_SCHEME(); \
         errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2); \
         fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3); \
-        }; \
+    }; \
     auto redraw_cx_tUI = [&]() { \
         COLOR_AND_DRAW_CX_tUI(); \
-        }; \
+    }; \
     mouseButton colorEgg(50, consoleHeight - 3, 1, L"©"); \
     \
     screen.AddButton(&colorEgg); \
@@ -463,7 +456,7 @@ void threadedAwaitConnection(TCPConnection& server, int& retVal, char* clientIP)
             btn.SetStatus(MOUSE_OUT); \
             g_mode = true; \
         } \
-        }); \
+    }); 
 
 #define COLOR_CX_EGG() \
 { \
