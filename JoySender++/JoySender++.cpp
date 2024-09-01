@@ -23,8 +23,6 @@ THE SOFTWARE.
 */
 
 #include "JoySender++.h"
-#include "GamepadMapping.hpp"
-#include "DS4Manager.hpp"
 
 void signalHandler(int signal) {
     if (signal == SIGINT) {
@@ -334,24 +332,9 @@ int joySender(Arguments& args) {
             }
 
             //#################################
-            // **  Process Rumble Feedback data
-            if (updateRumble('L', byte(buffer[0])) || updateRumble('R', byte(buffer[1]))) {
-#if 0
-                if (args.latency) {
-                    repositionConsoleCursor(-2);
-                    std::cout << "Feedback: " << std::to_string(byte(buffer[0])) << " : " << std::to_string(byte(buffer[1])) << "     ";
-                    repositionConsoleCursor(2);
-                }
-#endif
-                if (args.mode == 2){
-                    SetDS4RumbleValue(byte(buffer[0]), byte(buffer[1]));
-                    allGood = SendDS4Update();
-                }
-                else if (args.mode == 1) {
-                    SDLRumble(activeGamepad, byte(buffer[0]), byte(buffer[1]));
-                }
-            }
-
+            // **  Process Feedback data
+            processFeedbackBuffer((byte*)&buffer, activeGamepad, args.mode);
+            
             // Sleep to yield thread
             Sleep(loop_delay > 0 ? loop_delay : 0);
             if (args.mode == 2) {

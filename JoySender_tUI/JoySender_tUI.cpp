@@ -558,17 +558,8 @@ int joySendertUI(Arguments& args) {
             }
 
 
-
-            // **  Process Rumble Feedback data
-            if (updateRumble('L', byte(buffer[0])) || updateRumble('R', byte(buffer[1]))) {
-                if (args.mode == 2){
-                    SetDS4RumbleValue(byte(buffer[0]), byte(buffer[1]));
-                    allGood = SendDS4Update();
-                }
-                else if (args.mode == 1) {
-                    SDLRumble(activeGamepad, byte(buffer[0]), byte(buffer[1]));
-                }
-            }
+            // **  Process Feedback data
+            processFeedbackBuffer((byte*)&buffer, activeGamepad, args.mode);
 
             // calculate timing
             fpsOutput = do_fps_counting();
@@ -650,7 +641,7 @@ int main(int argc, char** argv)
     g_hConsoleInput = GetStdHandle(STD_INPUT_HANDLE);
 
     DWORD mode;
-    GetConsoleMode(g_hConsoleInput, &mode);                     // Disable Quick Edit Mode // working??
+    GetConsoleMode(g_hConsoleInput, &mode);                     // Disable Quick Edit Mode
     SetConsoleMode(g_hConsoleInput, ENABLE_MOUSE_INPUT | mode & ~ENABLE_QUICK_EDIT_MODE);
 
     // Set the console to UTF-8 mode
