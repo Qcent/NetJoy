@@ -131,7 +131,7 @@ int main(int argc, char* argv[]) {
             screenLoop(screen);
 
             // Catch hot key button presses
-            if (IsAppActiveWindow() && getKeyState(VK_SHIFT)) {
+            if (getKeyState(VK_SHIFT) && IsAppActiveWindow()) {
                 if (checkKey('C', IS_PRESSED)) {
                     // change colors
                     button_Guide_highlight.SetStatus(MOUSE_UP);
