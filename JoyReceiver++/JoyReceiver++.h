@@ -64,7 +64,8 @@ void ds4RumbleThread(PVIGEM_CLIENT vigemClient, PVIGEM_TARGET gamepad) {
 }
 
 // Define the callback function for x3360 rumble support 
-VOID CALLBACK xbox_rumble( PVIGEM_CLIENT Client, PVIGEM_TARGET Target, 
+VOID CALLBACK _Function_class_(EVT_VIGEM_X360_NOTIFICATION)
+xbox_rumble( PVIGEM_CLIENT Client, PVIGEM_TARGET Target,
     UCHAR LargeMotor, UCHAR SmallMotor, UCHAR LedNumber, LPVOID UserData){
 #if 0
     static int count = 1;
