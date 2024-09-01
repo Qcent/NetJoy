@@ -396,19 +396,6 @@ void threadedAwaitConnection(TCPConnection& server, int& retVal, char* clientIP)
         JoyRecvMain_Backdrop[versionStartPoint + i] = APP_VERSION_NUM[i]; } \
 }
 
-#define POPULATE_COLOR_LIST() \
-{ \
-    int colorseed = generateRandomInt(1100000000, 2147483647); \
-    \
-    for (int byteIndex = 0; byteIndex < sizeof(int); ++byteIndex) { \
-        unsigned char byteValue = (colorseed >> (byteIndex * 8)) & 0xFF; \
-        for (int nibbleIndex = 0; nibbleIndex < 2; ++nibbleIndex) { \
-            unsigned char nibble = (byteValue >> (nibbleIndex * 4)) & 0x0F; \
-            colorList.push_back(nibble); \
-        } \
-    }\
-}
-
 #define GET_NEW_COLOR_SCHEME() \
 {\
     g_currentColorScheme = generateRandomInt(0, NUM_COLOR_SCHEMES);       /* will be used as index for fullColorSchemes */ \
@@ -422,6 +409,32 @@ void threadedAwaitConnection(TCPConnection& server, int& retVal, char* clientIP)
     g_simpleScheme = simpleSchemeFromFullScheme(fullColorSchemes[g_currentColorScheme]);  /* Set for compatibility with DrawControllerFace */ \
 }
 
+
+#define INIT_tUI_SCREEN() \
+textUI& screen = g_screen; \
+CoupleControllerButtons(); \
+setErrorMsg(L"\0", 1); \
+fpsMsg.SetPosition(51, 1, 7, 1, ALIGN_LEFT); \
+quitButton.setCallback(&exitAppCallback); \
+newColorsButton.setCallback(&newControllerColorsCallback); \
+\
+/* establish a color scheme */ \
+GET_NEW_COLOR_SCHEME(); \
+errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2); \
+fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3); 
+
+#define POPULATE_COLOR_LIST() \
+{ \
+    int colorseed = generateRandomInt(1100000000, 2147483647); \
+    \
+    for (int byteIndex = 0; byteIndex < sizeof(int); ++byteIndex) { \
+        unsigned char byteValue = (colorseed >> (byteIndex * 8)) & 0xFF; \
+        for (int nibbleIndex = 0; nibbleIndex < 2; ++nibbleIndex) { \
+            unsigned char nibble = (byteValue >> (nibbleIndex * 4)) & 0x0F; \
+            colorList.push_back(nibble); \
+        } \
+    }\
+}
 
 #define BUILD_CONNECTION_tUI() \
 { \

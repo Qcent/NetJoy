@@ -34,7 +34,6 @@ int main(int argc, char* argv[]) {
     JOYRECEIVER_INIT_VARIABLES();
 
     char connectionIP[INET_ADDRSTRLEN];
-
     auto do_fps_counting = [&fps_counter](int report_frequency = 30) {
         if (fps_counter.increment_frame_count() >= report_frequency) {
             double fps = fps_counter.get_fps();
@@ -44,43 +43,21 @@ int main(int argc, char* argv[]) {
         return std::string();
         };
 
-    // Register the signal handler function
+    // Register the signal handler
     std::signal(SIGINT, signalHandler);
 
-    // Initialize ViGEM Bus connection
     JOYRECEIVER_INIT_VIGEM_BUS();
-
-    // Quit if error occurred
     if (APP_KILLED) {
         return -1;
     }
-
-    // Get IPs and start server
     JOYRECEIVER_DETERMINE_IPS_START_SERVER();
 
-    // Set Up Console Window
+    // Set Up Console
     SET_tUI_CONSOLE_MODE();
-
-    //
-    // Set up for tUI screen
-        // set element properties
-    textUI& screen = g_screen;
-    CoupleControllerButtons(); // sets up controller outline/highlight coupling for nice looks & button ids
-    setErrorMsg(L"\0", 1); // initialize error message as empty string
-    fpsMsg.SetPosition(51, 1, 7, 1, ALIGN_LEFT);                // fps output
-    quitButton.setCallback(&exitAppCallback);
-    newColorsButton.setCallback(&newControllerColorsCallback);
-
-        // establish a color scheme
-    GET_NEW_COLOR_SCHEME();
-    errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2);
-    fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
-        
+    INIT_tUI_SCREEN();
     ///********************************
-
-    // Make Connection Loop
+    // Make Connection -> Receive Input Loop
     while (!APP_KILLED) {
-        // Set and Draw connection screen
         BUILD_CONNECTION_tUI();
         COLOR_AND_DRAW_CX_tUI();
 
@@ -109,7 +86,6 @@ int main(int argc, char* argv[]) {
         }
 
         JOYRECEIVER_GET_MODE_AND_TIMING_FROM_BUFFER();
-
         JOYRECEIVER_PLUGIN_VIGEM_CONTROLLER();
 
         // Send response back to client
@@ -132,8 +108,7 @@ int main(int argc, char* argv[]) {
 
             // Catch hot key button presses
             if (getKeyState(VK_SHIFT) && IsAppActiveWindow()) {
-                if (checkKey('C', IS_PRESSED)) {
-                    // change colors
+                if (checkKey('C', IS_PRESSED)) {  // change colors
                     button_Guide_highlight.SetStatus(MOUSE_UP);
                     newControllerColorsCallback(button_Guide_highlight);
                 }
@@ -204,9 +179,7 @@ int main(int argc, char* argv[]) {
         JOYRECEIVER_UNPLUG_VIGEM_CONTROLLER();
     }
 
-    // Release connection to the ViGEM Bus
     JOYRECEIVER_SHUTDOWN_VIGEM_BUS();
-
     swallowInput();
     setCursorPosition(0, consoleHeight);
     showConsoleCursor();

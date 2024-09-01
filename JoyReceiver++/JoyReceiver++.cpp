@@ -60,18 +60,17 @@ int main(int argc, char* argv[]) {
         return 0.0;
     };
 
-    // Register the signal handler function
+    // Register the signal handler
     std::signal(SIGINT, signalHandler);
 
-    hideConsoleCursor();
-
     JOYRECEIVER_INIT_VIGEM_BUS();
-
     JOYRECEIVER_DETERMINE_IPS_START_SERVER();
 
+    // Set Up Console
+    hideConsoleCursor();
     std::system("cls");
     ///********************************
-    // Make Connection Loop
+    // Make Connection -> Receive Input Loop
     while (!APP_KILLED) {
         std::cout << "Waiting for Connection on port : " << args.port
             << "\n\t\t LAN : " << localIP << "\n\t\t WAN : " << externalIP << std::endl;
@@ -87,10 +86,7 @@ int main(int argc, char* argv[]) {
         }
         
         JOYRECEIVER_GET_MODE_AND_TIMING_FROM_BUFFER();
-        {
-            std::cout << "  Emulating " << ((op_mode == 2) ? "DS4" : "XBOX") << " Controller @ " << client_timing << "fps" << std::endl;
-        }
-
+        std::cout << "  Emulating " << ((op_mode == 2) ? "DS4" : "XBOX") << " Controller @ " << client_timing << "fps" << std::endl;
         JOYRECEIVER_PLUGIN_VIGEM_CONTROLLER();
 
         // Send response back to client
@@ -158,9 +154,7 @@ int main(int argc, char* argv[]) {
         JOYRECEIVER_UNPLUG_VIGEM_CONTROLLER();
     }
 
-    // Release connection to the ViGEM Bus
     JOYRECEIVER_SHUTDOWN_VIGEM_BUS();
-
     swallowInput();
     showConsoleCursor();
     
