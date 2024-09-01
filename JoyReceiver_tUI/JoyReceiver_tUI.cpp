@@ -33,7 +33,6 @@ console con(consoleWidth, consoleHeight);
 int main(int argc, char* argv[]) {
     JOYRECEIVER_INIT_VARIABLES();
 
-    std::wstring clientIP;
     char connectionIP[INET_ADDRSTRLEN];
 
     auto do_fps_counting = [&fps_counter](int report_frequency = 30) {
@@ -102,8 +101,8 @@ int main(int argc, char* argv[]) {
         // Receive Operating Mode and Client Timing
         bytesReceived = server.receive_data(buffer, buffer_size);
         if (bytesReceived < 1) {
-            int len = clientIP.size() + 33;
-            swprintf(errorPointer, len, L" << Connection From: %s Failed >> ", clientIP.c_str());
+            int len = INET_ADDRSTRLEN + 33;
+            swprintf(errorPointer, len, L" << Connection From: %S Failed >> ", connectionIP);
             errorOut.SetWidth(len);
             errorOut.SetText(errorPointer);
             break;
@@ -116,8 +115,8 @@ int main(int argc, char* argv[]) {
         // Send response back to client
         allGood = server.send_data("Go for Joy!", 12);
         if (allGood < 1) {
-            int len = clientIP.size() + 30;
-            swprintf(errorPointer, len, L" << Connection To: %s Failed >> ", clientIP.c_str());
+            int len = INET_ADDRSTRLEN + 30;
+            swprintf(errorPointer, len, L" << Connection To: %S Failed >> ", connectionIP);
             errorOut.SetWidth(len);
             errorOut.SetText(errorPointer);
             break;
@@ -148,8 +147,8 @@ int main(int argc, char* argv[]) {
             // Receive joystick input from client to the buffer
             bytesReceived = server.receive_data(buffer, buffer_size);
             if (bytesReceived < 1) {
-                int len = clientIP.size() + 31;
-                swprintf(errorPointer, len, L" << Connection From: %s Lost >> ", clientIP.c_str());
+                int len = INET_ADDRSTRLEN + 31;
+                swprintf(errorPointer, len, L" << Connection From: %S Lost >> ", connectionIP);
                 errorOut.SetWidth(len);
                 errorOut.SetText(errorPointer);
                 break;
@@ -180,8 +179,8 @@ int main(int argc, char* argv[]) {
             allGood = server.send_data(feedbackData, 2);
             lock.unlock();
             if (allGood < 1) {
-                int len = clientIP.size() + 29;
-                swprintf(errorPointer, len, L" << Connection To: %s Lost >> ", clientIP.c_str());
+                int len = INET_ADDRSTRLEN + 29;
+                swprintf(errorPointer, len, L" << Connection To: %S Lost >> ", connectionIP);
                 errorOut.SetWidth(len);
                 errorOut.SetText(errorPointer);
                 break;

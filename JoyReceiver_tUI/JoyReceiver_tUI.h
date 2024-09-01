@@ -586,8 +586,6 @@ void threadedAwaitConnection(TCPConnection& server, int& retVal, char* clientIP)
         /* return  to blocking mode */ \
         server.set_client_blocking(true); \
         server.set_server_blocking(true); \
-        /* set wstring clientIP */ \
-        clientIP = g_converter.from_bytes(connectionIP); \
     } \
 }
 
@@ -608,12 +606,12 @@ void threadedAwaitConnection(TCPConnection& server, int& retVal, char* clientIP)
     } \
 \
     /* Messages setup */ \
-    swprintf(msgPointer1, 43, L" << Connection From: %s  >> ", clientIP.c_str()); \
+    swprintf(msgPointer1, 43, L" << Connection From: %S  >> ", connectionIP); \
     output1.SetText(msgPointer1); \
     output1.SetPosition(3, 1, 43, 1, ALIGN_LEFT); \
     output1.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg); \
 \
-    swprintf(clientPointer, 18, L" %s ", clientIP.c_str()); \
+    swprintf(clientPointer, 18, L" %S ", connectionIP); \
     clientMsg.SetText(clientPointer); \
     clientMsg.SetPosition(23, 1, 38, 1, ALIGN_LEFT); \
     clientMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4); \
