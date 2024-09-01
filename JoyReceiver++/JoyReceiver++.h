@@ -84,7 +84,7 @@ DS4_REPORT_EX ds4_report_ex = {0}; \
 std::unique_lock<std::mutex> lock(mtx, std::defer_lock); \
 int allGood; \
 UINT8 connection_error_count = 0; \
-char buffer[64]; \
+char buffer[64] = { 0 }; \
 int buffer_size = sizeof(buffer); \
 int bytesReceived = 0; \
 int op_mode = 0; \
