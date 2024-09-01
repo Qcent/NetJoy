@@ -18,7 +18,7 @@ void signalHandler(int signal);
 // Define the callback functions for Rumble Support 
 VOID CALLBACK xbox_rumble( PVIGEM_CLIENT Client, PVIGEM_TARGET Target, 
     UCHAR LargeMotor, UCHAR SmallMotor, UCHAR LedNumber, LPVOID UserData){
-#if 1
+#if 0
     static int count = 1;
     repositionConsoleCursor(-2, 6);
     std::cout << "Rumble Calls:" << count++ << "\t ";
@@ -28,10 +28,9 @@ VOID CALLBACK xbox_rumble( PVIGEM_CLIENT Client, PVIGEM_TARGET Target,
     std::cout << "SmallMotor:" << (int)SmallMotor << "   " << "   ";
     repositionConsoleCursor(2, 0);
 #endif
-    std::string& feedbackData = *reinterpret_cast<std::string*>(UserData);
     // Set the UserData with the desired value
-    feedbackData = static_cast<char>(LargeMotor);
-    feedbackData += static_cast<char>(SmallMotor);
+    feedbackData[0] = static_cast<char>(LargeMotor);
+    feedbackData[1] = static_cast<char>(SmallMotor);
 }
 
 void displayBytes(BYTE* buffer, DWORD bufferSize) {
@@ -66,7 +65,7 @@ void ds4RumbleThread(PVIGEM_CLIENT vigemClient, PVIGEM_TARGET gamepad) {
             lock.unlock();
         }
         else if(vigemErr != VIGEM_ERROR_TIMED_OUT){
-#if 1 
+#if 0 
             std::cout << "Buffer Data: ";
             displayBytes(buffer.Buffer, 64);
             repositionConsoleCursor(-5, 0);
