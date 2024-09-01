@@ -31,51 +31,19 @@ THE SOFTWARE.
 #include "TCPConnection.h"
 #include "ArgumentParser.hpp"
 #include "FPSCounter.hpp"
-#include "utilities.hpp"
 
 #pragma comment(lib, "SDL3.lib")
 
 // GLOBAL VARIABLES
+volatile sig_atomic_t APP_KILLED = 0;
 constexpr auto APP_NAME = "NetJoy";
 constexpr auto OLDMAP_WARNING_MSG = "! WARNING OLD MAP FILE DETECTED, RE-MAPPING INPUTS RECOMMENDED !";
-
 std::string g_outputText;
-
-volatile sig_atomic_t APP_KILLED = 0;
-
-// Function safely returns environment variables
-std::string g_getenv(const char* variableName);
-// Some Console Output, ANSI helper functions
-void enableANSI();
-void hideConsoleCursor();
-void showConsoleCursor();
-void clearConsoleScreen();
-void repositionConsoleCursor(int lines = 0, int offset = 0);
-void clearConsoleLine();
-// For FPS and Latency Output
-void overwriteFPS(const std::string& text);
-void overwriteLatency(const std::string& text);
-// Function to display g_outputText to console
 void displayOutputText();
-// Function to detect if keyboard key is pressed
-bool getKeyState(int KEYCODE);
-// Function to convert strings to wide strings
-std::wstring g_toWide(std::string& str);
-// Function that will prompt for and verify an ip address 
-std::string getHostAddress();
-// Function that takes string representing a float and fixes it's decimal places to numDigits
-std::string formatDecimalString(const std::string& str, UINT8 numDigits);
-// Function captures all input from the keyboard to clear buffer
-void swallowInput();
-// Function waits for no keyboard presses to be detected before returning
-void wait_for_no_keyboard_input();
-// Function determines if app if the active window
-bool IsAppActiveWindow();
-// Function determines if rumble values need to be updated
-bool updateRumble(const char motor, BYTE val);
-// Main Loop Function 
-int joySender(Arguments& args);
 
+#include "utilities.hpp"
+#include "GamepadMapping.hpp"
+#include "DS4Manager.hpp"
 
 // Function to display g_outputText to console
 void displayOutputText() {
@@ -110,24 +78,62 @@ std::string getHostAddress() {
     hideConsoleCursor();
     return host_address;
 }
-// Function that takes string representing a float and fixes it's decimal places to numDigits
+
 // Function determines if rumble values need to be updated
 bool updateRumble(const char motor, BYTE val) {
     static BYTE L, R = 0;
     switch (motor) {
     case 'L':
     {
-        if (val == 0 && L == val) return false;
+        if (L == val) {
+            return false;
+        }
         L = val;
         return true;
     }
 
     case 'R':
     {
-        if (val == 0 && R == val) return false;
+        if (R == val) {
+            return false;
+        }
         R = val;
         return true;
     }
     }
     return false;
+}
+
+// Takes in a 3 byte buffer containing lightbar values, will set SetDS4LightBar if values are different from current
+bool updateDS4Lightbar(const byte* buffer) {
+    static UINT8 lastValue[3] = { 0 };
+    if (memcmp(buffer, lastValue, sizeof(lastValue)) == 0) {
+        return false;
+    }
+    memcpy(lastValue, buffer, sizeof(lastValue));
+    SetDS4LightBar(buffer[0], buffer[1], buffer[2]);
+    return true;
+}
+
+// Reckons what to do with feedback from JoyReceiver 
+void processFeedbackBuffer(const byte* buffer, SDLJoystickData& activeGamepad, int mode) {
+    int update = 0;
+
+    if (updateRumble('L', buffer[0]) || updateRumble('R', buffer[1])) {
+        ++update;
+    }
+    if (mode == 2) {
+        if (update) {
+            SetDS4RumbleValue(byte(buffer[0]), byte(buffer[1]));
+        }
+        update += updateDS4Lightbar(&buffer[2]);
+        if (update) {
+            SendDS4Update();
+        }
+        return;
+    }
+    if (update) {
+        SDLRumble(activeGamepad, buffer[0], buffer[1]);
+    }
+
 }
