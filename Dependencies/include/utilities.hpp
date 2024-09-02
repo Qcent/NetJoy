@@ -22,6 +22,10 @@ THE SOFTWARE.
 */
 
 #pragma once
+#include<Windows.h>
+#include <string>
+#include <tchar.h>
+#include <vector>
 
 // Function safely return environment variables
 std::string g_getenv(const char* variableName) {
@@ -180,4 +184,43 @@ std::vector<std::string> split(const std::string& str, char delimiter) {
     }
 
     return tokens;
+}
+
+void replaceXEveryNth(TCHAR* source, size_t sourceSize, const TCHAR* target, const TCHAR* replacement, int max_targets, int skip = 0) {
+    size_t targetLen = _tcslen(target);
+    size_t replacementLen = _tcslen(replacement);
+    if (replacementLen > targetLen) {
+        return; // cannot replace with a larger length
+    }
+    int occurrences = 0;
+
+    for (int i = 0; i < sourceSize; i++) {
+        bool match = false;
+        if (source[i] == _T('\0'))
+            return;
+        if (source[i] == target[0]) {
+            match = true;
+            int j = 1;
+            while (j < targetLen) {
+                if (source[i + j] != target[j]) {
+                    match = false;
+                    break;
+                }
+                j++;
+            }
+        }
+        if (match) {
+            if (skip && (occurrences % (skip - 1) != 0)) {
+                ++occurrences;
+                continue;
+            }
+            ++occurrences;
+            for (int j = 0; j < replacementLen; j++) {
+                source[i + j] = replacement[j];
+            }
+            i += replacementLen - 1;
+        }
+        if (occurrences >= max_targets)
+            break;
+    }
 }

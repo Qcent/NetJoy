@@ -1,4 +1,4 @@
-///  
+﻿///  
 /// ANIMATIONS
 ///  
 int g_frameNum = 0;  //
@@ -53,16 +53,16 @@ const wchar_t* ConnectAnimationRight[CX_ANI_FRAME_COUNT + 1] = {
 };
 
 const int FOOTER_ANI_FRAME_COUNT = 9;
-const wchar_t* FooterAnimation[CX_ANI_FRAME_COUNT + 1] = {
+wchar_t FooterAnimation[FOOTER_ANI_FRAME_COUNT + 1][31] = {
 {L" .--.     :::::.\\:::'      `--"},
 {L".--.      ::::.\\::::      `--'"},
-{L"--.      .:::.\\:::::     `--' "},
+{L"--.      .:::*\\:::::     `--' "},
 {L"-.      .-::.\\::::::    `--'  "},
 {L".      .--:.\\:::::::   `--'   "},
 {L"      .--..\\::::::::  `--'    "},
 {L"     .--. \\::::::::. `--'     "},
 {L"    .--.  ::::::::.\\`--'      "},
-{L"   .--.   :::::::.\\:--'      `"},
+{L"   .--.   :::::::.\\:--'      *"},
 {L"  .--.    ::::::.\\::-'      `-"},
 };
 
@@ -105,5 +105,64 @@ void threadedFrameAdvance(int& run, int delay, int& counter, int maxCount) {
     while (!APP_KILLED && run) {
         Sleep(delay);
         loopCount(counter, maxCount);
+    }
+}
+
+void printDiagonalPattern(int top, int bottom, int start_x, int start_y, int width, int step, const wchar_t* block = L"░", int dir = 1) {
+    int ob = 0;
+    int x = start_x, y = start_y;
+    while (ob < 2) {
+        ob = 0;
+        if (dir == 0) {
+            // top-left to bottom-right
+            if (x >= width) ob++;
+            else if (x >= start_x) {
+                ob = 0;
+                setCursorPosition(x, y);
+                std::wcout << block;
+            }
+            // down and right
+            y++;
+            x++;
+            if (y >= bottom) {
+                y = top;
+                x += step;
+                if (x >= width) ob++;
+            }
+        }
+        else if (dir == -1) {
+            // bottom-left to top-right
+            if (x >= width) ob++;
+            else if (x >= start_x) {
+                ob = 0;
+                setCursorPosition(x, y);
+                std::wcout << block;
+            }
+            // up and right
+            y--;
+            x++;
+            if (y < top) {
+                y = bottom - 1;
+                x += step;
+                if (x >= width) ob++;
+            }
+        }
+    }
+}
+
+void no_whitespace_Draw(const wchar_t* _text, int x, int y, int _width, int _length) {
+    int line = 0;
+    setCursorPosition(x, y);
+    for (int i = 1; i - 1 < _length; i++) {
+        if (_text[i - 1] == ' ') {
+            // advance cursor
+            setCursorPosition(x + i % _width, y + line);
+        }
+        else
+            std::wcout << _text[i - 1];
+        if (i % _width == 0 && i < _length) {
+            line++;
+            setCursorPosition(x, y + line);
+        }
     }
 }

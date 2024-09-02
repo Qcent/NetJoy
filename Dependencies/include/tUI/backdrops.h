@@ -23,7 +23,7 @@ THE SOFTWARE.
 */
 #pragma once
 
-wchar_t JoySendMain_BackdropSource[1555] = LR"(     ,_____________________________________________________________,     
+wchar_t JoySendMain_Backdrop[1555] = LR"(     ,_____________________________________________________________,     
     /_______________________________________________________________\    
    ++                                                               ++   
    ||    JoySender++ tUI v                                          ||   
@@ -45,9 +45,6 @@ wchar_t JoySendMain_BackdropSource[1555] = LR"(     ,___________________________
 -{::::::.\::::::::.\::::::::.\::::::::.\::::::::.\::::::::.\:::::::::::}-
    '      `--'      `--'      `--'      `--'      `--'      `--'     `   
 )";
-
-const wchar_t* JoySendMain_Backdrop = JoySendMain_BackdropSource;
-
 
 const wchar_t* XBOX_Backdrop = LR"(                                                                         
                                                FPS:                      
@@ -94,7 +91,6 @@ const wchar_t* DS4_Backdrop = LR"(
                                                                          
                                                                          
 )";
-
 
 wchar_t JoyRecvMain_Backdrop[1555] = LR"(     /= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =\     
     /= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =\    

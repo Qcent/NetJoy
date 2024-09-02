@@ -661,7 +661,7 @@ int main(int argc, char** argv)
         const size_t verLength = wcslen(APP_VERSION_NUM);
 
         for (int i = 0; i < verLength; i++) {
-            JoySendMain_BackdropSource[versionStartPoint + i] = APP_VERSION_NUM[i];
+            JoySendMain_Backdrop[versionStartPoint + i] = APP_VERSION_NUM[i];
         }
     }
 
