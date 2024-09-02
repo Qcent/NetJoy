@@ -360,14 +360,11 @@ int joySender(Arguments& args) {
         }
         // Shift + M  reMaps all inputs
         if (getKeyState('M')) {
-            if (args.mode == 3) {
-                //set_hid_mapping(gamepad, buttons, []);
-            }
-            else if(args.mode == 1) {
+            if(args.mode == 1) {
                 // REMAP STUFF
                 activeGamepad.mapping = SDLButtonMapping();
-                std::vector<SDLButtonMapping::ButtonName> blankList;
-                RemapInputs(activeGamepad, blankList);
+                RemapInputs(activeGamepad);
+                memset((void*)&xbox_report, 0, sizeof(xbox_report));
                 --failed_connections;
             }
         }

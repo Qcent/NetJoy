@@ -503,6 +503,7 @@ int joySendertUI(Arguments& args) {
                 hostMsg.Draw();
                 
                 MAPPING_FLAG = 0;
+                memset((void*)&xbox_report, 0, sizeof(xbox_report));
             }
 
 
