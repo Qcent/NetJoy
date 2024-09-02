@@ -52,7 +52,7 @@ int joySender(Arguments& args) {
 
     SDLJoystickData activeGamepad;
     XUSB_REPORT xbox_report = {0};
-    BYTE* hid_report = ds4_InReportBuf;
+    BYTE* ds4_report = ds4_InReportBuf;
 
     // Lambdas and variables for fps/fps-limiting and latency calculations
     FPSCounter fps_counter;
@@ -134,7 +134,7 @@ int joySender(Arguments& args) {
         GetDS4Report();
 
         // first byte is used to determine where stick input starts
-        ds4DataOffset = hid_report[0] == 0x11 ? DS4_VIA_BT : DS4_VIA_USB;
+        ds4DataOffset = ds4_report[0] == 0x11 ? DS4_VIA_BT : DS4_VIA_USB;
 
         int attempts = 0;   // DS4 fails to properly initialize when connecting to pc (after power up) via BT so lets hack in multiple attempts
         while (attempts < 2) {
@@ -269,7 +269,7 @@ int joySender(Arguments& args) {
             if (args.mode == 2) {
                 // Read the next HID report for DS4 Passthrough
                 allGood = GetDS4Report();
-                // *hid_report will point to most recent data 
+                // *ds4_report will point to most recent data 
             }
             else {
                 // set the XBOX REPORT from SDL events
@@ -308,7 +308,7 @@ int joySender(Arguments& args) {
             // Send joystick input to server
             if (args.mode == 2) {
                 // Shift bytearray to index of first stick value
-                allGood = client.send_data(reinterpret_cast<const char*>(hid_report+ds4DataOffset), DS4_REPORT_NETWORK_DATA_SIZE);
+                allGood = client.send_data(reinterpret_cast<const char*>(ds4_report+ds4DataOffset), DS4_REPORT_NETWORK_DATA_SIZE);
             }
             else {
                 allGood = client.send_data(reinterpret_cast<const char*>(&xbox_report), sizeof(xbox_report));
