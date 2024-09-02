@@ -488,7 +488,7 @@ bool haveSameSign(int num1, int num2) {
 
 BYTE ShortToByte(SHORT value){
     // Scale the absolute value to fit within the range of a BYTE (0 to 255)
-    DOUBLE scaleFactor = 255.0 / SHRT_MAX;
+    constexpr DOUBLE scaleFactor = 255.0 / SHRT_MAX;
     DOUBLE scaledValue = scaleFactor * value;
 
     // Round the scaled value to the nearest integer
