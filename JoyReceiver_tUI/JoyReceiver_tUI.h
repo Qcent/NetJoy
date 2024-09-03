@@ -332,11 +332,10 @@ void REDRAW_MAIN_BACKDROP_TEXT() {
     std::wcout << L" " + g_converter.from_bytes(externalIP) + L" ";
 }
 
-__declspec(noinline)
 void MAKE_PATTERNS() {
     srand(static_cast<unsigned int>(time(0)));
-    std::vector<const wchar_t*> blocks = { L"▓", L"▒", L"░", L"▓", L"▒", L"▒" };
-    std::vector<int> numbers = { 8, 9, 10, 11, 12, 13, 14, 15, 16, 17 };
+    std::vector<const wchar_t*> blocks = { L"▓", L"▒", L"█", L"▓", L"░", L"▒" };
+    std::vector<int> numbers = { 9, 10, 11, 12, 13, 14, 15, 16, 17, 18 };
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
     std::default_random_engine rng(seed);
     std::shuffle(numbers.begin(), numbers.end(), rng);
@@ -345,7 +344,7 @@ void MAKE_PATTERNS() {
     int dir = (numbers[2] > 13) ? 0 : -1;
     printDiagonalPattern(2, 19, 5, numbers[0] + dir * 7, 68, -7, L"▒", dir);
     printDiagonalPattern(2, 19, 5, numbers[1] + dir * 7, 68, -7, L"▒", dir);
-    printDiagonalPattern(2, 19, 5, numbers[2] + dir * 7, 68, -7, L"▒", dir);
+    printDiagonalPattern(2, 19, 5, numbers[2] + dir * 7, 68, -7, L" ", dir);
     printDiagonalPattern(2, 19, 5, numbers[3] + dir * 7, 68, -7, L"▓", dir);
     printDiagonalPattern(2, 19, 5, numbers[4] + dir * 7, 68, -7, L"▒", dir);
     printDiagonalPattern(2, 19, 5, numbers[5] + dir * 7, 68, -7, L"▒", dir);
@@ -379,7 +378,6 @@ void MAKE_PATTERNS() {
         replaceXEveryNth(FooterAnimation[8], 31, L"*", L"+", 1);
         replaceXEveryNth(rightBorderTextPtr, 20, L"}-", L"∫►", 1);
     }
-
 }
 
 void PTRN_MAKER() {

@@ -108,7 +108,6 @@ void threadedFrameAdvance(int& run, int delay, int& counter, int maxCount) {
     }
 }
 
-__declspec(noinline)
 void printDiagonalPattern(int top, int bottom, int start_x, int start_y, int width, int step, const wchar_t* block = L"░", int dir = 1) {
     int ob = 0;
     int x = start_x, y = start_y;
