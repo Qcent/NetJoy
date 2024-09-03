@@ -180,7 +180,7 @@ void SetCoupledButtonColors(WORD bgcol, WORD fcol, WORD dcol, WORD hcol, WORD sc
 
 }
 
-void DrawControllerFace(textUI& screen, ColorScheme& colorsScheme, WORD BG_COLOR, int mode) {
+void DrawControllerFace(textUI& screen, ColorScheme& colorsScheme, WORD BG_COLOR, int mode, bool noBG = false) {
 	int faceLines;
 	if (mode == 1) {
 		screen.SetBackdrop(XBOX_Backdrop);
@@ -214,7 +214,10 @@ void DrawControllerFace(textUI& screen, ColorScheme& colorsScheme, WORD BG_COLOR
 		colorsScheme.selectColor);
 	//
 
-	screen.DrawBackdrop(); 
+	if(noBG)
+		screen.DrawBackdropClearWhitespace();
+	else
+		screen.DrawBackdrop();
 
 	// make sure detail on controller face is visible
 	WORD safe_col = colorsScheme.outlineColor;
@@ -236,7 +239,7 @@ void DrawControllerFace(textUI& screen, ColorScheme& colorsScheme, WORD BG_COLOR
 	controllerButtons.DrawButtons();
 }
 
-void ReDrawControllerFace(textUI& screen, ColorScheme& colorsScheme, WORD BG_COLOR, int mode) {
+void ReDrawControllerFace(textUI& screen, ColorScheme& colorsScheme, WORD BG_COLOR, int mode, bool noBG = false) {
 	int faceLines;
 	if (mode == 1) {
 		screen.SetBackdrop(XBOX_Backdrop);
@@ -251,7 +254,10 @@ void ReDrawControllerFace(textUI& screen, ColorScheme& colorsScheme, WORD BG_COL
 	//textUI controllerButtons;		// for setting button colors
 	//AddControllerButtons(controllerButtons);	// without them being click able on screen
 
-	screen.DrawBackdrop();
+	if (noBG)
+		screen.DrawBackdropClearWhitespace();
+	else
+		screen.DrawBackdrop();;
 
 
 	// make sure detail on controller face is visible

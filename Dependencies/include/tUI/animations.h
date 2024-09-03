@@ -108,6 +108,7 @@ void threadedFrameAdvance(int& run, int delay, int& counter, int maxCount) {
     }
 }
 
+__declspec(noinline)
 void printDiagonalPattern(int top, int bottom, int start_x, int start_y, int width, int step, const wchar_t* block = L"░", int dir = 1) {
     int ob = 0;
     int x = start_x, y = start_y;
@@ -154,7 +155,7 @@ void no_whitespace_Draw(const wchar_t* _text, int x, int y, int _width, int _len
     int line = 0;
     setCursorPosition(x, y);
     for (int i = 1; i - 1 < _length; i++) {
-        if (_text[i - 1] == ' ') {
+        if (_text[i - 1] == L' ') {
             // advance cursor
             setCursorPosition(x + i % _width, y + line);
         }

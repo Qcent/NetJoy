@@ -925,6 +925,29 @@ public:
         std::wcout << _backdrop;
     }
 
+    void DrawBackdropClearWhitespace() {
+        setTextColor(_backdropColor);
+        int line = 0, x = 0, y = 0, i = 1, width = 1000;
+        setCursorPosition(0,0);
+        while (_backdrop[i-1] != L'\0') {
+            if (width==1000 && _backdrop[i-1] == L'\n') {
+                width = i;
+            }
+            if (_backdrop[i-1] == L' ') {
+                // advance cursor
+                setCursorPosition(x + i % width, y + line);
+            }
+            else {
+                std::wcout << _backdrop[i-1];
+            }
+            if (i % width == 0) {
+                line++;
+                setCursorPosition(x, y + line);
+            }
+            i++;
+        }
+    }
+
     void DrawButtons() {
         for (int i = 0; i < _buttonsCount; i++) {
             _buttons[i]->Update();
