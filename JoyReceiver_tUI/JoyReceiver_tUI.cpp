@@ -59,10 +59,10 @@ int main(int argc, char* argv[]) {
     // Make Connection -> Receive Input Loop
     while (!APP_KILLED) {
         BUILD_CONNECTION_tUI();
-        COLOR_AND_DRAW_CX_tUI();
+        COLOR_AND_DRAW_CX_tUI(args.port);
 
         // Await Connection in separate thread while animating the screen
-        JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION();
+        JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(server, args, allGood, connectionIP);
 
         // Possible errors handling
         if (allGood == WSAEINVAL) {
@@ -86,6 +86,7 @@ int main(int argc, char* argv[]) {
         }
 
         JOYRECEIVER_GET_MODE_AND_TIMING_FROM_BUFFER();
+        g_mode = op_mode;
         JOYRECEIVER_PLUGIN_VIGEM_CONTROLLER();
 
         // Send response back to client
@@ -99,12 +100,12 @@ int main(int argc, char* argv[]) {
         }
 
         // Prep UI for loop
-        BUILD_MAIN_LOOP_tUI();
+        BUILD_MAIN_LOOP_tUI(connectionIP);
         fps_counter.reset();
 
         /* Start Receive Joystick Data Loop */
         while (!APP_KILLED) {
-            screenLoop(screen);
+            screenLoop(g_screen);
 
             // Catch hot key button presses
             if (getKeyState(VK_SHIFT) && IsAppActiveWindow()) {
@@ -172,7 +173,7 @@ int main(int argc, char* argv[]) {
         /* End of Receive Joystick Data Loop */
 
         if (!APP_KILLED) {
-            screen.ClearButtons();
+            g_screen.ClearButtons();
         }
 
         // Unregister rumble notifications // unplug virtual deveice
