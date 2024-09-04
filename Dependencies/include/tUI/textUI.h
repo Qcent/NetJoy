@@ -240,10 +240,10 @@ FullColorScheme trueFullSchemeFromSimpleScheme(ColorScheme& simp, ColorScheme& m
         L"Random",
         {
             // Menu Colors
-            static_cast<WORD>(menu.buttonColor | menu.selectColor),			// Header
-            static_cast<WORD>(menu.selectColor | menu.faceColor),		        // Error
-            static_cast<WORD>(menu.outlineColor | menu.highlightColor),		// message 1
-            static_cast<WORD>(menu.highlightColor | menu.faceColor)			// message 2
+            makeSafeColors(menu.outlineColor | menu.selectColor),	    // Header // LAN
+            static_cast<WORD>(WHITE | RED AS_BG),		                // Error
+            makeSafeColors(simp.faceColor AS_FG | menu.outlineColor AS_BG),	 // message 1 // WAN
+            makeSafeColors(menu.faceColor AS_FG | menu.buttonColor AS_BG)	 // message 2 // PORT
         },
         {
             // Controller Colors
@@ -268,8 +268,7 @@ ColorScheme simpleSchemeFromFullScheme(FullColorScheme& full) {
         static_cast<WORD>(full.controllerColors.col1 BG_ONLY),
         static_cast<WORD>(full.controllerColors.col2 FG_ONLY),
         static_cast<WORD>(full.controllerColors.col3 FG_ONLY),
-        static_cast<WORD>(full.controllerColors.col4),
-        L" "
+        static_cast<WORD>(full.controllerColors.col4)
     };
 }
 

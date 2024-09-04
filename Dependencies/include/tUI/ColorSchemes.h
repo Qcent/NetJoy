@@ -50,6 +50,7 @@ enum ConsoleColor {
 #define BG_ONLY         & 0x00F0
 #define DROP_BG         & 0xFF0F
 #define AS_BG			<< 4
+#define AS_FG			>> 4
 
 // Package up all the colors needed for bare minimum color expression
 struct ColorScheme {
@@ -58,34 +59,7 @@ struct ColorScheme {
 	WORD buttonColor;
 	WORD highlightColor;
 	WORD selectColor;
-	const wchar_t* name;
 };
-
-//#define NUM_COLOR_SCHEMES 5	// used by fullColorScheme now
-
-// Global Collection of Controller Face/Button Color schemes ** Obsolete
-/*
-ColorScheme colorSchemes[NUM_COLOR_SCHEMES + 1] = {
-	//	:outline,	:face,			:buttonLine,   :buttonHover,    :buttonClicked,				:name
-	{ WHITE,		BLACK AS_BG,	WHITE,			GREY,			BRIGHT_BLUE | RED AS_BG,	L"WHITE_ON_BLACK" }, //0
-	{ WHITE,		WHITE AS_BG,	GREY,			YELLOW,			YELLOW | RED AS_BG,			L"BLACK_ON_WHITE" }, //1
-	{ BLACK, BRIGHT_MAGENTA AS_BG,	WHITE,			BLUE,			WHITE | CYAN AS_BG,			L"PINKY" },			//2				 // candidate
-	{ YELLOW,		BLACK AS_BG,	YELLOW,			BRIGHT_YELLOW,	WHITE | YELLOW AS_BG,		L"GOLD_AND_BLACK" },  //3
-	{ WHITE,		GREY AS_BG,		BLUE,			YELLOW,			BRIGHT_BLUE | WHITE AS_BG,	L"BLUE_ON_GREY" },  //4
-	{ BRIGHT_BLUE,	BLUE AS_BG,		BRIGHT_YELLOW,	BRIGHT_GREEN,	BRIGHT_GREEN | BRIGHT_YELLOW AS_BG ,	L"YELLOW_ON_BLUE" }, //5  // candidate  // rejected
-	{ BRIGHT_YELLOW, BRIGHT_YELLOW AS_BG, GREY,		YELLOW,			YELLOW | GREY AS_BG,		L"BANANA/CREAM" },  //6
-	{ BRIGHT_YELLOW, YELLOW AS_BG,	BRIGHT_BLUE,	BLUE,			BLUE | BRIGHT_BLUE AS_BG ,	L"BLUE_ON_YELLOW" },  //7
-	{ BRIGHT_RED,	RED AS_BG,		WHITE,			GREY,			WHITE | BLUE AS_BG,			L"WHITE_ON_RED" }, //8
-	{ CYAN,			BLUE AS_BG,		WHITE,			GREY,			WHITE | CYAN AS_BG,			L"WHITE_ON_BLUE" },	//9
-	{ BRIGHT_GREEN, GREEN AS_BG,	BRIGHT_BLUE,	BLUE,			WHITE | BRIGHT_GREEN AS_BG, L"BLUE_ON_GREEN" },  //10			// candidate // rejected
-	{ GREEN,	GREEN AS_BG,	BRIGHT_MAGENTA, WHITE,			WHITE | BRIGHT_MAGENTA AS_BG,	L"POISON_IVY" },  //11				// candidate // rejected
-	{ CYAN,			CYAN AS_BG,		WHITE,			GREY,			WHITE | BRIGHT_MAGENTA AS_BG,L"CYAN_CONTROLER" }, //12			// candidate
-	{ WHITE,		GREY AS_BG,		WHITE,			BLUE,			BLUE | BRIGHT_YELLOW AS_BG,	L"SOFT_GREY" },		 //13
-	{ BLACK,		WHITE AS_BG,	BLACK,			GREY,			BLUE | BRIGHT_MAGENTA AS_BG,L"LIGHT_MODE" },	 //14
-	{ WHITE,		BLACK AS_BG,	WHITE,			BRIGHT_BLUE,	BRIGHT_BLUE | YELLOW AS_BG,	L"BLACK_DEFAULT" },  //15
-	{ BRIGHT_GREEN,	BRIGHT_RED AS_BG,	BLACK,	    BRIGHT_GREEN,	BLACK | BRIGHT_GREEN AS_BG,	L"WATERMELON" },  //16				// candidate
-};
-*/
 
 // Generate a random integer from r1 - r2
 int generateRandomInt(int r1, int r2) {
@@ -219,7 +193,6 @@ ColorScheme createRandomScheme() {
 	}
 
 	ColorScheme randScheme;
-	randScheme.name = L"%#*RANDOM-=";
 	randScheme.outlineColor = static_cast<WORD>(generateRandomInt(0, 15));
 
 	randScheme.faceColor = static_cast<WORD>(generateRandomInt(0, 15)) << 4;

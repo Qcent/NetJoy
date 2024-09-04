@@ -134,7 +134,7 @@ void setErrorMsg(const wchar_t* text, size_t length) {
 #define INIT_tUI_SCREEN() \
 CoupleControllerButtons(); \
 setErrorMsg(L"\0", 1); \
-fpsMsg.SetPosition(51, 1, 7, 1, ALIGN_LEFT); \
+fpsMsg.SetPosition(55, 1, 7, 1, ALIGN_LEFT); \
 quitButton.setCallback(&exitAppCallback); \
 newColorsButton.setCallback(&newControllerColorsCallback); \
 \
@@ -183,6 +183,7 @@ fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
     colorEgg.SetColors(GET_EGG_COLOR()); \
     patrnEgg.SetColors(colorEgg.GetColors()); \
     g_screen.SetButtonsColorsById(colorEgg.GetColors(), {42}); \
+    g_screen.DrawButtons(); \
 }
  
 
@@ -237,15 +238,15 @@ void threadedAwaitConnection(TCPConnection& server, int& retVal, char* clientIP)
     }
 }
 
-
+__declspec(noinline)
 void GET_NEW_COLOR_SCHEME() {
-    g_currentColorScheme = generateRandomInt(0, NUM_COLOR_SCHEMES); /* will be used as index for fullColorSchemes */
+    g_currentColorScheme = generateRandomInt(0, NUM_COLOR_SCHEMES);
     if (g_currentColorScheme == RANDOMSCHEME)
     {
+        ColorScheme menuScheme = createRandomScheme();
         WORD newRandomBG = generateRandomInt(0, 15) AS_BG;
-        static ColorScheme randomScheme;
-        randomScheme = createRandomScheme();
-        fullColorSchemes[RANDOMSCHEME] = fullSchemeFromSimpleScheme(randomScheme, newRandomBG);
+        ColorScheme randomScheme = createRandomScheme();
+        fullColorSchemes[RANDOMSCHEME] = trueFullSchemeFromSimpleScheme(randomScheme, menuScheme, newRandomBG);
     }
     g_simpleScheme = simpleSchemeFromFullScheme(fullColorSchemes[g_currentColorScheme]); /* Set for compatibility with DrawControllerFace */
 }
@@ -416,8 +417,6 @@ void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(TCPConnection& server, Arguments&
 
     BUILD_CX_EGG();
     COLOR_CX_EGG();
-    colorEgg.Draw();
-    patrnEgg.Draw();
 
     /* Set up thread */
     allGood = WSAEWOULDBLOCK;
@@ -581,33 +580,33 @@ void exitAppCallback(mouseButton& button) {
 void newControllerColorsCallback(mouseButton& button) {
     if (button.Status() & MOUSE_UP) {
         button.SetStatus(MOUSE_OUT);
-
         WORD newRandomBG = generateRandomInt(0, 15) << 4;
 
         // update globals for universal color consistency
         g_simpleScheme = createRandomScheme();
         ColorScheme menuScheme = createRandomScheme();
         fullColorSchemes[RANDOMSCHEME] = trueFullSchemeFromSimpleScheme(g_simpleScheme, menuScheme, newRandomBG);
-        g_currentColorScheme = 0;
+        g_currentColorScheme = RANDOMSCHEME;
 
-        // Draw Controller
+        // Draw Controller 
         if (g_status & 0x02) MAKE_PATTERNS();
         DrawControllerFace(g_screen, g_simpleScheme, newRandomBG, g_mode, (g_status & 0x02));
 
-        tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[RANDOMSCHEME].controllerColors);
-
         // non controller buttons
+        tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[RANDOMSCHEME].controllerColors);
         g_screen.SetButtonsColors(buttonColors);
         g_screen.DrawButtons();
 
         // on screen text 
-        output1.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg);
-        output2.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg);
+        output1.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
+        output2.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
+        output3.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
         clientMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
         fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
 
         // draw messages
         output1.Draw();
         clientMsg.Draw();
+        output3.Draw();
     }
 }
