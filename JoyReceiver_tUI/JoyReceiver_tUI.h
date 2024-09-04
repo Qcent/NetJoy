@@ -72,9 +72,6 @@ public:
 //////
 #include "tUI/textUI.h"
 
-#pragma warning(disable : 4996)
-// Converts strings to wide strings and back again
-std::wstring_convert<std::codecvt_utf8<wchar_t>> g_converter;
 
 byte g_status = 0;
 byte g_mode = 1;
@@ -120,8 +117,8 @@ void setErrorMsg(const wchar_t* text, size_t length) {
 \
     /* Set Version into window title */ \
     wchar_t winTitle[30]; \
-    wcscpy(winTitle, L"JoyReceiver++ tUI "); \
-    wcscat(winTitle, APP_VERSION_NUM); \
+    wcscpy_s(winTitle, L"JoyReceiver++ tUI "); \
+    wcscat_s(winTitle, APP_VERSION_NUM); \
     SetConsoleTitleW(winTitle); \
 \
     hideConsoleCursor(); \
@@ -155,7 +152,7 @@ fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
     }; \
     mouseButton colorEgg(50, consoleHeight - 3, 1, L"©"); \
     g_screen.AddButton(&colorEgg); \
-    g_status = false; /* hijack this (at the moment) unused global int */ \
+    g_status = false; \
     colorEgg.setCallback([](mouseButton& btn) { \
         if (btn.Status() & MOUSE_UP) { \
             btn.SetStatus(MOUSE_OUT); \
@@ -179,21 +176,14 @@ fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
         }); \
     {auto now = std::chrono::system_clock::now(); \
     auto duration = now.time_since_epoch().count() % 69; \
-    if(duration == 4 || duration == 20) PTRN_MAKER(); }\
+    if(duration == 4 || duration == 20) PTRN_MAKER(); }
 
 
 #define COLOR_CX_EGG() \
 { \
-    std::vector<WORD> colorList; \
-    POPULATE_COLOR_LIST(colorList); \
-    WORD col3 = CheckContrastMismatch(fullColorSchemes[g_currentColorScheme].controllerColors.col3 FG_ONLY, fullColorSchemes[g_currentColorScheme].menuBg BG_ONLY) ? \
-        (findSafeFGColor(fullColorSchemes[g_currentColorScheme].menuBg BG_ONLY, colorList, colorList.begin()) | fullColorSchemes[g_currentColorScheme].menuBg BG_ONLY) : \
-        (fullColorSchemes[g_currentColorScheme].controllerColors.col3 FG_ONLY | fullColorSchemes[g_currentColorScheme].menuBg BG_ONLY) ; \
-    colorEgg.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg); \
-    colorEgg.SetHighlightColor(fullColorSchemes[g_currentColorScheme].menuBg); \
-    colorEgg.SetSelectColor(col3); \
+    colorEgg.SetColors(GET_EGG_COLOR()); \
     patrnEgg.SetColors(colorEgg.GetColors()); \
-    patrnEgg.Draw(); \
+    g_screen.SetButtonsColorsById(colorEgg.GetColors(), {42}); \
 }
  
 
@@ -272,6 +262,15 @@ void POPULATE_COLOR_LIST(std::vector<WORD>& colorList) {
     }
 }
 
+tUIColorPkg GET_EGG_COLOR() {
+    std::vector<WORD> colorList; \
+        POPULATE_COLOR_LIST(colorList); \
+        WORD col3 = CheckContrastMismatch(fullColorSchemes[g_currentColorScheme].controllerColors.col3 FG_ONLY, fullColorSchemes[g_currentColorScheme].menuBg BG_ONLY) ? \
+        (findSafeFGColor(fullColorSchemes[g_currentColorScheme].menuBg BG_ONLY, colorList, colorList.begin()) | fullColorSchemes[g_currentColorScheme].menuBg BG_ONLY) : \
+        (fullColorSchemes[g_currentColorScheme].controllerColors.col3 FG_ONLY | fullColorSchemes[g_currentColorScheme].menuBg BG_ONLY); \
+        return tUIColorPkg({ fullColorSchemes[g_currentColorScheme].menuBg, fullColorSchemes[g_currentColorScheme].menuBg, col3, col3 });
+}
+
 void BUILD_CONNECTION_tUI() {
     g_screen.SetBackdrop(JoyRecvMain_Backdrop);
     quitButton.SetPosition(11, 17);
@@ -300,11 +299,11 @@ void COLOR_AND_DRAW_CX_tUI(int port) {
 
     setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);
     setCursorPosition(28, 11);
-    std::wcout << L" " + g_converter.from_bytes(localIP) + L" ";
+    wprintf(L" %S ", localIP);
 
     setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
     setCursorPosition(28, 13);
-    std::wcout << L" " + g_converter.from_bytes(externalIP) + L" ";
+    wprintf(L" %S ", externalIP);
 }
 
 void REDRAW_MAIN_BACKDROP_TEXT() {
@@ -325,11 +324,11 @@ void REDRAW_MAIN_BACKDROP_TEXT() {
 
     setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);
     setCursorPosition(28, 11);
-    std::wcout << L" " + g_converter.from_bytes(localIP) + L" ";
+    wprintf(L" %S ", localIP);
 
     setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
     setCursorPosition(28, 13);
-    std::wcout << L" " + g_converter.from_bytes(externalIP) + L" ";
+    wprintf(L" %S ", localIP);
 }
 
 void MAKE_PATTERNS() {
@@ -377,6 +376,24 @@ void MAKE_PATTERNS() {
         replaceXEveryNth(FooterAnimation[2], 31, L"*", L"┄", 1);
         replaceXEveryNth(FooterAnimation[8], 31, L"*", L"+", 1);
         replaceXEveryNth(rightBorderTextPtr, 20, L"}-", L"∫►", 1);
+        mouseButton* hartEgg = new mouseButton(3, consoleHeight-3, 3, L"♥"); 
+        g_screen.AddButton(hartEgg);
+        hartEgg->SetId(42);
+        hartEgg->SetColors(GET_EGG_COLOR());
+        hartEgg->setCallback([](mouseButton& btn) {
+            if (btn.Status() & MOUSE_UP) {
+                btn.SetStatus(MOUSE_OUT);
+                if (!(g_status & 0x04)) {
+                    g_status |= 0x04;
+                    replaceXEveryNth(&FooterAnimation[1][2], 31, L"+", L"♥", 1);
+                    replaceXEveryNth(FooterAnimation[2], 31, L"┄", L"+", 1);
+                    replaceXEveryNth(FooterAnimation[8], 31, L"+", L"♥", 1);
+                    for (int i = 0; i < FOOTER_ANI_FRAME_COUNT; i++) {
+                        replaceXEveryNth(&FooterAnimation[i][10], 31, L"\\", L"♥", 1);
+                    }
+                }
+            }
+            });
     }
 }
 
@@ -473,7 +490,8 @@ void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(TCPConnection& server, Arguments&
     connectThread.detach();
     g_screen.RemoveButton(&colorEgg);
     g_screen.RemoveButton(&patrnEgg);
-    g_status = g_status & 0x12;
+    g_screen.DeleteButton(42);
+    //g_status = g_status & 0x12;
     memset(feedbackData, 0, sizeof(feedbackData));
 
     if (!APP_KILLED) {
