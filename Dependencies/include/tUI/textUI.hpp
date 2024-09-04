@@ -29,7 +29,7 @@ THE SOFTWARE.
 #include "ColorSchemes.h"
 
 #define CONSOLE_WIDTH       72
-#define CONSOLE_HEIGHT      24
+#define CONSOLE_HEIGHT      20
 
 #define MAX_SCREEN_BUTTONS  32
 #define MAX_SCREEN_INPUTS   8
@@ -996,6 +996,25 @@ public:
         }
     }
 
+    void DeleteButton(int id) {
+        if (_buttonsCount == 0) return;
+
+        bool popped = false;
+        for (int i = 0; i < _buttonsCount; i++) {
+            if (_buttons[i]->GetId() == id) {
+                delete _buttons[i];
+                popped = true;
+            }
+            else if (popped) {
+                _buttons[i - 1] = _buttons[i];
+            }
+        }
+        if (popped) {
+            _buttons[_buttonsCount - 1] = nullptr;
+            _buttonsCount--;
+        }
+    }
+
     void ClearInputs() {
         for (int i = 0; i < MAX_SCREEN_INPUTS; ++i) {
             _textInputs[i] = nullptr;
@@ -1049,6 +1068,18 @@ public:
     void SetButtonsDefaultColor(WORD col) {
         for (int i = 0; i < _buttonsCount; i++) {
             _buttons[i]->SetDefaultColor(col);
+        }
+    }
+
+    void SetButtonsColorsById(tUIColorPkg colors, std::vector<int> IDs) {
+        for (int i = 0; i < _buttonsCount; i++) {
+            int id = _buttons[i]->GetId();
+            auto found = std::find(IDs.begin(), IDs.end(), id);
+            if (found != IDs.end()) {
+                _buttons[i]->SetAllColors(colors); 
+                if (IDs.size()==1) return;
+                else IDs.erase(found);
+            }
         }
     }
 
