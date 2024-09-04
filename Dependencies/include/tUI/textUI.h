@@ -234,6 +234,33 @@ FullColorScheme fullSchemeFromSimpleScheme(ColorScheme& simp, WORD bg) {
     return ret;
 }
 
+// converts a simple color scheme to a full color scheme *random color scheme generation can be converted to a full scheme
+FullColorScheme trueFullSchemeFromSimpleScheme(ColorScheme& simp, ColorScheme& menu, WORD bg) {
+    FullColorScheme ret = {
+        L"Random",
+        {
+            // Menu Colors
+            static_cast<WORD>(menu.buttonColor | menu.selectColor),			// Header
+            static_cast<WORD>(menu.selectColor | menu.faceColor),		        // Error
+            static_cast<WORD>(menu.outlineColor | menu.highlightColor),		// message 1
+            static_cast<WORD>(menu.highlightColor | menu.faceColor)			// message 2
+        },
+        {
+            // Controller Colors
+            static_cast<WORD>(simp.outlineColor | simp.faceColor),	    // outline | faceColor 
+            static_cast<WORD>(simp.buttonColor | simp.faceColor),		// buttonColor
+            static_cast<WORD>(simp.highlightColor | simp.faceColor),	    // highlightColor
+            simp.selectColor                         // selectColor 
+        },
+        // Menu background
+        static_cast<WORD>(menu.faceColor | menu.buttonColor),
+        // Controller background
+        static_cast<WORD>(simp.outlineColor | bg)
+    };
+
+    return ret;
+}
+
 // converts a a full color scheme to a simple scheme *needed for draw and redraw controller face functions
 ColorScheme simpleSchemeFromFullScheme(FullColorScheme& full) {
     return ColorScheme{
