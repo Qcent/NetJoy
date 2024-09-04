@@ -152,7 +152,6 @@ fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
     }; \
     mouseButton colorEgg(50, consoleHeight - 3, 1, L"©"); \
     g_screen.AddButton(&colorEgg); \
-    g_status = false; \
     colorEgg.setCallback([](mouseButton& btn) { \
         if (btn.Status() & MOUSE_UP) { \
             btn.SetStatus(MOUSE_OUT); \
@@ -176,7 +175,7 @@ fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
         }); \
     {auto now = std::chrono::system_clock::now(); \
     auto duration = now.time_since_epoch().count() % 69; \
-    if(duration == 4 || duration == 20) PTRN_MAKER(); }
+    if(g_status & 0x02||duration == 4 || duration == 20) PTRN_MAKER(); }
 
 
 #define COLOR_CX_EGG() \
@@ -352,8 +351,7 @@ void MAKE_PATTERNS() {
     printDiagonalPattern(2, 19, 5, numbers[8] + dir * 7, 68, -7, L"░", dir);
     printDiagonalPattern(2, 19, 5, numbers[9] + dir * 7, 68, -7, L"▒", dir);
     if (!(g_status & 0x10)) {
-        g_status |= 0x10;
-        wchar_t* rightBorderTextPtr = (wchar_t*)g_extraData;
+        g_status |= 0x10;       
         replaceXEveryNth(JoyRecvMain_Backdrop, sizeof(JoyRecvMain_Backdrop), L"= ", L"══", 30);
         replaceXEveryNth(JoyRecvMain_Backdrop, sizeof(JoyRecvMain_Backdrop), L"=", L"═", 1);
         replaceXEveryNth(JoyRecvMain_Backdrop, sizeof(JoyRecvMain_Backdrop), L"= ", L"┉┉", 31);
@@ -375,7 +373,7 @@ void MAKE_PATTERNS() {
         replaceXEveryNth(&FooterAnimation[1][2], 31, L".", L"+", 1);
         replaceXEveryNth(FooterAnimation[2], 31, L"*", L"┄", 1);
         replaceXEveryNth(FooterAnimation[8], 31, L"*", L"+", 1);
-        replaceXEveryNth(rightBorderTextPtr, 20, L"}-", L"∫►", 1);
+        replaceXEveryNth(rsideFooter, 20, L"}-", L"∫►", 1);
         mouseButton* hartEgg = new mouseButton(3, consoleHeight-3, 3, L"♥"); 
         g_screen.AddButton(hartEgg);
         hartEgg->SetId(42);
@@ -406,9 +404,8 @@ void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(TCPConnection& server, Arguments&
     /* Set up animation variables */
     int frameDelay = 0;
     int footFrameNum = 0;
-    wchar_t rside[] = L"\t/   \t\t:}-     ";
     mouseButton leftBorderPiece(3, 18, 2, L"\\\t\t\t \t");
-    mouseButton rightBorderPiece(68, 18, 5, rside);
+    mouseButton rightBorderPiece(68, 18, 5, rsideFooter);
     leftBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
     rightBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
 
@@ -417,7 +414,6 @@ void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(TCPConnection& server, Arguments&
     int lastAni1Frame = g_frameNum - 1;
     int lastAni2Frame = footFrameNum - 1;
 
-    g_extraData = (void*)&rside;
     BUILD_CX_EGG();
     COLOR_CX_EGG();
     colorEgg.Draw();
@@ -530,8 +526,28 @@ void BUILD_MAIN_LOOP_tUI(char* connectionIP) {
     newColorsButton.SetPosition(consoleWidth / 2 - 8, QUITLINE - 2);
     g_screen.AddButton(&quitButton);
     g_screen.AddButton(&newColorsButton);
+    output3.SetPosition(50, 1);
+    output3.SetText(L" FPS:");
+    output3.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg);
     /* Colors and drawing */
-    if (g_status & 0x02) MAKE_PATTERNS();
+    if (g_status & 0x02) {
+        MAKE_PATTERNS();
+        button_L1_outline.SetText(button_L1_outline2);
+        button_L2_outline.SetText(button_L2_outline2);
+        button_R1_outline.SetText(button_L1_outline2);
+        button_R2_outline.SetText(button_L2_outline2);
+        swprintf(msgPointer1, 43, L"<< Connection From: %S >>", connectionIP);
+        output1.SetText(msgPointer1);
+        output1.SetPosition(5, 1, 43, 1, ALIGN_LEFT);
+        clientMsg.SetPosition(24, 1, 38, 1, ALIGN_LEFT);
+        output3.SetPosition(55, 1);
+        fpsMsg.SetPosition(60, 1);
+    }else{
+        button_L1_outline.SetText(button_L1_outline1);
+        button_L2_outline.SetText(button_L2_outline1);
+        button_R1_outline.SetText(button_R1_outline1);
+        button_R2_outline.SetText(button_L2_outline1);
+    }
     DrawControllerFace(g_screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, g_mode, (g_status & 0x02));
     tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
     /* Color non-controller buttons and draw them */
@@ -539,6 +555,7 @@ void BUILD_MAIN_LOOP_tUI(char* connectionIP) {
     g_screen.DrawButtons();
     output1.Draw();
     clientMsg.Draw();
+    output3.Draw();
 }
 
 
@@ -569,7 +586,8 @@ void newControllerColorsCallback(mouseButton& button) {
 
         // update globals for universal color consistency
         g_simpleScheme = createRandomScheme();
-        fullColorSchemes[RANDOMSCHEME] = fullSchemeFromSimpleScheme(g_simpleScheme, newRandomBG);
+        ColorScheme menuScheme = createRandomScheme();
+        fullColorSchemes[RANDOMSCHEME] = trueFullSchemeFromSimpleScheme(g_simpleScheme, menuScheme, newRandomBG);
         g_currentColorScheme = 0;
 
         // Draw Controller
@@ -584,6 +602,7 @@ void newControllerColorsCallback(mouseButton& button) {
 
         // on screen text 
         output1.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg);
+        output2.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg);
         clientMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
         fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
 
