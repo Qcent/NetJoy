@@ -77,10 +77,11 @@ mouseButton button_RStickRight_highlight(44, 11, 2, L"} ");
 mouseButton button_RStickDown_highlight(41, 12, 2, L"--");
 
 // Controller button outlines
-mouseButton button_A_outline(50, 10, 4, L" .. |\t\t| ``", DEFAULT_TEXT, HOVERED_BUTTON, HOVERED_BUTTON, DEFAULT_TEXT);
-mouseButton button_B_outline(53, 8, 4, L" .. |\t\t| ``", DEFAULT_TEXT, HOVERED_BUTTON, HOVERED_BUTTON, DEFAULT_TEXT);
-mouseButton button_X_outline(46, 8, 4, L" .. |\t\t| ``", DEFAULT_TEXT, HOVERED_BUTTON, HOVERED_BUTTON, DEFAULT_TEXT);
-mouseButton button_Y_outline(50, 6, 4, L" .. |\t\t| ``", DEFAULT_TEXT, HOVERED_BUTTON, HOVERED_BUTTON, DEFAULT_TEXT);
+const wchar_t* letterButton = L" .. |\t\t| ``";
+mouseButton button_A_outline(50, 10, 4, letterButton, DEFAULT_TEXT, HOVERED_BUTTON, HOVERED_BUTTON, DEFAULT_TEXT);
+mouseButton button_B_outline(53, 8, 4, letterButton, DEFAULT_TEXT, HOVERED_BUTTON, HOVERED_BUTTON, DEFAULT_TEXT);
+mouseButton button_X_outline(46, 8, 4, letterButton, DEFAULT_TEXT, HOVERED_BUTTON, HOVERED_BUTTON, DEFAULT_TEXT);
+mouseButton button_Y_outline(50, 6, 4, letterButton, DEFAULT_TEXT, HOVERED_BUTTON, HOVERED_BUTTON, DEFAULT_TEXT);
 
 //mouseButton button_Back_outline(29, 8, 3, L"( )", UNCLICKABLE);
 //mouseButton button_Start_outline(41, 8, 3, L"( )", UNCLICKABLE);
@@ -92,8 +93,12 @@ mouseButton button_DpadLeft_outline(23, 10, 3, L"\t__|\t\t", DEFAULT_TEXT, HOVER
 mouseButton button_DpadRight_outline(30, 10, 3, L"__\t\t\t|", DEFAULT_TEXT, HOVERED_BUTTON, HOVERED_BUTTON, DEFAULT_TEXT);
 mouseButton button_DpadDown_outline(26, 12, 4, L"|\t\t|", DEFAULT_TEXT, HOVERED_BUTTON, HOVERED_BUTTON, DEFAULT_TEXT);
 
-mouseButton button_L1_outline(17, 3, 10, L",\t______\t_\\________/", UNCLICKABLE);
-mouseButton button_L2_outline(18, 2, 8, L" ______ /______\\", UNCLICKABLE);
+const wchar_t* button_L1_outline1 = L",\t______\t_\\________/";
+const wchar_t* button_L2_outline1 = L" ______ /______\\";
+const wchar_t* button_L1_outline2 = L"\t\t______\t\t\\________/";
+const wchar_t* button_L2_outline2 = L"\t\t\t\t\t\t\t\t/______\\";
+mouseButton button_L1_outline(17, 3, 10, button_L1_outline1, UNCLICKABLE);
+mouseButton button_L2_outline(18, 2, 8, button_L2_outline1, UNCLICKABLE);
 mouseButton button_L3_outline(20, 7, 4, L".\t\t.\t\t\t\t'\t\t'", UNCLICKABLE);
 
 //mouseButton button_LStickUp_outline(21, 7, 2, L"--", UNCLICKABLE);
@@ -102,8 +107,9 @@ mouseButton button_L3_outline(20, 7, 4, L".\t\t.\t\t\t\t'\t\t'", UNCLICKABLE);
 //mouseButton button_LStickDown_outline(21, 9, 2, L"--", UNCLICKABLE);
 // Same as highlight
 
-mouseButton button_R1_outline(46, 3, 10, L"_\t______\t,\\________/", UNCLICKABLE);
-mouseButton button_R2_outline(47, 2, 8, L" ______ /______\\", UNCLICKABLE);
+const wchar_t* button_R1_outline1 = L"_\t______\t,\\________/";
+mouseButton button_R1_outline(46, 3, 10, button_R1_outline1, UNCLICKABLE);
+mouseButton button_R2_outline(47, 2, 8, button_L2_outline1, UNCLICKABLE);
 mouseButton button_R3_outline(40, 10, 4, L".\t\t.\t\t\t\t'\t\t'", UNCLICKABLE);
 
 //mouseButton button_RStickUp_outline(41, 10, 2, L"--", UNCLICKABLE);

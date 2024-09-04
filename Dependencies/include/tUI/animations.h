@@ -66,6 +66,8 @@ wchar_t FooterAnimation[FOOTER_ANI_FRAME_COUNT + 1][31] = {
 {L"  .--.    ::::::.\\::-'      `-"},
 };
 
+wchar_t rsideFooter[] = L"\t/   \t\t:}-     ";
+
 // function will inc/dec &counter up to maxCount and down to 0
 // for animating back and forth through frames
 __declspec(noinline) // gets optimized out in Release x64? yes!
