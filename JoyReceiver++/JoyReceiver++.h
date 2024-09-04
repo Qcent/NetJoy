@@ -12,7 +12,6 @@ volatile sig_atomic_t APP_KILLED = 0;
 std::mutex mtx;
 char feedbackData[5] = { 0 }; // For sending rumble data back to joySender
 void signalHandler(int signal);
-void* g_extraData = nullptr;
 
 #include "utilities.hpp"
 
