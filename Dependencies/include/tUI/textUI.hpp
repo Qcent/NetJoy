@@ -60,9 +60,12 @@ THE SOFTWARE.
 
 // Function sets the console cursor position
 void setCursorPosition(int x, int y) {
-    COORD coord;
-    coord.X = static_cast<SHORT>(x);
-    coord.Y = static_cast<SHORT>(y);
+    COORD coord = { 
+        static_cast<SHORT>(x),
+        static_cast<SHORT>(y)
+    };
+    //coord.X = static_cast<SHORT>(x);
+    //coord.Y = static_cast<SHORT>(y);
     SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord);
 }
 void setCursorPosition(COORD coord) {
@@ -1107,27 +1110,13 @@ public:
         }
     }
 
-    /*
-    WORD getSafeColors() {
-        // A list of replacement colors to select from
-        std::vector<WORD> colorList = {		// new color selection is as follows:
-            inverseFGColor(_backdropColor >> 4),	// inverse of BG color
-            WHITE,							// white
-            BLACK							// black
-        };
-
-        WORD safe_col = _backdropColor;
-        if (sameFG_BG(_backdropColor, _backdropColor)) {
-            safe_col = inverseFGColor(_backdropColor);
+    mouseButton* GetButtonById(int ID) {
+        for (int i = 0; i < _buttonsCount; i++) {
+            if (ID == _buttons[i]->GetId()) {
+                return _buttons[i];
+            }
         }
-
-        if (CheckContrastMismatch(safe_col, _backdropColor)) {
-            safe_col = findSafeFGColor(_backdropColor, colorList, colorList.begin()) | (safe_col BG_ONLY);
-        }
-
-        return safe_col;
     }
-    */
 
 private:
     const wchar_t* _backdrop;
