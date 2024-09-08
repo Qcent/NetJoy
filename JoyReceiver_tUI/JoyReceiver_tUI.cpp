@@ -59,7 +59,7 @@ int main(int argc, char* argv[]) {
     // Make Connection -> Receive Input Loop
     while (!APP_KILLED) {
         BUILD_CONNECTION_tUI();
-        COLOR_AND_DRAW_CX_tUI(args.port);
+        //COLOR_AND_DRAW_CX_tUI(args.port);
 
         // Await Connection in separate thread while animating the screen
         JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(server, args, allGood, connectionIP);
@@ -105,6 +105,7 @@ int main(int argc, char* argv[]) {
 
         /* Start Receive Joystick Data Loop */
         while (!APP_KILLED) {
+            EGG_LOOP();
             screenLoop(g_screen);
 
             // Catch hot key button presses
@@ -171,9 +172,11 @@ int main(int argc, char* argv[]) {
             }
         }
         /* End of Receive Joystick Data Loop */
-
+        
+        CLEAN_EGGS();
         if (!APP_KILLED) {
             g_screen.ClearButtons();
+            g_status |= tUI_RESTART_f;
         }
 
         // Unregister rumble notifications // unplug virtual deveice
