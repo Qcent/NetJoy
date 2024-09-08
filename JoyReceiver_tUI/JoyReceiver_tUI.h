@@ -72,9 +72,7 @@ public:
 //////
 #include "tUI/textUI.h"
 
-
 byte g_mode = 1;
-
 
 wchar_t g_stringBuff[500];      // for holding generated text data
 wchar_t* errorPointer = g_stringBuff;   // max length 100
@@ -325,11 +323,11 @@ void REDRAW_CX_TEXT() {
 
     setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);
     setCursorPosition(28, 11);
-    wprintf(L" %S ", localIP);
+    wprintf_s(L" %S ", localIP.c_str());
 
     setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
     setCursorPosition(28, 13);
-    wprintf(L" %S ", localIP);
+    wprintf_s(L" %S ", externalIP.c_str());
 }
 
 void COLOR_AND_DRAW_CX_tUI() {
