@@ -180,31 +180,17 @@ void SetCoupledButtonColors(WORD bgcol, WORD fcol, WORD dcol, WORD hcol, WORD sc
 
 }
 
-void DrawControllerFace(textUI& screen, ColorScheme& colorsScheme, WORD BG_COLOR, int mode, bool noBG = false) {
-	int faceLines;
+void SetControllerFace(textUI& screen, ColorScheme& colorsScheme, WORD BG_COLOR, int mode, bool noBG = false) {
 	if (mode == 1) {
 		screen.SetBackdrop(XBOX_Backdrop);
-		faceLines = XBOX_FACE_LINES;
 	}
 	else {
 		screen.SetBackdrop(DS4_Backdrop);
-		faceLines = DS4_FACE_LINES;
 	}
 
-	//
 	// Set the background colors
-	screen.SetBackdropColor(makeSafeColors(colorsScheme.outlineColor | BG_COLOR));
-	
-	// Set controller buttons to color scheme
-	textUI controllerButtons;		// for setting button colors
-	AddControllerButtons(controllerButtons);	// without them being click able on screen
+	screen.SetBackdropColor(colorsScheme.outlineColor | BG_COLOR);
 
-	controllerButtons.SetButtonsColors({ static_cast<WORD>(colorsScheme.buttonColor | colorsScheme.faceColor),
-								static_cast<WORD>(colorsScheme.highlightColor | colorsScheme.faceColor),
-							 	colorsScheme.selectColor,
-							 	0x0000  // unused
-		});
-		
 	// do customized button effect colors & // Shoulder button contrast correction
 	SetCoupledButtonColors(
 		BG_COLOR,
@@ -212,53 +198,16 @@ void DrawControllerFace(textUI& screen, ColorScheme& colorsScheme, WORD BG_COLOR
 		colorsScheme.buttonColor,
 		colorsScheme.highlightColor,
 		colorsScheme.selectColor);
-	//
-
-	if(noBG)
-		screen.DrawBackdropClearWhitespace();
-	else
-		screen.DrawBackdrop();
-
-	// make sure detail on controller face is visible
-	WORD safe_col = colorsScheme.outlineColor;
-	if (CheckContrastMismatch(colorsScheme.outlineColor, colorsScheme.faceColor)) {
-		safe_col = BG_COLOR >> 4;
-	}
-	while (CheckContrastMismatch(safe_col, colorsScheme.faceColor)) {
-		safe_col= (safe_col+1) % 15;
-	}
-
-	//
-	// Draw face
-	setTextColor(safe_col | colorsScheme.faceColor);
-	for (int i = 0; i < faceLines; i++) {
-		ControllerFace[i].Draw_noColor();
-	}
-
-	// 
-	controllerButtons.DrawButtons();
 }
 
 void ReDrawControllerFace(textUI& screen, ColorScheme& colorsScheme, WORD BG_COLOR, int mode, bool noBG = false) {
 	int faceLines;
 	if (mode == 1) {
-		screen.SetBackdrop(XBOX_Backdrop);
 		faceLines = XBOX_FACE_LINES;
 	}
 	else {
-		screen.SetBackdrop(DS4_Backdrop);
 		faceLines = DS4_FACE_LINES;
 	}
-
-	// Set controller buttons to color scheme
-	//textUI controllerButtons;		// for setting button colors
-	//AddControllerButtons(controllerButtons);	// without them being click able on screen
-
-	if (noBG)
-		screen.DrawBackdropClearWhitespace();
-	else
-		screen.DrawBackdrop();;
-
 
 	// make sure detail on controller face is visible
 	WORD safe_col = colorsScheme.outlineColor;
@@ -269,13 +218,34 @@ void ReDrawControllerFace(textUI& screen, ColorScheme& colorsScheme, WORD BG_COL
 		safe_col = (safe_col + 1) % 15;
 	}
 
-	//
+	// Set controller buttons to color scheme
+	textUI controllerButtons;		// for setting button colors
+	AddControllerButtons(controllerButtons);	// without them being click able on screen
+
+	controllerButtons.SetButtonsColors({ static_cast<WORD>(colorsScheme.buttonColor | colorsScheme.faceColor),
+								static_cast<WORD>(colorsScheme.highlightColor | colorsScheme.faceColor),
+								colorsScheme.selectColor,
+								0x0000  // unused
+		});
+	
+	// do customized button effect colors & // Shoulder button contrast correction
+	SetCoupledButtonColors(
+		BG_COLOR,
+		(colorsScheme.outlineColor | colorsScheme.faceColor),
+		colorsScheme.buttonColor,
+		colorsScheme.highlightColor,
+		colorsScheme.selectColor);
+
+	if (noBG)
+		screen.DrawBackdropClearWhitespace();
+	else
+		screen.DrawBackdrop();
+
 	// Draw face
 	setTextColor(safe_col | colorsScheme.faceColor);
 	for (int i = 0; i < faceLines; i++) {
 		ControllerFace[i].Draw_noColor();
 	}
 
-	// 
-	//controllerButtons.DrawButtons();
+	controllerButtons.DrawButtons();
 }
