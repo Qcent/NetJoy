@@ -73,10 +73,8 @@ public:
 #include "tUI/textUI.h"
 
 
-byte g_status = 0;
 byte g_mode = 1;
-byte g_currentColorScheme;
-ColorScheme g_simpleScheme;
+
 
 wchar_t g_stringBuff[500];      // for holding generated text data
 wchar_t* errorPointer = g_stringBuff;   // max length 100
@@ -103,8 +101,10 @@ void setErrorMsg(const wchar_t* text, size_t length) {
 // ^*%*^*&^*%*^*&^*%*^*&^*%*^*&^*%*^*&^*%*^*&^*%*^*&^*%*^*&^
 // tUI Helper Defines
 
-#define SET_tUI_CONSOLE_MODE() \
-{ \
+#define THEME_FILE    "recv.theme"
+
+
+#define SET_tUI_CONSOLE_MODE(){ \
     /* Get the console input handle to enable mouse input */ \
     g_hConsoleInput = GetStdHandle(STD_INPUT_HANDLE); \
     DWORD mode; \
@@ -130,8 +130,7 @@ void setErrorMsg(const wchar_t* text, size_t length) {
         JoyRecvMain_Backdrop[versionStartPoint + i] = APP_VERSION_NUM[i]; } \
 }
 
-
-#define INIT_tUI_SCREEN() \
+#define INIT_tUI_SCREEN(){\
 CoupleControllerButtons(); \
 setErrorMsg(L"\0", 1); \
 fpsMsg.SetPosition(55, 1, 7, 1, ALIGN_LEFT); \
@@ -141,61 +140,98 @@ newColorsButton.setCallback(&newControllerColorsCallback); \
 /* establish a color scheme */ \
 GET_NEW_COLOR_SCHEME(); \
 errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2); \
-fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3); 
+fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3); } 
 
-
-#define BUILD_CX_EGG() \
-    auto roll_new_color = [&]() { \
-        GET_NEW_COLOR_SCHEME(); \
-        errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2); \
-        fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3); \
-    }; \
-    mouseButton colorEgg(50, consoleHeight - 3, 1, L"©"); \
-    g_screen.AddButton(&colorEgg); \
-    colorEgg.setCallback([](mouseButton& btn) { \
-        if (btn.Status() & MOUSE_UP) { \
-            btn.SetStatus(MOUSE_OUT); \
-            g_status |= 0x01; \
-        } \
-    }); \
-    std::memcpy(feedbackData, (void*)&args.port, sizeof(int)); \
-    mouseButton patrnEgg(23, 3, 3, L"tUI"); \
-    g_screen.AddButton(&patrnEgg); \
-    patrnEgg.setCallback([](mouseButton& btn) { \
-        if (btn.Status() & MOUSE_UP) { \
-            btn.SetStatus(MOUSE_OUT); \
-            if(g_status & 0x02){ \
-                g_status &= ~0x02; \
+#define CX_EGG_BUTTS() \
+mouseButton colorEgg(50, consoleHeight - 3, 1, L"©"); \
+colorEgg.SetId(43); \
+g_screen.AddButton(&colorEgg); \
+colorEgg.setCallback([](mouseButton& btn) { \
+    if (btn.Status() & MOUSE_UP) { \
+        btn.SetStatus(MOUSE_OUT); \
+        g_status |= COLOR_EGG_b; \
+    } \
+}); \
+mouseButton borderEgg(23, 3, 3, L"tUI"); \
+borderEgg.SetId(44); \
+borderEgg.setCallback([](mouseButton& btn) { \
+    if (btn.Status() & MOUSE_UP) { \
+        btn.SetStatus(MOUSE_OUT); \
+        if (!(g_status & BORDER_EGG_a)) { \
+            MORPH_BORDER(); \
+            if (generateRandomInt(1, 5) > 4) { \
+                MAKE_PATTERNS(); \
+                g_status |= PTRN_EGG_b; \
             } \
-            else{ \
-                PTRN_MAKER(); \
-                g_status |= 0x02; \
+            SPEC_EGGS(); \
+            g_status |= REDRAW_tUI_f; \
+        } \
+    } \
+}); \
+g_screen.AddButton(&borderEgg); 
+
+
+#define COMMON_EGG_BUTTS()\
+mouseButton* applyTheme = new mouseButton(3, 2, 1, (g_status & tUI_THEME_af) ? L"♦" : L"◊"); \
+applyTheme->SetId(46); \
+g_screen.AddButton(applyTheme); \
+applyTheme->setCallback([](mouseButton& btn) { \
+    if (btn.Status() & MOUSE_UP) { \
+        btn.SetStatus(MOUSE_OUT); \
+        if ((g_status & tUI_THEME_af)) { \
+            g_status &= ~tUI_THEME_af; \
+            btn.SetText(L"◊"); \
+        } \
+        else if ((g_status & tUI_THEME_f)) { \
+            tUITheme theme; \
+            if (theme.loadFromFile(THEME_FILE)) { \
+                RESTORE_THEME(); \
+                COLOR_EGGS(); \
+                theme.drawPtrn(); \
+                g_status |= REDRAW_tUI_f | tUI_THEME_af; \
+                btn.SetText(L"♦"); \
             } \
         } \
-        }); \
-    {auto now = std::chrono::system_clock::now(); \
-    auto duration = now.time_since_epoch().count() % 69; \
-    if(g_status & 0x02||duration == 4 || duration == 20) PTRN_MAKER(); }
+    } \
+}); \
+mouseButton* saveTheme = new mouseButton(consoleWidth - 3, 2, 1, (g_status & tUI_THEME_f) ? L"♦" : L"◊"); \
+saveTheme->SetId(47); \
+g_screen.AddButton(saveTheme); \
+saveTheme->setCallback([](mouseButton& btn) { \
+    if (btn.Status() & MOUSE_UP) { \
+        btn.SetStatus(MOUSE_OUT); \
+        if (!(g_status & tUI_THEME_f)) { \
+            g_status |= tUI_THEME_f | tUI_THEME_af | REFLAG_tUI_f; \
+            tUITheme& theme = g_theme; \
+            theme.recordTheme(fullColorSchemes[g_currentColorScheme], \
+            g_status & (HEART_EGG_a | BORDER_EGG_a | PTRN_EGG_b \
+            | tUI_THEME_af | tUI_THEME_f)); \
+            theme.saveToFile(THEME_FILE); \
+            btn.SetText(L"♦"); \
+        } \
+    else if (g_status & tUI_THEME_f) { \
+        int result = MessageBox(NULL, L"Do you want to clear the custom theme?", L"Confirm Delete", MB_ICONQUESTION | MB_YESNO); \
+        if (result == IDYES) { \
+            remove(THEME_FILE); \
+            g_status &= ~(tUI_THEME_f | tUI_THEME_af | tUI_LOADED_f); \
+            g_status |= REFLAG_tUI_f; \
+            btn.SetText(L"◊"); \
+        } \
+    } \
+    } \
+});  
 
-
-#define COLOR_CX_EGG() \
-{ \
-    colorEgg.SetColors(GET_EGG_COLOR()); \
-    patrnEgg.SetColors(colorEgg.GetColors()); \
-    g_screen.SetButtonsColorsById(colorEgg.GetColors(), {42}); \
-    g_screen.DrawButtons(); \
-}
- 
 
 // ********************************
 // tUI Helper Functions
 
 // to allow for screen loop and animation, wait for connection to client in a separate thread
 void threadedAwaitConnection(TCPConnection& server, int& retVal, char* clientIP) {
-    
-    //
-    // Await Connection in Non Blocking Mode
-    server.set_server_blocking(false);
+    \
+
+        //
+        // Await Connection in Non Blocking Mode
+        server.set_server_blocking(false);
     std::pair<SOCKET, sockaddr_in> connectionResult;
     SOCKET clientSocket;
     while (!APP_KILLED && retVal == WSAEWOULDBLOCK) {
@@ -224,10 +260,10 @@ void threadedAwaitConnection(TCPConnection& server, int& retVal, char* clientIP)
             // A client connection is established
             // Process the connection
                 // set clientIP
-            sockaddr_in clientAddress = connectionResult.second;           
+            sockaddr_in clientAddress = connectionResult.second;
             inet_ntop(AF_INET, &(clientAddress.sin_addr), clientIP, INET_ADDRSTRLEN);
 
-                //set retVal to break loop
+            //set retVal to break loop
             retVal = 1;
 
             // Create a new thread or perform other operations on the clientSocket?
@@ -238,38 +274,6 @@ void threadedAwaitConnection(TCPConnection& server, int& retVal, char* clientIP)
     }
 }
 
-__declspec(noinline)
-void GET_NEW_COLOR_SCHEME() {
-    g_currentColorScheme = generateRandomInt(0, NUM_COLOR_SCHEMES);
-    if (g_currentColorScheme == RANDOMSCHEME)
-    {
-        ColorScheme menuScheme = createRandomScheme();
-        WORD newRandomBG = generateRandomInt(0, 15) AS_BG;
-        ColorScheme randomScheme = createRandomScheme();
-        fullColorSchemes[RANDOMSCHEME] = trueFullSchemeFromSimpleScheme(randomScheme, menuScheme, newRandomBG);
-    }
-    g_simpleScheme = simpleSchemeFromFullScheme(fullColorSchemes[g_currentColorScheme]); /* Set for compatibility with DrawControllerFace */
-}
-
-void POPULATE_COLOR_LIST(std::vector<WORD>& colorList) {
-    int colorseed = generateRandomInt(1100000000, 2147483647);
-    for (int byteIndex = 0; byteIndex < sizeof(int); ++byteIndex) {
-        unsigned char byteValue = (colorseed >> (byteIndex * 8)) & 0xFF;
-        for (int nibbleIndex = 0; nibbleIndex < 2; ++nibbleIndex) {
-            unsigned char nibble = (byteValue >> (nibbleIndex * 4)) & 0x0F;
-            colorList.push_back(nibble);
-        }
-    }
-}
-
-tUIColorPkg GET_EGG_COLOR() {
-    std::vector<WORD> colorList; \
-        POPULATE_COLOR_LIST(colorList); \
-        WORD col3 = CheckContrastMismatch(fullColorSchemes[g_currentColorScheme].controllerColors.col3 FG_ONLY, fullColorSchemes[g_currentColorScheme].menuBg BG_ONLY) ? \
-        (findSafeFGColor(fullColorSchemes[g_currentColorScheme].menuBg BG_ONLY, colorList, colorList.begin()) | fullColorSchemes[g_currentColorScheme].menuBg BG_ONLY) : \
-        (fullColorSchemes[g_currentColorScheme].controllerColors.col3 FG_ONLY | fullColorSchemes[g_currentColorScheme].menuBg BG_ONLY); \
-        return tUIColorPkg({ fullColorSchemes[g_currentColorScheme].menuBg, fullColorSchemes[g_currentColorScheme].menuBg, col3, col3 });
-}
 
 void BUILD_CONNECTION_tUI() {
     g_screen.SetBackdrop(JoyRecvMain_Backdrop);
@@ -280,36 +284,33 @@ void BUILD_CONNECTION_tUI() {
     output1.SetText(L" Waiting For Connection ");
 }
 
-void COLOR_AND_DRAW_CX_tUI(int port) {
+void COLOR_CX_tUI() {
     WORD headingColor = makeSafeColors(fullColorSchemes[g_currentColorScheme].controllerColors.col4);
     output2.SetColor(headingColor); /* for connection animation */
     g_screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg);
     g_screen.SetButtonsColors(controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors));
-    g_screen.ReDraw();
-    errorOut.Draw();
     output1.SetColor(headingColor);
-    output1.Draw();
-
-    /* Show PORT and IPs */
-    setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
-    setCursorPosition(26, 9);
-    std::wcout << L" ";
-    std::wcout << port;
-    std::wcout << L" ";
-
-    setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);
-    setCursorPosition(28, 11);
-    wprintf(L" %S ", localIP);
-
-    setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
-    setCursorPosition(28, 13);
-    wprintf(L" %S ", externalIP);
 }
 
-void REDRAW_MAIN_BACKDROP_TEXT() {
-    no_whitespace_Draw(JoyRecvMain_Backdrop, 0, 0, 74, 1555);
-    setCursorPosition(50, 17);
-    std::wcout << L"©░Quinnco.░2024";
+void REDRAW_CX_TEXT() {
+    g_screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg);
+    g_screen.SetButtonsColors(controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors));
+
+    if (g_status & PTRN_EGG_b) {
+        MAKE_PATTERNS();
+        setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
+        no_whitespace_Draw(JoyRecvMain_Backdrop, 0, 0, 74, 1555);
+
+        setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
+        setCursorPosition(50, 17);
+        std::wcout << L"©░Quinnco.░2024";
+    }
+    else {
+        //clearPtrn(fullColorSchemes[g_currentColorScheme].menuBg);
+        //setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
+        //no_whitespace_Draw(JoyRecvMain_Backdrop, 0, 0, 74, 1555);
+        g_screen.DrawBackdrop();
+    }
 
     errorOut.Draw();
     output1.Draw();
@@ -331,80 +332,16 @@ void REDRAW_MAIN_BACKDROP_TEXT() {
     wprintf(L" %S ", localIP);
 }
 
-void MAKE_PATTERNS() {
-    srand(static_cast<unsigned int>(time(0)));
-    std::vector<const wchar_t*> blocks = { L"▓", L"▒", L"█", L"▓", L"░", L"▒" };
-    std::vector<int> numbers = { 9, 10, 11, 12, 13, 14, 15, 16, 17, 18 };
-    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
-    std::default_random_engine rng(seed);
-    std::shuffle(numbers.begin(), numbers.end(), rng);
-    setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
-    std::shuffle(blocks.begin(), blocks.end(), rng);
-    int dir = (numbers[2] > 13) ? 0 : -1;
-    printDiagonalPattern(2, 19, 5, numbers[0] + dir * 7, 68, -7, L"▒", dir);
-    printDiagonalPattern(2, 19, 5, numbers[1] + dir * 7, 68, -7, L"▒", dir);
-    printDiagonalPattern(2, 19, 5, numbers[2] + dir * 7, 68, -7, L" ", dir);
-    printDiagonalPattern(2, 19, 5, numbers[3] + dir * 7, 68, -7, L"▓", dir);
-    printDiagonalPattern(2, 19, 5, numbers[4] + dir * 7, 68, -7, L"▒", dir);
-    printDiagonalPattern(2, 19, 5, numbers[5] + dir * 7, 68, -7, L"▒", dir);
-    printDiagonalPattern(2, 19, 5, numbers[6] + dir * 7, 68, -7, L"▒", dir);
-    printDiagonalPattern(2, 19, 5, numbers[7] + dir * 7, 68, -7, blocks[3], dir);
-    printDiagonalPattern(2, 19, 5, numbers[8] + dir * 7, 68, -7, L"░", dir);
-    printDiagonalPattern(2, 19, 5, numbers[9] + dir * 7, 68, -7, L"▒", dir);
-    if (!(g_status & 0x10)) {
-        g_status |= 0x10;       
-        replaceXEveryNth(JoyRecvMain_Backdrop, sizeof(JoyRecvMain_Backdrop), L"= ", L"══", 30);
-        replaceXEveryNth(JoyRecvMain_Backdrop, sizeof(JoyRecvMain_Backdrop), L"=", L"═", 1);
-        replaceXEveryNth(JoyRecvMain_Backdrop, sizeof(JoyRecvMain_Backdrop), L"= ", L"┉┉", 31);
-        replaceXEveryNth(JoyRecvMain_Backdrop, sizeof(JoyRecvMain_Backdrop), L"=", L"┉", 1);
-        replaceXEveryNth(&JoyRecvMain_Backdrop[(consoleWidth + 2) * 2], sizeof(JoyRecvMain_Backdrop), L"||", L"◊┋", 1);
-        replaceXEveryNth(&JoyRecvMain_Backdrop[(consoleWidth) * 3], sizeof(JoyRecvMain_Backdrop), L"||", L"┋◊", 1);
-        replaceXEveryNth(&JoyRecvMain_Backdrop[(consoleWidth + 2) * 3], sizeof(JoyRecvMain_Backdrop), L"||", L"╣┋", 25, 5);
-        replaceXEveryNth(&JoyRecvMain_Backdrop[(consoleWidth - 1) * 4], sizeof(JoyRecvMain_Backdrop), L"||", L"┋╠", 19, 4);
-        replaceXEveryNth(&JoyRecvMain_Backdrop[(consoleWidth + 2) * 17], sizeof(JoyRecvMain_Backdrop), L"||", L"♥┋", 1);
-        replaceXEveryNth(&JoyRecvMain_Backdrop[(consoleWidth) * 18], sizeof(JoyRecvMain_Backdrop), L"||", L"┋╳", 1);
-        if (numbers[7] < 11) {
-            replaceXEveryNth(&JoyRecvMain_Backdrop[(consoleWidth + 2) * 3], sizeof(JoyRecvMain_Backdrop), L"||", L"┋╠", 25, 3);
-            replaceXEveryNth(&JoyRecvMain_Backdrop[(consoleWidth - 1) * 4], sizeof(JoyRecvMain_Backdrop), L"||", L"╣┋", 19);
-            replaceXEveryNth(&JoyRecvMain_Backdrop[(consoleWidth + 2) * 2], sizeof(JoyRecvMain_Backdrop), L"◊", L"♣", 2);
-            replaceXEveryNth(&JoyRecvMain_Backdrop[(consoleWidth + 2) * 2], sizeof(JoyRecvMain_Backdrop), L"┋", L"╠", 1);
-            replaceXEveryNth(&JoyRecvMain_Backdrop[(consoleWidth) * 3], sizeof(JoyRecvMain_Backdrop), L"┋", L"╣", 1);
-        }
-        replaceXEveryNth(&JoyRecvMain_Backdrop[(consoleWidth + 2) * 19], sizeof(JoyRecvMain_Backdrop), L"-{", L"◄∑", 1);
-        replaceXEveryNth(&FooterAnimation[1][2], 31, L".", L"+", 1);
-        replaceXEveryNth(FooterAnimation[2], 31, L"*", L"┄", 1);
-        replaceXEveryNth(FooterAnimation[8], 31, L"*", L"+", 1);
-        replaceXEveryNth(rsideFooter, 20, L"}-", L"∫►", 1);
-        mouseButton* hartEgg = new mouseButton(3, consoleHeight-3, 3, L"♥"); 
-        g_screen.AddButton(hartEgg);
-        hartEgg->SetId(42);
-        hartEgg->SetColors(GET_EGG_COLOR());
-        hartEgg->setCallback([](mouseButton& btn) {
-            if (btn.Status() & MOUSE_UP) {
-                btn.SetStatus(MOUSE_OUT);
-                if (!(g_status & 0x04)) {
-                    g_status |= 0x04;
-                    replaceXEveryNth(&FooterAnimation[1][2], 31, L"+", L"♥", 1);
-                    replaceXEveryNth(FooterAnimation[2], 31, L"┄", L"+", 1);
-                    replaceXEveryNth(FooterAnimation[8], 31, L"+", L"♥", 1);
-                    for (int i = 0; i < FOOTER_ANI_FRAME_COUNT; i++) {
-                        replaceXEveryNth(&FooterAnimation[i][10], 31, L"\\", L"♥", 1);
-                    }
-                }
-            }
-            });
-    }
-}
-
-void PTRN_MAKER() {
-    MAKE_PATTERNS();
-    REDRAW_MAIN_BACKDROP_TEXT();
+void COLOR_AND_DRAW_CX_tUI() {
+    COLOR_CX_tUI();
+    REDRAW_CX_TEXT();
 }
 
 void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(TCPConnection& server, Arguments& args, int& allGood, char* connectionIP) {
     /* Set up animation variables */
     int frameDelay = 0;
     int footFrameNum = 0;
+    std::memcpy(feedbackData, (void*)&args.port, sizeof(int)); // you wanna get nuts? let's get nutz
     mouseButton leftBorderPiece(3, 18, 2, L"\\\t\t\t \t");
     mouseButton rightBorderPiece(68, 18, 5, rsideFooter);
     leftBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
@@ -415,8 +352,73 @@ void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(TCPConnection& server, Arguments&
     int lastAni1Frame = g_frameNum - 1;
     int lastAni2Frame = footFrameNum - 1;
 
-    BUILD_CX_EGG();
-    COLOR_CX_EGG();
+    auto roll_new_color = [&]() {
+        GET_NEW_COLOR_SCHEME();
+        errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2);
+        fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
+        };
+
+    tUITheme& theme = g_theme;
+    if (!(g_status & tUI_LOADED_f)) {
+        if (theme.loadFromFile(THEME_FILE)) {
+            g_currentColorScheme = RANDOMSCHEME;
+            theme.restoreColors(fullColorSchemes[RANDOMSCHEME]);
+            g_simpleScheme = simpleSchemeFromFullScheme(fullColorSchemes[g_currentColorScheme]);
+            g_screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg);
+            g_screen.DrawBackdrop();
+            theme.restoreState(g_status);
+            if (g_status & BORDER_EGG_a) {
+                g_status &= ~BORDER_EGG_a; // need to be off for morph border
+                MORPH_BORDER();
+                SPEC_EGGS();
+            }
+            if (g_status & HEART_EGG_a) {
+                THE_HEARTENING();
+            }
+            if (g_status & CLUB_EGG_a) {
+                THE_CLUBENING();
+            }
+            if (g_status & PTRN_EGG_b) {
+                theme.drawPtrn();
+            }
+            g_status |= tUI_LOADED_f | REDRAW_tUI_f;
+        }
+    }
+
+    CX_EGG_BUTTS();
+    COMMON_EGG_BUTTS();
+
+    // auto activation
+    {
+        auto now = std::chrono::system_clock::now();
+        auto duration = now.time_since_epoch().count() % 69;
+        if (!(g_status & tUI_LOADED_f) && (duration == 4 || duration == 20)) {
+            MAKE_PATTERNS();
+            g_status |= PTRN_EGG_b | REDRAW_tUI_f;
+        }
+        if (!(g_status & CLUB_EGG_a) && g_status & BORDER_EGG_a && generateRandomInt(1, 20) == 13) {
+            THE_CLUBENING();
+            g_status |= REDRAW_tUI_f;
+        }
+        if (!(g_status & BORDER_EGG_a) && generateRandomInt(1, 20) == 7) {
+            MORPH_BORDER();
+            g_status |= REDRAW_tUI_f;
+        }
+    }
+
+    if ((g_status & tUI_LOADED_f) || (g_status & tUI_RESTART_f)) {
+        if (g_status & BORDER_EGG_a) {
+            SPEC_EGGS();
+        }
+        if (g_status & PTRN_EGG_b) {
+            theme.drawPtrn();
+        }
+        g_status &= ~tUI_RESTART_f;
+        g_status |= REDRAW_tUI_f;
+    }
+
+    COLOR_AND_DRAW_CX_tUI();
+    COLOR_EGGS();
 
     /* Set up thread */
     allGood = WSAEWOULDBLOCK;
@@ -463,17 +465,45 @@ void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(TCPConnection& server, Arguments&
 
         /* Check input */
         checkForQuit();
-        if (g_status & 0x01) {
-            g_status &= ~0x01;
+        if (g_status & COLOR_EGG_b) {
+            g_status &= ~COLOR_EGG_b;
+            g_status &= ~tUI_THEME_af;
             roll_new_color();
-            COLOR_AND_DRAW_CX_tUI(args.port);
-
+            g_status |= RECOL_tUI_f | REFLAG_tUI_f;
+        }
+        if (g_status & RECOL_tUI_f) {
+            g_status &= ~RECOL_tUI_f;
+            COLOR_CX_tUI();
+            g_screen.DrawBackdrop();
+            if (g_status & PTRN_EGG_b) {
+                MAKE_PATTERNS();
+            }
+            REDRAW_CX_TEXT();
             leftBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
             rightBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
             ani2.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
-
-            COLOR_CX_EGG();
-            if (g_status & 0x02) PTRN_MAKER();
+            COLOR_EGGS();
+            PRINT_EGG_X();
+        }
+        if (g_status & REDRAW_tUI_f) {
+            g_status &= ~REDRAW_tUI_f;
+            REDRAW_CX_TEXT();
+            leftBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
+            rightBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
+            ani2.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
+            COLOR_EGGS();
+            PRINT_EGG_X();
+        }
+        if (g_status & REFLAG_tUI_f) {
+            g_status &= ~REFLAG_tUI_f;
+            if (!(g_status & tUI_THEME_af)) {
+                applyTheme->SetText(L"◊");
+                applyTheme->Update();
+            }
+            if (g_status & tUI_THEME_af) {
+                applyTheme->SetText(L"♦");
+                applyTheme->Update();
+            }
         }
         screenLoop(g_screen);
 
@@ -484,9 +514,7 @@ void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(TCPConnection& server, Arguments&
     }
     connectThread.detach();
     g_screen.RemoveButton(&colorEgg);
-    g_screen.RemoveButton(&patrnEgg);
-    g_screen.DeleteButton(42);
-    //g_status = g_status & 0x12;
+    CLEAN_EGGS();
     memset(feedbackData, 0, sizeof(feedbackData));
 
     if (!APP_KILLED) {
@@ -494,6 +522,45 @@ void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(TCPConnection& server, Arguments&
         server.set_client_blocking(true);
         server.set_server_blocking(true);
     }
+}
+
+void RECOLOR_MAIN_LOOP_tUI() {   
+    output1.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4); //"FPS:"
+    //output2.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4); // not used on this screen
+    output3.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4); //" << Connection .."
+    clientMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col1); // IP Address
+    fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);  // fps value
+
+    tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
+    /* Color non-controller buttons */
+    g_screen.SetButtonsColors(buttonColors);
+    COLOR_EGGS();
+}
+
+void REDRAW_MAIN_LOOP_tUI() {
+    setCursorPosition(0, 0);
+    setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
+    std::wcout << JoyRecvMain_Backdrop;
+
+    if (g_status & PTRN_EGG_b) {
+        MAKE_PATTERNS();
+        button_L1_outline.SetText(button_L1_outline2);
+        button_L2_outline.SetText(button_L2_outline2);
+        button_R1_outline.SetText(button_L1_outline2);
+        button_R2_outline.SetText(button_L2_outline2);
+    }
+    else {
+        clearPtrn(fullColorSchemes[g_currentColorScheme].controllerBg);
+        button_L1_outline.SetText(button_L1_outline1);
+        button_L2_outline.SetText(button_L2_outline1);
+        button_R1_outline.SetText(button_R1_outline1);
+        button_R2_outline.SetText(button_L2_outline1);
+    }
+    ReDrawControllerFace(g_screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, g_mode, (g_status & BORDER_EGG_a));
+    g_screen.DrawButtons();
+    output1.Draw();
+    clientMsg.Draw();
+    output3.Draw();
 }
 
 void BUILD_MAIN_LOOP_tUI(char* connectionIP) {
@@ -522,41 +589,95 @@ void BUILD_MAIN_LOOP_tUI(char* connectionIP) {
     /* Buttons setup */
     SetControllerButtonPositions(g_mode);
     quitButton.SetPosition(consoleWidth / 2 - 5, QUITLINE);
-    newColorsButton.SetPosition(consoleWidth / 2 - 8, QUITLINE - 2);
+    newColorsButton.SetPosition(consoleWidth / 2 - 7, QUITLINE - 2);
     g_screen.AddButton(&quitButton);
     g_screen.AddButton(&newColorsButton);
     output3.SetPosition(50, 1);
     output3.SetText(L" FPS:");
     output3.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg);
     /* Colors and drawing */
-    if (g_status & 0x02) {
+    tUITheme& theme = g_theme;
+    if (g_status & BORDER_EGG_a) {
+        COMMON_EGG_BUTTS();
+        SPEC_EGGS();
+        swprintf(msgPointer1, 43, L"<< Connection From: %S >>", connectionIP);
+        output1.SetText(msgPointer1);
+        output1.SetPosition(6, 1, 43, 1, ALIGN_LEFT);
+        clientMsg.SetPosition(25, 1, 38, 1, ALIGN_LEFT);
+        output3.SetPosition(55, 1);
+        fpsMsg.SetPosition(60, 1);
+    }
+    if (g_status & PTRN_EGG_b) {
         MAKE_PATTERNS();
         button_L1_outline.SetText(button_L1_outline2);
         button_L2_outline.SetText(button_L2_outline2);
         button_R1_outline.SetText(button_L1_outline2);
         button_R2_outline.SetText(button_L2_outline2);
-        swprintf(msgPointer1, 43, L"<< Connection From: %S >>", connectionIP);
-        output1.SetText(msgPointer1);
-        output1.SetPosition(5, 1, 43, 1, ALIGN_LEFT);
-        clientMsg.SetPosition(24, 1, 38, 1, ALIGN_LEFT);
-        output3.SetPosition(55, 1);
-        fpsMsg.SetPosition(60, 1);
-    }else{
+    }
+    else {
         button_L1_outline.SetText(button_L1_outline1);
         button_L2_outline.SetText(button_L2_outline1);
         button_R1_outline.SetText(button_R1_outline1);
         button_R2_outline.SetText(button_L2_outline1);
     }
-    DrawControllerFace(g_screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, g_mode, (g_status & 0x02));
+    SetControllerFace(g_screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, g_mode, (g_status & BORDER_EGG_a));
     tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
     /* Color non-controller buttons and draw them */
     g_screen.SetButtonsColors(buttonColors);
-    g_screen.DrawButtons();
-    output1.Draw();
-    clientMsg.Draw();
-    output3.Draw();
+    COLOR_EGGS();
+
+    g_status |= REDRAW_tUI_f;
 }
 
+
+void EGG_LOOP() {
+    if (g_status & RECOL_tUI_f) {
+        g_status &= ~RECOL_tUI_f;
+        RECOLOR_MAIN_LOOP_tUI();
+        g_screen.DrawBackdrop();
+        if (g_status & PTRN_EGG_b) {
+            MAKE_PATTERNS();
+        }
+        REDRAW_MAIN_LOOP_tUI();
+        if (g_status & BORDER_EGG_a) {
+            mouseButton leftBorderPiece(3, 18, 2, L"\\\t\t\t \t");
+            mouseButton rightBorderPiece(68, 18, 5, rsideFooter);
+            leftBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
+            rightBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
+            rightBorderPiece.Update();
+            leftBorderPiece.Update();
+        }
+
+        COLOR_EGGS();
+        PRINT_EGG_X();
+    }
+    if (g_status & REDRAW_tUI_f) {
+        g_status &= ~REDRAW_tUI_f;
+        REDRAW_MAIN_LOOP_tUI();
+        if (g_status & BORDER_EGG_a) {
+            mouseButton leftBorderPiece(3, 18, 2, L"\\\t\t\t \t");
+            mouseButton rightBorderPiece(68, 18, 5, rsideFooter);
+            leftBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
+            rightBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
+            rightBorderPiece.Update();
+            leftBorderPiece.Update();
+        }
+        COLOR_EGGS();
+        PRINT_EGG_X();
+    }
+    if (g_status & REFLAG_tUI_f) {
+        g_status &= ~REFLAG_tUI_f;
+        mouseButton* applyTheme = g_screen.GetButtonById(46);
+        if (!(g_status & tUI_THEME_af)) {
+            applyTheme->SetText(L"◊");
+            applyTheme->Update();
+        }
+        if (g_status & tUI_THEME_af) {
+            applyTheme->SetText(L"♦");
+            applyTheme->Update();
+        }
+    }
+}
 
 // ********************************
 //  mouseButton callback functions
@@ -588,25 +709,10 @@ void newControllerColorsCallback(mouseButton& button) {
         fullColorSchemes[RANDOMSCHEME] = trueFullSchemeFromSimpleScheme(g_simpleScheme, menuScheme, newRandomBG);
         g_currentColorScheme = RANDOMSCHEME;
 
-        // Draw Controller 
-        if (g_status & 0x02) MAKE_PATTERNS();
-        DrawControllerFace(g_screen, g_simpleScheme, newRandomBG, g_mode, (g_status & 0x02));
-
-        // non controller buttons
-        tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[RANDOMSCHEME].controllerColors);
-        g_screen.SetButtonsColors(buttonColors);
-        g_screen.DrawButtons();
-
-        // on screen text 
-        output1.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
-        output2.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
-        output3.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
-        clientMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
-        fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
+        g_screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].controllerBg);
+        RECOLOR_MAIN_LOOP_tUI();
 
         // draw messages
-        output1.Draw();
-        clientMsg.Draw();
-        output3.Draw();
+        g_status |= REDRAW_tUI_f;
     }
 }

@@ -61,15 +61,13 @@ struct ColorScheme {
 	WORD selectColor;
 };
 
-// Generate a random integer from r1 - r2
+// Generate a random integer from r1 - r2 inclusive
 int generateRandomInt(int r1, int r2) {
 	// Create a random number generator engine
 	std::random_device rd;
 	std::mt19937 gen(rd());
-
 	// Create a distribution to generate integers between r1 and r2
 	std::uniform_int_distribution<> dist(r1, r2);
-
 	// Generate and return a random number
 	return dist(gen);
 }
@@ -192,7 +190,7 @@ ColorScheme createRandomScheme() {
 		}
 	}
 
-	ColorScheme randScheme;
+	ColorScheme randScheme = { 0 };
 	randScheme.outlineColor = static_cast<WORD>(generateRandomInt(0, 15));
 
 	randScheme.faceColor = static_cast<WORD>(generateRandomInt(0, 15)) << 4;
