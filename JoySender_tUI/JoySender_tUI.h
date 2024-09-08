@@ -1209,7 +1209,7 @@ std::string tUIGetHostAddress(textUI& screen) {
         }
                 
         if (validIP) {
-            if (checkKey(VK_RETURN, IS_PRESSED)) {
+            if (checkKey(VK_RETURN, IS_PRESSED) && IsAppActiveWindow()) {
                 makeConnection = true;
             }
         }
@@ -1221,7 +1221,7 @@ std::string tUIGetHostAddress(textUI& screen) {
                 octNum--;
                 setOctetCursorPos();       
         }
-        else if (getKeyState(VK_RETURN)) {
+        else if (getKeyState(VK_RETURN) && IsAppActiveWindow()) {
             warningShown = true;
             setErrorMsg(L" Invalid IP Address ", 21);
             errorOut.Draw();
@@ -1831,4 +1831,346 @@ int tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::B
     joystick.mapping.populateExtraMaps();
 
     return 0;
+}
+
+
+// ********************************
+//joySendertUI() Helpers
+
+void JOYSENDER_tUI_INIT_UI() {
+    // Set Up for first tUI screen
+    // global flags set by ui and callback functions
+    OLDMAP_FLAG = 0;
+    RESTART_FLAG = 0;
+    MAPPING_FLAG = 0;
+    // establish a color scheme
+    g_currentColorScheme = generateRandomInt(0, NUM_COLOR_SCHEMES);       // will be used as index for fullColorSchemes
+    if (g_currentColorScheme == RANDOMSCHEME)
+    {
+        WORD newRandomBG = generateRandomInt(0, 15) AS_BG;
+
+        static ColorScheme randomScheme;
+        randomScheme = createRandomScheme();
+
+        fullColorSchemes[RANDOMSCHEME] = fullSchemeFromSimpleScheme(randomScheme, newRandomBG);
+    }
+    g_simpleScheme = simpleSchemeFromFullScheme(fullColorSchemes[g_currentColorScheme]);  // Set for compatibility with DrawControllerFace
+
+    // set element properties
+    CoupleControllerButtons(); // sets up controller outline/highlight coupling for nice looks & button ids
+    g_screen.SetBackdrop(JoySendMain_Backdrop);
+    g_screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg);
+    output1.SetPosition(14, 5, 50, 1, ALIGN_LEFT); // output1 is a textarea used for g_screen headers/titles
+    errorOut.SetPosition(consoleWidth / 2, 4, 50, 0, ALIGN_CENTER); // used for error messaging
+    setErrorMsg(L"\0", 1);
+    fpsMsg.SetPosition(51, 1, 7, 1, ALIGN_LEFT);                // fps output
+    quitButton.setCallback(&exitAppCallback);
+    newColorsButton.setCallback(&newControllerColorsCallback);
+    quitButton.SetPosition(10, 17);
+}
+
+int JOYSENDER_tUI_SELECT_JOYSTICK(SDLJoystickData& activeGamepad, Arguments& args, int& allGood) {
+    switch (args.mode) {
+    case 1: {   // SDL MODE
+        if (!args.select) { // not auto select
+            allGood = tUISelectJoystickDialog(activeGamepad, g_screen);
+            if (!allGood) {
+                SDL_Quit();
+                return 0;
+            }
+        }
+        else {
+            allGood = ConnectToJoystick(0, activeGamepad); //select the first gamepad: index 0;
+            if (!allGood) {
+                g_screen.DrawBackdrop();
+                errorOut.SetPosition(consoleWidth / 2, 7);
+                setErrorMsg(L" Unable to connect to a device !! ", 35);
+                errorOut.Draw();
+
+                SDL_Quit();
+                return 0;
+            }
+        }
+    }
+          break;
+    case 2: {   // DS4 MODE
+        g_screen.DrawBackdrop();
+        allGood = tUISelectDS4Dialog(getDS4ControllersList(), g_screen);
+        if (!allGood) {
+            g_screen.DrawBackdrop();
+            errorOut.SetPosition(consoleWidth / 2, 7);
+            setErrorMsg(L" Unable to connect to a DS4 device !! ", 39);
+            errorOut.Draw();
+            return 0;
+        }
+    }
+          break;
+    default:
+        g_screen.DrawBackdrop();
+        errorOut.SetPosition(consoleWidth / 2, 7);
+        setErrorMsg(L" ERROR:: Unsupported Mode !! ", 30);
+        errorOut.Draw();
+        return 0;
+    }
+    return 1;
+}
+
+void JOYSENDER_tUI_OPMODE_INIT(SDLJoystickData& activeGamepad, Arguments& args, int& allGood) {
+    if (args.mode == 2) {
+
+        // Get a report from the device to determine what type of connection it has
+        Sleep(5); // a fresh report should be generated every 4ms from the ds4 device
+        GetDS4Report();
+
+        // first byte is used to determine where stick input starts
+        ds4DataOffset = ds4_InReportBuf[0] == 0x11 ? DS4_VIA_BT : DS4_VIA_USB;
+
+        int attempts = 0;   // DS4 fails to properly initialize when connecting to pc (after power up) via BT so lets hack in multiple attempts
+        while (attempts < 2) {
+            attempts++;
+
+            Sleep(5); // lets slow things down
+            bool extReport = ActivateDS4ExtendedReports();
+
+            // Set up feedback buffer with correct headers for connection mode
+            InitDS4FeedbackBuffer();
+
+            // Set new LightBar color with update to confirm rumble/lightbar support
+            switch (ds4DataOffset) {
+            case(DS4_VIA_BT):
+                SetDS4LightBar(105, 4, 32); // hot pink
+                break;
+            case(DS4_VIA_USB):
+                SetDS4LightBar(180, 188, 5); // citrus yellow-green
+            }
+
+            Sleep(5); // update fails if controller is bombarded with read/writes, so take a rest bud
+            allGood = SendDS4Update();
+
+            // Rumble the Controller
+            if (allGood) {
+                // jiggle it
+                SetDS4RumbleValue(12, 200);
+                SendDS4Update();
+                Sleep(110);
+                SetDS4RumbleValue(165, 12);
+                SendDS4Update();
+                // stop the rumble
+                SetDS4RumbleValue(0, 0);
+                Sleep(130);
+                SendDS4Update();
+                break; // break out of attempt loop
+            }
+            // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+        // Problem is probably related to not getting the correct report and assigning ds4DataOffset = DS4_VIA_USB
+        // taking the lazy route and just set ds4DataOffset = DS4_VIA_BT this works for me 100% of the time and hasn't led to problems yet ...
+            Sleep(10);
+            if (ds4DataOffset == DS4_VIA_USB)
+                ds4DataOffset = DS4_VIA_BT;
+            else
+                ds4DataOffset = DS4_VIA_USB;
+        }
+    }
+    else {
+        BuildJoystickInputData(activeGamepad);
+
+        // Look for an existing map for selected device
+        uiOpenOrCreateMapping(activeGamepad, g_screen);
+
+        if (g_outputText.find(OLDMAP_WARNING_MSG) != std::string::npos) {
+            OLDMAP_FLAG = true;
+        }
+    }
+
+}
+
+void JOYSENDER_tUI_ANIMATED_CX(SDLJoystickData& activeGamepad,TCPConnection& client, Arguments& args, int& allGood) {
+    // Load Connecting Screen
+    output1.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);    // title/heading text
+    errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2);
+    errorOut.SetPosition(consoleWidth / 2, 7, 50, 0, ALIGN_CENTER);
+
+    mouseButton cancelButton(CONSOLE_WIDTH / 2 - 7, 17, 13, L" (C) Cancel  ");
+    g_screen.AddButton(&cancelButton);
+
+    quitButton.SetPosition(10, 17);
+    g_screen.AddButton(&quitButton);
+    g_screen.SetButtonsColors(controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors));
+
+    // set up connecting message
+    int len = args.host.size() + 18;
+    swprintf(msgPointer1, len, L" Connecting To: %s ", std::wstring(args.host.begin(), args.host.end()).c_str());
+    output1.SetPosition(consoleWidth / 2, 9, len, 1, ALIGN_CENTER);
+    output1.SetText(msgPointer1);
+
+    // Draw Screen
+    g_screen.ReDraw();
+    setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
+    printCurrentController(activeGamepad);
+    errorOut.Draw();
+    output1.Draw();
+
+    // set up connecting animation
+    output2.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
+    output2.SetPosition(consoleWidth / 2, 10, 38, 0, ALIGN_CENTER);
+
+    // ### establish the connection in separate thread to animate connecting dialog
+    allGood = WSAEWOULDBLOCK;
+    std::thread connectThread(threadedEstablishConnection, std::ref(client), std::ref(allGood));
+    // animation and input loop
+    while (!APP_KILLED && allGood == WSAEWOULDBLOCK) {
+        output2.SetText(ConnectAnimation[g_frameNum]);
+        output2.Draw();
+
+        int mouseState = screenLoop(g_screen);
+
+        // check for hot keys
+        if (IsAppActiveWindow() && getKeyState(VK_SHIFT)) {
+            if (getKeyState('Q')) {
+                APP_KILLED = TRUE;
+            }
+            else if (getKeyState('C')) {
+                mouseState = MOUSE_UP;
+                cancelButton.SetStatus(MOUSE_UP);
+            }
+        }
+
+        // check Cancel button
+        if (mouseState == MOUSE_UP) {
+            if (cancelButton.Status() & MOUSE_UP)
+            {
+                cancelButton.SetStatus(MOUSE_OUT);
+
+                // stop connection thread
+                allGood = CANCELLED_FLAG;
+                break;
+            }
+        }
+
+        countUpDown(g_frameNum, CX_ANI_FRAME_COUNT);  // bounce
+        //loopCount(g_frameNum, CX_ANI_FRAME_COUNT);    // loop
+
+        if (!APP_KILLED && allGood == WSAEWOULDBLOCK)
+            Sleep(100);
+    }
+    // clean up
+    connectThread.detach();
+    g_screen.ClearButtons();
+    // ###
+}
+
+void JOYSENDER_tUI_BUILD_MAIN_LOOP(Arguments& args) {
+    int QUITLINE;
+    if (g_mode == 2) {
+        g_screen.SetBackdrop(DS4_Backdrop);
+        QUITLINE = DS4_QUIT_LINE;
+        BuildDS4Face();
+    }
+    else {
+        g_screen.SetBackdrop(XBOX_Backdrop);
+        QUITLINE = XBOX_QUIT_LINE;
+        BuildXboxFace();
+
+        g_screen.AddButton(&mappingButton);
+    }
+
+    SetControllerButtonPositions(g_mode);
+
+    quitButton.SetPosition(consoleWidth / 2 - 5, QUITLINE);
+    newColorsButton.SetPosition(consoleWidth / 2 - 8, QUITLINE - 3);
+
+    g_screen.AddButton(&newColorsButton);
+    g_screen.AddButton(&quitButton);
+
+    restartButton[0].SetPosition(CONSOLE_WIDTH / 2 - 12, QUITLINE - 1);
+    restartButton[1].SetPosition(CONSOLE_WIDTH / 2 - 8, QUITLINE - 1);
+    restartButton[2].SetPosition(CONSOLE_WIDTH / 2 - 6, QUITLINE - 1);
+    restartButton[3].SetPosition(CONSOLE_WIDTH / 2 + 6, QUITLINE - 1);
+
+    g_screen.AddButton(&restartButton[1]);  // mode 1
+    g_screen.AddButton(&restartButton[2]);  // mode 2
+    g_screen.AddButton(&restartButton[0]);  // main restart
+    //g_screen.AddButton(&restartButton[3]); // not needed in g_screen
+
+    // Set button and controller colors
+        // Sets controller to color scheme colors with some contrast correction for bg color then draws the controller face
+    SetControllerFace(g_screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, g_mode);
+    ReDrawControllerFace(g_screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, g_mode);
+
+    tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
+
+    // color non controller buttons and draw them
+    restartButton[3].SetColors(buttonColors);  // mode section of restart button
+    g_screen.SetButtonsColors(buttonColors);
+    g_screen.DrawButtons();
+
+    restartButton[0].setCallback(restartStatusCallback);
+    restartButton[1].setCallback(restartModeCallback);
+    restartButton[2].setCallback(restartModeCallback);
+
+    mappingButton.setCallback(mappingButtonCallback);
+
+    wcsncpy_s(msgPointer1, 40, g_converter.from_bytes(" << Connected to: " + args.host + "  >> ").c_str(), _TRUNCATE);
+    output1.SetText(msgPointer1);
+    output1.SetPosition(3, 1, 40, 1, ALIGN_LEFT);
+    output1.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg);
+
+    wcsncpy_s(hostPointer, 18, g_converter.from_bytes(" " + args.host + " ").c_str(), _TRUNCATE);
+    hostMsg.SetText(hostPointer);
+    hostMsg.SetPosition(20, 1, 38, 1, ALIGN_LEFT);
+    hostMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
+
+    fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
+
+    restartButton[3].Draw(-2); // in x64 release build the default parameter of -1 does not work??? debug show it set as 0. manually specifying value less then -1 here works
+    output1.Draw();
+    hostMsg.Draw();
+}
+
+#define JOYSENDER_tUI_CX_HANDSHAKE(){ \
+std::string txSettings = std::to_string(args.fps) + ":" + std::to_string(args.mode); \
+allGood = client.send_data(txSettings.c_str(), static_cast<int>(txSettings.length())); \
+if (allGood < 1) { \
+    swprintf(errorPointer, 48, L" << Connection To %S Failed >> ", args.host.c_str()); \
+    errorOut.SetText(errorPointer); \
+    break; \
+} \
+bytesReceived = client.receive_data(buffer, buffer_size); \
+if (bytesReceived > 0) { \
+    inConnection = true; \
+    failed_connections = 0; \
+} \
+else { \
+    swprintf(errorPointer, 46, L" << Connection To: %S Lost >> ", args.host.c_str()); \
+    errorOut.SetText(errorPointer); \
+    break; \
+}} 
+
+void JOYSENDER_tUI_RESET_AFTER_MAP(Arguments& args) {
+    // reset output1
+    wcsncpy_s(msgPointer1, 40, g_converter.from_bytes(" << Connected to: " + args.host + "  >> ").c_str(), _TRUNCATE);
+    output1.SetText(msgPointer1);
+    output1.SetPosition(3, 1, 40, 1, ALIGN_LEFT);
+    output1.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg);
+
+    // re add g_screen buttons
+    g_screen.AddButton(&newColorsButton);
+    g_screen.AddButton(&mappingButton);
+    g_screen.AddButton(&restartButton[1]);  // mode 1
+    g_screen.AddButton(&restartButton[2]);  // mode 2
+    g_screen.AddButton(&restartButton[0]);  // main restart
+    g_screen.AddButton(&quitButton);
+
+    // reset quit button
+    quitButton.setCallback(&exitAppCallback);
+    quitButton.SetPosition(consoleWidth / 2 - 5, XBOX_QUIT_LINE);
+
+    // redraw everything
+    ReDrawControllerFace(g_screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, args.mode);
+    g_screen.DrawButtons();
+    restartButton[3].Draw();
+    output1.Draw();
+    hostMsg.Draw();
+
+    MAPPING_FLAG = 0;
 }
