@@ -277,7 +277,6 @@ console con(consoleWidth, consoleHeight);
 int main(int argc, char** argv)
 {
     Arguments args = parse_arguments(argc, argv);
-    g_mode = args.mode;
     int RUN = 1;
 
     // Register the signal handler function
