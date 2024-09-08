@@ -638,21 +638,22 @@ void loadIPDataFromFile() {
     g_previousIPData = data;
 }
 
-bool isDuplicateIP(const wchar_t newData[16]) {
+int isDuplicateIP(const wchar_t newData[16]) {
     for (int i = 0; i < IPS_TO_REMEMBER; i++) {
         if (std::wcscmp(g_previousIPData.address[i], newData) == 0) {
-            return true; // If duplicate is found, return true
+            return i; // If duplicate is found, return index
         }
     }
-    return false; // If no duplicates found, return false
+    return -1; // If no duplicates found, return neg
 }
 
 bool pushNewIP(const wchar_t newData[16]) {
-    if (isDuplicateIP(newData)) {
-        //std::wcout << "Duplicate entry found. Not adding." << std::endl;
-        return false;
+    int idx = isDuplicateIP(newData);
+    if (idx == 0) return true;
+    if (idx > 0) {
+        memset(g_previousIPData.address[idx], '\0', 16);
     }
-    for (int i = IPS_TO_REMEMBER-2; i >= 0; i--) {
+    for (int i = (idx>0 ? idx : (IPS_TO_REMEMBER - 2)); i >= 0; i--) {
         std::memcpy(g_previousIPData.address[i + 1], g_previousIPData.address[i], sizeof(g_previousIPData.address[i]));
     }
     std::memcpy(g_previousIPData.address[0], newData, sizeof(g_previousIPData.address[0]));
