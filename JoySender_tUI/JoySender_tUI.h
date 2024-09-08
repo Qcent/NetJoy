@@ -76,8 +76,6 @@ std::wstring_convert<std::codecvt_utf8<wchar_t>> g_converter;
 
 int g_joystickSelected = -1;
 int g_mode = 1;
-int g_currentColorScheme = 0;
-ColorScheme g_simpleScheme;
 
 wchar_t g_stringBuff[500];      // for holding generated text data
 wchar_t* errorPointer = g_stringBuff;   // max length 100
@@ -162,9 +160,9 @@ void newControllerColorsCallback(mouseButton& button) {
             BuildXboxFace();
             quitButton.SetPosition(consoleWidth / 2 - 5, XBOX_QUIT_LINE);
         }
-
+        g_screen.SetBackdropColor(fullColorSchemes[RANDOMSCHEME].controllerBg);
         // Draw Controller
-        DrawControllerFace(g_screen, g_simpleScheme, newRandomBG, g_mode);
+        ReDrawControllerFace(g_screen, g_simpleScheme, newRandomBG, g_mode);
         /*
         tUIColorPkg buttonColors(
             g_screen.GetBackdropColor(),
@@ -183,7 +181,7 @@ void newControllerColorsCallback(mouseButton& button) {
         restartButton[3].Draw();
 
         // on screen text 
-        output1.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg);
+        output1.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
         hostMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
         fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
 
@@ -1396,7 +1394,7 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen) {
     // Set button and controller colors
         // Sets controller to color scheme colors with some contrast correction for bg color then 
         // draws screen backdrop and face
-    DrawControllerFace(screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, 1);
+    ReDrawControllerFace(screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, 1);
         // get color package of contrast corrected button colors
     tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
     

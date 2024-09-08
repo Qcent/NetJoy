@@ -373,7 +373,8 @@ int joySendertUI(Arguments& args) {
 
                 // Set button and controller colors
                     // Sets controller to color scheme colors with some contrast correction for bg color then draws the controller face
-                DrawControllerFace(screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, args.mode);
+                SetControllerFace(screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, args.mode);
+                ReDrawControllerFace(screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, args.mode);
 
                 tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
 
@@ -496,7 +497,7 @@ int joySendertUI(Arguments& args) {
                 quitButton.SetPosition(consoleWidth / 2 - 5, XBOX_QUIT_LINE);
 
                 // redraw everything
-                DrawControllerFace(screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, args.mode);
+                ReDrawControllerFace(screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, args.mode);
                 g_screen.DrawButtons();
                 restartButton[3].Draw();
                 output1.Draw();
