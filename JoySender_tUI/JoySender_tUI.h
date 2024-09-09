@@ -1,4 +1,4 @@
-/*
+﻿/*
 
 Copyright (c) 2024 Dave Quinn <qcent@yahoo.com>
 
@@ -30,6 +30,7 @@ THE SOFTWARE.
 #include <io.h>
 #include <wchar.h>
 #include <thread>
+#include <functional>
 
 #include "TCPConnection.h"
 #include "FPSCounter.hpp"
@@ -68,6 +69,9 @@ void threadedEstablishConnection(TCPConnection& client, int& retVal);
 int tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonName>& inputList);
 int tUIRemapInputsScreen(SDLJoystickData& joystick, textUI& screen);
 
+void RECOLOR_MAIN_LOOP_tUI();
+void REDRAW_MAIN_LOOP_tUI();
+
 #define MAP_BUTTON_CLICKED 10000  // a value to add to an input index to indicate it was clicked on
 
 #pragma warning(disable : 4996)
@@ -93,6 +97,121 @@ textBox fpsMsg(1, 9, 20, 0, ALIGN_LEFT, fpsPointer, BRIGHT_CYAN);
 textBox output1(3, 19, 60, 0, ALIGN_LEFT, msgPointer1, BRIGHT_BLUE);
 textBox output2(3, 21, 60, 0, ALIGN_LEFT, msgPointer2, BRIGHT_BLUE);
 textBox output3(3, 24, 60, 0, ALIGN_LEFT, msgPointer3, BRIGHT_BLUE);
+
+
+// ?? ???? ????? ????? ??  ???????? //
+// Defines for ease and frustration
+#define THEME_FILE    "send.theme"
+
+#define DEFAULT_EGG_BUTTS() \
+mouseButton colorEgg(50, consoleHeight - 3, 1, L"©"); \
+colorEgg.SetId(43); \
+g_screen.AddButton(&colorEgg); \
+colorEgg.setCallback([](mouseButton& btn) { \
+    if (btn.Status() & MOUSE_UP) { \
+        btn.SetStatus(MOUSE_OUT); \
+        g_status |= COLOR_EGG_b; \
+    } \
+}); \
+mouseButton borderEgg(21, 3, 3, L"tUI"); \
+borderEgg.SetId(44); \
+borderEgg.setCallback([](mouseButton& btn) { \
+    if (btn.Status() & MOUSE_UP) { \
+        btn.SetStatus(MOUSE_OUT); \
+        if (!(g_status & BORDER_EGG_a)) { \
+            MORPH_BORDER(); \
+            if (generateRandomInt(1, 5) > 4) { \
+                MAKE_PATTERNS(); \
+                g_status |= PTRN_EGG_b; \
+            } \
+            SPEC_EGGS(); \
+            g_status |= RECOL_tUI_f; \
+        } \
+    } \
+}); \
+g_screen.AddButton(&borderEgg); 
+
+
+#define COMMON_EGG_BUTTS() \
+if(g_screen.GetButtonById(46) == nullptr){ \
+mouseButton* applyTheme = new mouseButton(3, 2, 1, (g_status & tUI_THEME_af) ? L"♦" : L"◊"); \
+applyTheme->SetId(46); \
+g_screen.AddButton(applyTheme); \
+applyTheme->setCallback([](mouseButton& btn) { \
+    if (btn.Status() & MOUSE_UP) { \
+        btn.SetStatus(MOUSE_OUT); \
+        if ((g_status & tUI_THEME_af)) { \
+            g_status &= ~tUI_THEME_af; \
+            btn.SetText(L"◊"); \
+        } \
+        else if ((g_status & tUI_THEME_f)) { \
+            tUITheme theme; \
+            if (theme.loadFromFile(THEME_FILE)) { \
+                RESTORE_THEME2(); \
+                g_status |= RECOL_tUI_f | tUI_THEME_af; \
+                btn.SetText(L"♦"); \
+            } \
+        } \
+    } \
+}); \
+mouseButton* saveTheme = new mouseButton(consoleWidth - 3, 2, 1, (g_status & tUI_THEME_f) ? L"♦" : L"◊"); \
+saveTheme->SetId(47); \
+g_screen.AddButton(saveTheme); \
+saveTheme->setCallback([](mouseButton& btn) { \
+    if (btn.Status() & MOUSE_UP) { \
+        btn.SetStatus(MOUSE_OUT); \
+        if (!(g_status & tUI_THEME_f)) { \
+            g_status |= tUI_THEME_f | tUI_THEME_af | REFLAG_tUI_f; \
+            tUITheme& theme = g_theme; \
+            theme.recordTheme(fullColorSchemes[g_currentColorScheme], \
+            g_status & (HEART_EGG_a | BORDER_EGG_a | PTRN_EGG_b \
+            | tUI_THEME_af | tUI_THEME_f)); \
+            theme.saveToFile(THEME_FILE); \
+            btn.SetText(L"♦"); \
+        } \
+    else if (g_status & tUI_THEME_f) { \
+        int result = MessageBox(NULL, L"Do you want to clear the custom theme?", L"Confirm Delete", MB_ICONQUESTION | MB_YESNO); \
+        if (result == IDYES) { \
+            remove(THEME_FILE); \
+            g_status &= ~(tUI_THEME_f | tUI_THEME_af | tUI_LOADED_f); \
+            g_status |= REFLAG_tUI_f; \
+            btn.SetText(L"◊"); \
+        } \
+    } \
+    } \
+});  }
+
+
+#define JOYSENDER_tUI_INIT_FOOTER_ANIMATION() \
+mouseButton leftBorderPiece(3, 18, 2, L"\\\t\t\t \t"); \
+mouseButton rightBorderPiece(68, 18, 5, rsideFooter); \
+leftBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg); \
+rightBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg); \
+int frameDelay = 0; \
+int footFrameNum = 0; \
+mouseButton ani(3, 18, 10, SendFooterAnimation[footFrameNum]); \
+ani.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg); \
+int lastAni1Frame = g_frameNum - 1; \
+int lastAni2Frame = footFrameNum - 1; 
+
+
+#define JOYSENDER_tUI_ANIMATE_FOOTER(){ \
+if ((g_status & BORDER_EGG_a) && (lastAni2Frame != footFrameNum)) { \
+    lastAni2Frame = footFrameNum; \
+    ani.SetText(SendFooterAnimation[footFrameNum]); \
+    for (int i = 0; i < 7; ++i) { \
+        ani.SetPosition(3 + (i * 10), 18); \
+        ani.Draw(); \
+    } \
+    leftBorderPiece.Draw(); \
+    rightBorderPiece.Draw(); \
+} \
+if (frameDelay % 8 == 0) { \
+    loopCount(footFrameNum, SEND_FOOTER_ANI_FRAME_COUNT); \
+} \
+++frameDelay; \
+}
+
 
 //
 // text buffer setting functions
@@ -139,7 +258,7 @@ void joystickSelectCallback(mouseButton& button) {
 }
 
 // will generate a new color scheme for program and controller face
-void newControllerColorsCallback(mouseButton& button) {
+void og_newControllerColorsCallback(mouseButton& button) {
   
     if (button.Status() & MOUSE_UP) {
         button.SetStatus(MOUSE_OUT);
@@ -148,30 +267,14 @@ void newControllerColorsCallback(mouseButton& button) {
     
         // update globals for universal color consistency
         g_simpleScheme = createRandomScheme();
-        fullColorSchemes[RANDOMSCHEME] = fullSchemeFromSimpleScheme(g_simpleScheme, newRandomBG);
-        g_currentColorScheme = 0;
+        ColorScheme menuScheme = createRandomScheme();
+        fullColorSchemes[RANDOMSCHEME] = trueFullSchemeFromSimpleScheme(g_simpleScheme, menuScheme, newRandomBG);
+        g_currentColorScheme = RANDOMSCHEME;
 
-
-        if (g_mode == 2) {
-            BuildDS4Face();
-            quitButton.SetPosition(consoleWidth / 2 - 5, DS4_QUIT_LINE);
-        }
-        else {
-            BuildXboxFace();
-            quitButton.SetPosition(consoleWidth / 2 - 5, XBOX_QUIT_LINE);
-        }
-        g_screen.SetBackdropColor(fullColorSchemes[RANDOMSCHEME].controllerBg);
+        g_screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].controllerBg);
         // Draw Controller
         ReDrawControllerFace(g_screen, g_simpleScheme, newRandomBG, g_mode);
-        /*
-        tUIColorPkg buttonColors(
-            g_screen.GetBackdropColor(),
-            button_Guide_highlight.getHighlightColor(),
-            button_Guide_highlight.getSelectColor(),
-            0 // unused
-        );
-        */
-        //
+
         tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[RANDOMSCHEME].controllerColors);
 
         // non controller buttons
@@ -188,6 +291,25 @@ void newControllerColorsCallback(mouseButton& button) {
         // redraw messages
         output1.Draw();
         hostMsg.Draw();
+    }
+}
+void newControllerColorsCallback(mouseButton& button) {
+    if (button.Status() & MOUSE_UP) {
+        button.SetStatus(MOUSE_OUT);
+        WORD newRandomBG = generateRandomInt(0, 15) << 4;
+
+        // update globals for universal color consistency
+        g_simpleScheme = createRandomScheme();
+        ColorScheme menuScheme = createRandomScheme();
+        fullColorSchemes[RANDOMSCHEME] = trueFullSchemeFromSimpleScheme(g_simpleScheme, menuScheme, newRandomBG);
+        g_currentColorScheme = RANDOMSCHEME;
+
+        g_screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].controllerBg);
+        RECOLOR_MAIN_LOOP_tUI();
+
+        // draw messages
+        g_status |= REDRAW_tUI_f | REFLAG_tUI_f;
+        g_status &= ~tUI_THEME_af;
     }
 }
 
@@ -662,6 +784,54 @@ bool pushNewIP(const wchar_t newData[16]) {
 }
 
 
+
+
+void roll_new_color() {
+    GET_NEW_COLOR_SCHEME();
+    errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2);
+    fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
+}
+
+void JOYSENDER_tUI_EGG_LOOP(std::function<void()>re_color, std::function<void()>draw_screen) {
+    if (g_status & COLOR_EGG_b) {
+        g_status &= ~COLOR_EGG_b;
+        g_status &= ~tUI_THEME_af;
+        roll_new_color();
+        g_status |= RECOL_tUI_f | REFLAG_tUI_f;
+    }
+    if (g_status & RECOL_tUI_f) {
+        g_status &= ~RECOL_tUI_f;
+        re_color();
+        g_status |= REDRAW_tUI_f;
+    }
+    if (g_status & REDRAW_tUI_f) {
+        g_status &= ~REDRAW_tUI_f;
+        g_screen.DrawBackdrop();
+        if (g_status & PTRN_EGG_b) {
+            MAKE_PATTERNS();
+        }
+        draw_screen();
+        COLOR_EGGS();
+        PRINT_EGG_X();
+    }
+    if (g_status & REFLAG_tUI_f) {
+        g_status &= ~REFLAG_tUI_f;
+        mouseButton* applyTheme = g_screen.GetButtonById(46);
+        if (applyTheme == nullptr)
+            return;
+        if (!(g_status & tUI_THEME_af)) {
+            applyTheme->SetText(L"◊");
+            applyTheme->Update();
+        }
+        if (g_status & tUI_THEME_af) {
+            applyTheme->SetText(L"♦");
+            applyTheme->Update();
+        }
+    }
+}
+
+
+
 // ********************************
 // tUI Screens 
 
@@ -686,16 +856,58 @@ int tUISelectJoystickDialog(SDLJoystickData& joystick, textUI& screen) {
     numJoysticks = std::min(numJoysticks, MAX_JOYSTICKS);
     mouseButton* availableJoystickBtn = new mouseButton[numJoysticks];
 
+    JOYSENDER_tUI_INIT_FOOTER_ANIMATION();
+
+    // setup some txt
+    wcsncpy_s(msgPointer1, 21, L" Select a Joystick: ", _TRUNCATE);
+    output1.SetText(msgPointer1);
+
+
+    // handy helpers
     auto cleanMemory = [&]() {
-        screen.ClearButtons();
+        //screen.ClearButtons();
         SDL_free(joystick_list);
         for (int i = 0; i < numJoysticks; ++i) {
+            screen.RemoveButton(&availableJoystickBtn[i]);
             delete[] availableJoystickBtn[i].getTextPtr();
         }
 
         delete[] availableJoystickBtn;
     };
- 
+    auto re_color = [&]() {
+        g_screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg);
+        g_screen.SetButtonsColors(controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors));
+        output1.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);
+        errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2);
+        COLOR_EGGS();
+        leftBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
+        rightBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
+        ani.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
+        };
+    auto draw_screen = [=]() {
+        if (g_status & PTRN_EGG_b) {
+            MAKE_PATTERNS();
+            setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
+            no_whitespace_Draw(JoySendMain_Backdrop, 0, 0, 74, 1555);
+
+            setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
+            setCursorPosition(50, 17);
+            std::wcout << L"©░Quinnco.░2024";
+        }
+        else {
+            g_screen.DrawBackdrop();
+        }
+        g_screen.DrawButtons();
+        errorOut.Draw();
+        output1.Draw();
+        if (numJoysticks) {
+            setCursorPosition(START_COL + 7, 17);
+            std::wcout << " (1";
+            if (numJoysticks > 1) std::wcout << "-" << numJoysticks;
+            std::wcout << ") Select  ";
+        }
+        };
+
     // populate selectable buttons and add to screen 
     for (int i = 0; i < numJoysticks; ++i)
     {
@@ -720,37 +932,14 @@ int tUISelectJoystickDialog(SDLJoystickData& joystick, textUI& screen) {
     }
 
     quitButton.SetPosition(10, 17);
-    screen.AddButton(&quitButton);
 
-    // set colors
-    screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg);
-    screen.SetButtonsColors(controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors));
-    output1.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);
-    errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2);
+    g_status |= RECOL_tUI_f;
 
-    // Draw the screen with the available joysticks
-    screen.ReDraw();
-    
-    // add messages to screen
-    errorOut.Draw();
-
-    wcsncpy_s(msgPointer1, 21, L" Select a Joystick: ", _TRUNCATE);
-    output1.SetText(msgPointer1);
-    output1.Draw();
-    
     // set this to an invalid index
     g_joystickSelected = -1;
 
-    if (numJoysticks) {
-        setCursorPosition(START_COL + 7, 17);
-        std::wcout << " (1";
-        if (numJoysticks > 1) std::wcout << "-" << numJoysticks;
-        std::wcout << ") Select  ";
-    }
-
     // scan for mouse and keyboard input
     while (!APP_KILLED && g_joystickSelected < 0) {
-
         Sleep(30);
 
         // scan for new connected joysticks and recursively launch function if new joysticks are detected
@@ -763,6 +952,7 @@ int tUISelectJoystickDialog(SDLJoystickData& joystick, textUI& screen) {
             return tUISelectJoystickDialog(joystick, screen);
         }
 
+        // scan screen & keyboard input
         if (IsAppActiveWindow()) {
             screenLoop(screen);
             checkForQuit();
@@ -786,6 +976,9 @@ int tUISelectJoystickDialog(SDLJoystickData& joystick, textUI& screen) {
             else if (getKeyState(0x39) || getKeyState(VK_NUMPAD9))
                 g_joystickSelected = 8;
         }
+
+        JOYSENDER_tUI_EGG_LOOP(re_color, draw_screen);
+        JOYSENDER_tUI_ANIMATE_FOOTER();
 
         // if selection has been assigned
         if (g_joystickSelected > -1) {
@@ -824,6 +1017,8 @@ int tUISelectDS4Dialog(std::vector<HidDeviceInfo> devList, textUI& screen) {
     constexpr int START_LINE = 7;
     constexpr int START_COL = 18;
 
+    JOYSENDER_tUI_INIT_FOOTER_ANIMATION();
+
     int numJoysticks = devList.size();
     g_joystickSelected = -1;
 
@@ -837,18 +1032,53 @@ int tUISelectDS4Dialog(std::vector<HidDeviceInfo> devList, textUI& screen) {
 
     std::vector<mouseButton> gamepadButtons;
     auto cleanMemory = [&]() {
-        screen.ClearButtons();
         for (std::vector<mouseButton>::iterator it = gamepadButtons.begin(); it != gamepadButtons.end(); ++it) {
+            screen.RemoveButton(&(*it));
             delete[] it->getTextPtr();
         }
     };
+
+    auto re_color = [&]() {
+        g_screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg);
+        g_screen.SetButtonsColors(controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors));
+        output1.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);
+        errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2);
+        COLOR_EGGS();
+        leftBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
+        rightBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
+        ani.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
+        };
+    auto draw_screen = [=]() {
+        if (g_status & PTRN_EGG_b) {
+            MAKE_PATTERNS();
+            setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
+            no_whitespace_Draw(JoySendMain_Backdrop, 0, 0, 74, 1555);
+
+            setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
+            setCursorPosition(50, 17);
+            std::wcout << L"©░Quinnco.░2024";
+        }
+        else {
+            g_screen.DrawBackdrop();
+        }
+        g_screen.DrawButtons();
+        errorOut.Draw();
+        output1.Draw();
+        // show select options in footer
+        if (numJoysticks) {
+            setCursorPosition(27, 17);
+            std::wcout << " (1";
+            if (numJoysticks > 1) std::wcout << "-" << numJoysticks;
+            std::wcout << ") Select  ";
+        }
+        };
 
     // Populate selectable buttons and add to screen 
     for (int i = 0; i < numJoysticks; ++i)
     {
         std::wstring mfg = devList[i].vendorId == 1356 ? L"Sony" : devList[i].manufacturer.c_str();
         std::wstring prod = devList[i].productId == 2508 ? L"DS4 Controller" : devList[i].product.c_str();
-// i can't believe this worked
+
 #define BUTTON_NAME_STRING L"(%d) %ls %ls :%ls ", 1 + i, mfg.c_str(), prod.c_str(), devList[i].serial.empty() ? L" Wired" : L" Wireless"
 
 
@@ -871,34 +1101,17 @@ int tUISelectDS4Dialog(std::vector<HidDeviceInfo> devList, textUI& screen) {
         screen.AddButton(&gamepadButtons.back());
     }
 
-    output1.SetPosition(15, 5, 50, 1, ALIGN_LEFT);
+
     quitButton.SetPosition(10, 17);
     screen.AddButton(&quitButton);
-
-    // set colors
-    screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg);
-    screen.SetButtonsColors(controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors));
-    output1.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);
-    errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2);
-
-    // Draw the screen with the available joysticks
-    screen.ReDraw();
-
-    // show any errors to screen
-    errorOut.Draw();
 
     // add messages to screen
     wcsncpy_s(msgPointer1, 29, L" Connected DS4 Controllers: ", _TRUNCATE);
     output1.SetText(msgPointer1);
-    output1.Draw();
+    output1.SetPosition(15, 5, 50, 1, ALIGN_LEFT);
 
-    // show select options in footer
-    if (numJoysticks) {
-        setCursorPosition(27, 17);
-        std::wcout << " (1";
-        if (numJoysticks > 1) std::wcout << "-" << numJoysticks;
-        std::wcout << ") Select  ";
-    }
+    // Draw the screen with the available joysticks
+    g_status |= RECOL_tUI_f;
 
     // scan for mouse and keyboard input
     while (!APP_KILLED && g_joystickSelected < 0) {
@@ -949,6 +1162,10 @@ int tUISelectDS4Dialog(std::vector<HidDeviceInfo> devList, textUI& screen) {
             return tUISelectDS4Dialog(newConnections, screen);
         }
 
+
+        JOYSENDER_tUI_EGG_LOOP(re_color, draw_screen);
+        JOYSENDER_tUI_ANIMATE_FOOTER();
+
         Sleep(30);
     }
 
@@ -972,7 +1189,7 @@ int tUISelectDS4Dialog(std::vector<HidDeviceInfo> devList, textUI& screen) {
     return 1;
 }
 
-std::string tUIGetHostAddress(textUI& screen) {
+std::string tUIGetHostAddress(SDLJoystickData& activeGamepad) {
     int octNum = 0;
     bool validIP = 0;
     bool firstDot = 0;
@@ -980,6 +1197,20 @@ std::string tUIGetHostAddress(textUI& screen) {
     bool warningShown = 0;
     bool errorShown = 0;
     std::string host_address;
+
+    // for drawing back covered up bg patterns
+    bool loadedBgFill = false;
+    constexpr int fill1len = 50, fill1x = 36-fill1len/2, fill1y = 9;
+    constexpr int fill2len = 25, fill2x = (consoleWidth / 2) - fill2len/2, fill2y = 13;
+    wchar_t* refill_1 = msgPointer3;
+    wchar_t* refill_2 = refill_1 + fill1len+1;
+
+    JOYSENDER_tUI_INIT_FOOTER_ANIMATION();
+    DEFAULT_EGG_BUTTS();
+    COMMON_EGG_BUTTS();
+    if (g_status & BORDER_EGG_a) {
+            SPEC_EGGS();
+    }
 
     g_previousIPData.index = 0;
 
@@ -1025,7 +1256,15 @@ std::string tUIGetHostAddress(textUI& screen) {
         host_address = g_converter.to_bytes(ipAddress);
 
         if (validIPAddress(host_address)) {
-            errorOut.Clear(bg_color);
+            if (loadedBgFill) {
+                setCursorPosition(fill1x, fill1y);
+                setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
+                std::wcout << refill_1;
+            }
+            else {
+                errorOut.Clear(bg_color);
+            }
+
             errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
             setErrorMsg(L" Valid IP ! ", 38);
             errorOut.Draw();
@@ -1038,8 +1277,19 @@ std::string tUIGetHostAddress(textUI& screen) {
         else if (errorShown)
         {
             errorShown = false;
-            errorOut.Clear(bg_color);
-            output1.Clear(bg_color);
+            if (loadedBgFill) {
+                setCursorPosition(fill1x, fill1y);
+                setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
+                std::wcout << refill_1;
+
+                setCursorPosition(fill2x, fill2y);
+                setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
+                std::wcout << refill_2;
+            }
+            else {
+                errorOut.Clear(bg_color);
+                output1.Clear(bg_color);
+            }
             setOctetCursorPos();
         }
         return 0;
@@ -1097,44 +1347,83 @@ std::string tUIGetHostAddress(textUI& screen) {
     for (int i = 0; i < 4; ++i) {
         octet[i].insert(L'0');
         octet[i].cursorToBegin();
-        screen.AddInput(&octet[i]);
+        g_screen.AddInput(&octet[i]);
     }
 
     quitButton.SetPosition(10, 17);
-    screen.AddButton(&quitButton);
+    g_screen.AddButton(&quitButton);
 
-    // set colors
-    /**/
-    screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg);
-    screen.SetButtonsColors(screenButtonsCol);
-    screen.SetInputsColors(screenButtonsCol);
-    output1.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4); // Press Enter To Connect
-    errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2);
-    /**/
 
-    screen.DrawButtons();
-    errorOut.Draw();
+    auto re_color = [&]() {
+        loadedBgFill = false;
+        bg_color = fullColorSchemes[g_currentColorScheme].menuBg;
+        screenButtonsCol = controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
+        g_screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg);
+        g_screen.SetButtonsColors(screenButtonsCol);
+        g_screen.SetInputsColors(screenButtonsCol);
+        output1.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4); // Press Enter To Connect
+        errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2);
+        COLOR_EGGS();
+        leftBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
+        rightBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
+        ani.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);        
+        };
+    auto draw_screen = [&]() {
+        if (g_status & PTRN_EGG_b) {
+            MAKE_PATTERNS();
+            setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
+            no_whitespace_Draw(JoySendMain_Backdrop, 0, 0, 74, 1555);
 
-    setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);
-    setCursorPosition(12, 8);
-    std::wcout << L" Enter IP Address Of Host: ";
+            setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
+            setCursorPosition(50, 17);
+            std::wcout << L"©░Quinnco.░2024";
 
-    setTextColor(screenButtonsCol.col1);
-    setCursorPosition(28, 10);
-    std::wcout << L"   .   .   .   ";
+            if (!loadedBgFill) {
+                getCharsAtPosition(fill1x, fill1y, fill1len, refill_1);
+                refill_1[fill1len] = L'\0';
+                getCharsAtPosition(fill2x, fill2y, fill2len, refill_2);
+                refill_2[fill2len] = L'\0';
+                loadedBgFill = true;
+            }
+
+        }
+        else {
+            g_screen.DrawBackdrop();
+        }
+        setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
+        printCurrentController(activeGamepad);
+        g_screen.DrawButtons();
+        errorOut.Draw();
+        g_screen.DrawInputs();
+        setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);
+        setCursorPosition(12, 8);
+        std::wcout << L" Enter IP Address Of Host: ";
+
+        setTextColor(screenButtonsCol.col1);
+        setCursorPosition(28, 10);
+        std::wcout << L"   .   .   .   ";
+        
+        setCursorPosition(29, 10);
+        };
+
+
+    // set colors and draw
+    g_status |= RECOL_tUI_f;
 
     errorOut.SetPosition(consoleWidth / 2, 9, 50, 1, ALIGN_CENTER);
     output1.SetText(L" Press Enter to Connect ");
     output1.SetPosition(consoleWidth / 2, 13, 25, 1, ALIGN_CENTER);
-    
-    screen.DrawInputs();
-       
-    setCursorPosition(29, 10);
+           
+    //setCursorPosition(29, 10);
     showConsoleCursor();
     
     while (!APP_KILLED && !makeConnection) {
         checkForQuit();
-        screenLoop(screen);
+        screenLoop(g_screen);
+
+        JOYSENDER_tUI_EGG_LOOP(re_color, draw_screen);
+        JOYSENDER_tUI_ANIMATE_FOOTER();
+
         for (int i = 0; i < 4; ++i) {
             if (octet[i].Status() & ACTIVE_INPUT) {
                 validIP = buildAndTestIpAddress();
@@ -1236,12 +1525,12 @@ std::string tUIGetHostAddress(textUI& screen) {
         }
 
         if (num == 'X')
-            Sleep(15);
+            Sleep(20);
     }
     
     hideConsoleCursor();
-    screen.ClearInputs();
-    screen.ClearButtons();
+    g_screen.ClearInputs();
+    //g_screen.ClearButtons();
     buildAndTestIpAddress();
 
     
@@ -1835,6 +2124,11 @@ int tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::B
 }
 
 
+
+
+
+
+
 // ********************************
 //joySendertUI() Helpers
 
@@ -1844,18 +2138,8 @@ void JOYSENDER_tUI_INIT_UI() {
     OLDMAP_FLAG = 0;
     RESTART_FLAG = 0;
     MAPPING_FLAG = 0;
-    // establish a color scheme
-    g_currentColorScheme = generateRandomInt(0, NUM_COLOR_SCHEMES);       // will be used as index for fullColorSchemes
-    if (g_currentColorScheme == RANDOMSCHEME)
-    {
-        WORD newRandomBG = generateRandomInt(0, 15) AS_BG;
-
-        static ColorScheme randomScheme;
-        randomScheme = createRandomScheme();
-
-        fullColorSchemes[RANDOMSCHEME] = fullSchemeFromSimpleScheme(randomScheme, newRandomBG);
-    }
-    g_simpleScheme = simpleSchemeFromFullScheme(fullColorSchemes[g_currentColorScheme]);  // Set for compatibility with DrawControllerFace
+    
+    GET_NEW_COLOR_SCHEME(); 
 
     // set element properties
     CoupleControllerButtons(); // sets up controller outline/highlight coupling for nice looks & button ids
@@ -1871,6 +2155,64 @@ void JOYSENDER_tUI_INIT_UI() {
 }
 
 int JOYSENDER_tUI_SELECT_JOYSTICK(SDLJoystickData& activeGamepad, Arguments& args, int& allGood) {
+    tUITheme& theme = g_theme;
+    // load settings 1st time
+    if (!(g_status & tUI_LOADED_f)) {
+        if (theme.loadFromFile(THEME_FILE)) {
+            g_currentColorScheme = RANDOMSCHEME;
+            theme.restoreColors(fullColorSchemes[RANDOMSCHEME]);
+            g_simpleScheme = simpleSchemeFromFullScheme(fullColorSchemes[g_currentColorScheme]);
+            g_screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg);
+            g_screen.DrawBackdrop();
+            theme.restoreState(g_status);
+            if (g_status & BORDER_EGG_a) {
+                g_status &= ~BORDER_EGG_a; // need to be off for morph border
+                MORPH_BORDER();
+                SPEC_EGGS();
+            }
+            if (g_status & HEART_EGG_a) {
+                THE_HEARTENING();
+            }
+            if (g_status & CLUB_EGG_a) {
+                THE_CLUBENING();
+            }
+            if (g_status & PTRN_EGG_b) {
+                theme.drawPtrn();
+            }
+            g_status |= tUI_LOADED_f | REDRAW_tUI_f;
+        }
+    }
+    DEFAULT_EGG_BUTTS();
+    COMMON_EGG_BUTTS();
+    // auto activation
+    {
+        auto now = std::chrono::system_clock::now();
+        auto duration = now.time_since_epoch().count() % 69;
+        if (!(g_status & tUI_LOADED_f) && (duration == 4 || duration == 20)) {
+            MAKE_PATTERNS();
+            g_status |= PTRN_EGG_b | REDRAW_tUI_f;
+        }
+        if (!(g_status & CLUB_EGG_a) && g_status & BORDER_EGG_a && generateRandomInt(1, 20) == 13) {
+            THE_CLUBENING();
+            g_status |= REDRAW_tUI_f;
+        }
+        if (!(g_status & BORDER_EGG_a) && generateRandomInt(1, 20) == 7) {
+            MORPH_BORDER();
+            g_status |= REDRAW_tUI_f;
+        }
+    }
+    // re-load settings
+    if (!(g_status & tUI_LOADED_f) || (g_status & tUI_RESTART_f)) {
+        if (g_status & BORDER_EGG_a) {
+            SPEC_EGGS();
+        }
+        if (g_status & PTRN_EGG_b) {
+            theme.drawPtrn();
+        }
+        g_status &= ~tUI_RESTART_f;
+        g_status |= REDRAW_tUI_f;
+    }
+
     switch (args.mode) {
     case 1: {   // SDL MODE
         if (!args.select) { // not auto select
@@ -1974,7 +2316,6 @@ void JOYSENDER_tUI_OPMODE_INIT(SDLJoystickData& activeGamepad, Arguments& args, 
     }
     else {
         BuildJoystickInputData(activeGamepad);
-
         // Look for an existing map for selected device
         uiOpenOrCreateMapping(activeGamepad, g_screen);
 
@@ -1986,18 +2327,56 @@ void JOYSENDER_tUI_OPMODE_INIT(SDLJoystickData& activeGamepad, Arguments& args, 
 }
 
 void JOYSENDER_tUI_ANIMATED_CX(SDLJoystickData& activeGamepad,TCPConnection& client, Arguments& args, int& allGood) {
-    // Load Connecting Screen
-    output1.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);    // title/heading text
-    errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2);
-    errorOut.SetPosition(consoleWidth / 2, 7, 50, 0, ALIGN_CENTER);
 
+    JOYSENDER_tUI_INIT_FOOTER_ANIMATION();
+    DEFAULT_EGG_BUTTS();
+    COMMON_EGG_BUTTS();
+    if (g_status & BORDER_EGG_a) {
+        SPEC_EGGS();
+    }
+
+    auto re_color = [&]() {
+        g_screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg);
+        g_screen.SetButtonsColors(controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors));
+        
+        output1.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);    // title/heading text
+        errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2);
+        output2.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
+
+        COLOR_EGGS();
+        leftBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
+        rightBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
+        ani.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
+        };
+    auto draw_screen = [&]() {
+        if (g_status & PTRN_EGG_b) {
+            MAKE_PATTERNS();
+            setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
+            no_whitespace_Draw(JoySendMain_Backdrop, 0, 0, 74, 1555);
+
+            setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
+            setCursorPosition(50, 17);
+            std::wcout << L"©░Quinnco.░2024";
+        }
+        else {
+            g_screen.DrawBackdrop();
+        }
+        g_screen.DrawButtons();
+        setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
+        printCurrentController(activeGamepad);
+        errorOut.Draw();
+        output1.Draw();
+        };
+
+    // Setup Connecting Screen
+    errorOut.SetPosition(consoleWidth / 2, 7, 50, 0, ALIGN_CENTER);
     mouseButton cancelButton(CONSOLE_WIDTH / 2 - 7, 17, 13, L" (C) Cancel  ");
     g_screen.AddButton(&cancelButton);
-
     quitButton.SetPosition(10, 17);
     g_screen.AddButton(&quitButton);
-    g_screen.SetButtonsColors(controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors));
 
+    // setup connecting animation
+    output2.SetPosition(consoleWidth / 2, 10, 38, 0, ALIGN_CENTER);
     // set up connecting message
     int len = args.host.size() + 18;
     swprintf(msgPointer1, len, L" Connecting To: %s ", std::wstring(args.host.begin(), args.host.end()).c_str());
@@ -2005,28 +2384,26 @@ void JOYSENDER_tUI_ANIMATED_CX(SDLJoystickData& activeGamepad,TCPConnection& cli
     output1.SetText(msgPointer1);
 
     // Draw Screen
-    g_screen.ReDraw();
-    setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
-    printCurrentController(activeGamepad);
-    errorOut.Draw();
-    output1.Draw();
+    re_color();
+    draw_screen();
 
-    // set up connecting animation
-    output2.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
-    output2.SetPosition(consoleWidth / 2, 10, 38, 0, ALIGN_CENTER);
 
     // ### establish the connection in separate thread to animate connecting dialog
     allGood = WSAEWOULDBLOCK;
     std::thread connectThread(threadedEstablishConnection, std::ref(client), std::ref(allGood));
     // animation and input loop
+    int lastFrame = -1;
     while (!APP_KILLED && allGood == WSAEWOULDBLOCK) {
-        output2.SetText(ConnectAnimation[g_frameNum]);
-        output2.Draw();
+        if (lastFrame != g_frameNum) {
+            output2.SetText(ConnectAnimation[g_frameNum]);
+            output2.Draw();
+            lastFrame = g_frameNum;
+        }
 
         int mouseState = screenLoop(g_screen);
 
         // check for hot keys
-        if (IsAppActiveWindow() && getKeyState(VK_SHIFT)) {
+        if (getKeyState(VK_SHIFT) && IsAppActiveWindow()) {
             if (getKeyState('Q')) {
                 APP_KILLED = TRUE;
             }
@@ -2048,19 +2425,75 @@ void JOYSENDER_tUI_ANIMATED_CX(SDLJoystickData& activeGamepad,TCPConnection& cli
             }
         }
 
-        countUpDown(g_frameNum, CX_ANI_FRAME_COUNT);  // bounce
-        //loopCount(g_frameNum, CX_ANI_FRAME_COUNT);    // loop
+        JOYSENDER_tUI_EGG_LOOP(re_color, draw_screen);
+        JOYSENDER_tUI_ANIMATE_FOOTER();
+
+        if (frameDelay % 5 == 0) {
+            countUpDown(g_frameNum, CX_ANI_FRAME_COUNT);  // bounce
+            //loopCount(g_frameNum, CX_ANI_FRAME_COUNT);    // loop
+        }
 
         if (!APP_KILLED && allGood == WSAEWOULDBLOCK)
-            Sleep(100);
+            Sleep(20);
     }
     // clean up
     connectThread.detach();
-    g_screen.ClearButtons();
+    g_screen.ClearButtonsExcept({ 42,45,46,47 });
     // ###
 }
 
+
+#define JOYSENDER_tUI_CX_HANDSHAKE(){ \
+std::string txSettings = std::to_string(args.fps) + ":" + std::to_string(args.mode); \
+allGood = client.send_data(txSettings.c_str(), static_cast<int>(txSettings.length())); \
+if (allGood < 1) { \
+    swprintf(errorPointer, 48, L" << Connection To %S Failed >> ", args.host.c_str()); \
+    errorOut.SetText(errorPointer); \
+    break; \
+} \
+bytesReceived = client.receive_data(buffer, buffer_size); \
+if (bytesReceived > 0) { \
+    inConnection = true; \
+    failed_connections = 0; \
+} \
+else { \
+    swprintf(errorPointer, 46, L" << Connection To: %S Lost >> ", args.host.c_str()); \
+    errorOut.SetText(errorPointer); \
+    break; \
+}} 
+
+
+void JOYSENDER_tUI_RESET_AFTER_MAP(Arguments& args) {
+    // reset output1
+    wcsncpy_s(msgPointer1, 40, g_converter.from_bytes(" << Connected to: " + args.host + "  >> ").c_str(), _TRUNCATE);
+    output1.SetText(msgPointer1);
+    output1.SetPosition(3, 1, 40, 1, ALIGN_LEFT);
+    output1.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg);
+
+    // re add g_screen buttons
+    g_screen.AddButton(&newColorsButton);
+    g_screen.AddButton(&mappingButton);
+    g_screen.AddButton(&restartButton[1]);  // mode 1
+    g_screen.AddButton(&restartButton[2]);  // mode 2
+    g_screen.AddButton(&restartButton[0]);  // main restart
+    g_screen.AddButton(&quitButton);
+
+    // reset quit button
+    quitButton.setCallback(&exitAppCallback);
+    quitButton.SetPosition(consoleWidth / 2 - 5, XBOX_QUIT_LINE);
+
+    // redraw everything
+    ReDrawControllerFace(g_screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, args.mode);
+    g_screen.DrawButtons();
+    restartButton[3].Draw();
+    output1.Draw();
+    hostMsg.Draw();
+
+    MAPPING_FLAG = 0;
+}
+
 void JOYSENDER_tUI_BUILD_MAIN_LOOP(Arguments& args) {
+    CLEAN_EGGS();
     int QUITLINE;
     if (g_mode == 2) {
         g_screen.SetBackdrop(DS4_Backdrop);
@@ -2096,14 +2529,14 @@ void JOYSENDER_tUI_BUILD_MAIN_LOOP(Arguments& args) {
     // Set button and controller colors
         // Sets controller to color scheme colors with some contrast correction for bg color then draws the controller face
     SetControllerFace(g_screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, g_mode);
-    ReDrawControllerFace(g_screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, g_mode);
+    //ReDrawControllerFace(g_screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, g_mode);
 
     tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
 
     // color non controller buttons and draw them
     restartButton[3].SetColors(buttonColors);  // mode section of restart button
     g_screen.SetButtonsColors(buttonColors);
-    g_screen.DrawButtons();
+    //g_screen.DrawButtons();
 
     restartButton[0].setCallback(restartStatusCallback);
     restartButton[1].setCallback(restartModeCallback);
@@ -2116,6 +2549,10 @@ void JOYSENDER_tUI_BUILD_MAIN_LOOP(Arguments& args) {
     output1.SetPosition(3, 1, 40, 1, ALIGN_LEFT);
     output1.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg);
 
+    output3.SetPosition(50, 1);
+    output3.SetText(L" FPS:");
+    output3.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg);
+
     wcsncpy_s(hostPointer, 18, g_converter.from_bytes(" " + args.host + " ").c_str(), _TRUNCATE);
     hostMsg.SetText(hostPointer);
     hostMsg.SetPosition(20, 1, 38, 1, ALIGN_LEFT);
@@ -2123,55 +2560,111 @@ void JOYSENDER_tUI_BUILD_MAIN_LOOP(Arguments& args) {
 
     fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
 
-    restartButton[3].Draw(-2); // in x64 release build the default parameter of -1 does not work??? debug show it set as 0. manually specifying value less then -1 here works
-    output1.Draw();
-    hostMsg.Draw();
+    if (g_status & BORDER_EGG_a) {
+        COMMON_EGG_BUTTS();
+        SPEC_EGGS();
+        swprintf(msgPointer1, 43, L"<< Connected to: %S >>", args.host.c_str());
+        output1.SetText(msgPointer1);
+        output1.SetPosition(6, 1, 43, 1, ALIGN_LEFT);
+        hostMsg.SetPosition(22, 1, 38, 1, ALIGN_LEFT);
+        output3.SetPosition(55, 1);
+        fpsMsg.SetPosition(60, 1);
+    }
+
+    //restartButton[3].Draw(-2); // in x64 release build the default parameter of -1 does not work??? debug show it set as 0. manually specifying value less then -1 here works
+    //output1.Draw();
+    //hostMsg.Draw();
+
+    COLOR_EGGS();
+    REDRAW_MAIN_LOOP_tUI();
 }
 
-#define JOYSENDER_tUI_CX_HANDSHAKE(){ \
-std::string txSettings = std::to_string(args.fps) + ":" + std::to_string(args.mode); \
-allGood = client.send_data(txSettings.c_str(), static_cast<int>(txSettings.length())); \
-if (allGood < 1) { \
-    swprintf(errorPointer, 48, L" << Connection To %S Failed >> ", args.host.c_str()); \
-    errorOut.SetText(errorPointer); \
-    break; \
-} \
-bytesReceived = client.receive_data(buffer, buffer_size); \
-if (bytesReceived > 0) { \
-    inConnection = true; \
-    failed_connections = 0; \
-} \
-else { \
-    swprintf(errorPointer, 46, L" << Connection To: %S Lost >> ", args.host.c_str()); \
-    errorOut.SetText(errorPointer); \
-    break; \
-}} 
+void RECOLOR_MAIN_LOOP_tUI() {
+    output1.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4); //"FPS:"
+    //output2.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4); // not used on this screen
+    output3.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4); //" << Connection .."
+    hostMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col1); // IP Address
+    fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);  // fps value
 
-void JOYSENDER_tUI_RESET_AFTER_MAP(Arguments& args) {
-    // reset output1
-    wcsncpy_s(msgPointer1, 40, g_converter.from_bytes(" << Connected to: " + args.host + "  >> ").c_str(), _TRUNCATE);
-    output1.SetText(msgPointer1);
-    output1.SetPosition(3, 1, 40, 1, ALIGN_LEFT);
-    output1.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg);
+    tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
+    /* Color non-controller buttons */
+    g_screen.SetButtonsColors(buttonColors);
+    restartButton[3].SetColors(buttonColors);  // mode section of restart button
+    COLOR_EGGS();
+}
 
-    // re add g_screen buttons
-    g_screen.AddButton(&newColorsButton);
-    g_screen.AddButton(&mappingButton);
-    g_screen.AddButton(&restartButton[1]);  // mode 1
-    g_screen.AddButton(&restartButton[2]);  // mode 2
-    g_screen.AddButton(&restartButton[0]);  // main restart
-    g_screen.AddButton(&quitButton);
+void REDRAW_MAIN_LOOP_tUI() {
+    setCursorPosition(0, 0);
+    setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
+    std::wcout << JoySendMain_Backdrop;
 
-    // reset quit button
-    quitButton.setCallback(&exitAppCallback);
-    quitButton.SetPosition(consoleWidth / 2 - 5, XBOX_QUIT_LINE);
-
-    // redraw everything
-    ReDrawControllerFace(g_screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, args.mode);
+    if (g_status & PTRN_EGG_b) {
+        MAKE_PATTERNS();
+        button_L1_outline.SetText(button_L1_outline2);
+        button_L2_outline.SetText(button_L2_outline2);
+        button_R1_outline.SetText(button_L1_outline2);
+        button_R2_outline.SetText(button_L2_outline2);
+    }
+    else {
+        clearPtrn(fullColorSchemes[g_currentColorScheme].controllerBg);
+        button_L1_outline.SetText(button_L1_outline1);
+        button_L2_outline.SetText(button_L2_outline1);
+        button_R1_outline.SetText(button_R1_outline1);
+        button_R2_outline.SetText(button_L2_outline1);
+    }
+    ReDrawControllerFace(g_screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, g_mode, (g_status & BORDER_EGG_a));
     g_screen.DrawButtons();
-    restartButton[3].Draw();
+    restartButton[3].Draw(-2);
     output1.Draw();
     hostMsg.Draw();
+    output3.Draw();
+}
 
-    MAPPING_FLAG = 0;
+void EGG_LOOP() {
+    if (g_status & RECOL_tUI_f) {
+        g_status &= ~(RECOL_tUI_f | REDRAW_tUI_f);
+        RECOLOR_MAIN_LOOP_tUI();
+        g_screen.DrawBackdrop();
+        if (g_status & PTRN_EGG_b) {
+            MAKE_PATTERNS();
+        }
+        REDRAW_MAIN_LOOP_tUI();
+        if (g_status & BORDER_EGG_a) {
+            mouseButton leftBorderPiece(3, 18, 2, L"\\\t\t\t \t");
+            mouseButton rightBorderPiece(68, 18, 5, rsideFooter);
+            leftBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
+            rightBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
+            rightBorderPiece.Update();
+            leftBorderPiece.Update();
+        }
+
+        COLOR_EGGS();
+        PRINT_EGG_X();
+    }
+    if (g_status & REDRAW_tUI_f) {
+        g_status &= ~REDRAW_tUI_f;
+        REDRAW_MAIN_LOOP_tUI();
+        if (g_status & BORDER_EGG_a) {
+            mouseButton leftBorderPiece(3, 18, 2, L"\\\t\t\t \t");
+            mouseButton rightBorderPiece(68, 18, 5, rsideFooter);
+            leftBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
+            rightBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
+            rightBorderPiece.Update();
+            leftBorderPiece.Update();
+        }
+        //COLOR_EGGS();
+        PRINT_EGG_X();
+    }
+    if (g_status & REFLAG_tUI_f) {
+        g_status &= ~REFLAG_tUI_f;
+        mouseButton* applyTheme = g_screen.GetButtonById(46);
+        if (!(g_status & tUI_THEME_af)) {
+            applyTheme->SetText(L"◊");
+            applyTheme->Update();
+        }
+        if (g_status & tUI_THEME_af) {
+            applyTheme->SetText(L"♦");
+            applyTheme->Update();
+        }
+    }
 }

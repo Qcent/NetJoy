@@ -22,6 +22,7 @@ THE SOFTWARE.
 
 */
 #define NetJoyTUI
+#define JOYSENDER_TUI
 #include "JoySender_tUI.h"
 
 int joySendertUI(Arguments& args) {
@@ -65,6 +66,7 @@ int joySendertUI(Arguments& args) {
     
     g_mode = args.mode;
     JOYSENDER_tUI_INIT_UI();
+    g_screen.AddButton(&quitButton);
     
     // User or Auto Select Gamepad
     if (!JOYSENDER_tUI_SELECT_JOYSTICK(activeGamepad, args, allGood)) {
@@ -74,6 +76,9 @@ int joySendertUI(Arguments& args) {
         return 0;
     }
 
+    // tidy the screen butttons
+    g_screen.ClearButtonsExcept({42,45,46,47});
+
     // Initial Settings for Operating Mode:  DS4 / XBOX
     JOYSENDER_tUI_OPMODE_INIT(activeGamepad, args, allGood);
     
@@ -81,16 +86,15 @@ int joySendertUI(Arguments& args) {
     g_screen.SetBackdrop(JoySendMain_Backdrop); // i think this is only need if a mapping occurred
     setErrorMsg(L"\0", 1); // clear error output in memory
 
-    //# Main Loop keeps client running
+    //# Loop keeps client running
     //# asks for new host if, inner Connection Loop, fails 3 times
     while (!APP_KILLED) {
         // Acquire host address for connection attempt
         if (args.host.empty()) {       
-            g_screen.ReDraw();
-            setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
-            printCurrentController(activeGamepad);
+            args.host = tUIGetHostAddress(activeGamepad);
+            // tidy the screen butttons
+            g_screen.ClearButtonsExcept({ 42,45,46,47 });
 
-            args.host = tUIGetHostAddress(g_screen);
             if (APP_KILLED) {
                 return -1;
             }
@@ -137,6 +141,7 @@ int joySendertUI(Arguments& args) {
         fps_counter.reset();
         while (inConnection){
             screenLoop(g_screen);
+            EGG_LOOP();
 
             // Catch hot key button presses
             if (!MAPPING_FLAG && getKeyState(VK_SHIFT) && IsAppActiveWindow()) {
@@ -266,7 +271,7 @@ int joySendertUI(Arguments& args) {
             args.host = "";
             failed_connections = 0;
         }
-        g_screen.ClearButtons();
+        g_screen.ClearButtonsExcept({ 42,45,46,47 });
         g_screen.SetBackdrop(JoySendMain_Backdrop);
     }
     return APP_KILLED ? 0 : 1;
@@ -327,6 +332,7 @@ int main(int argc, char** argv)
     }
 
     // Cleanup and quit
+    CLEAN_EGGS();
     swallowInput();
     SDL_Quit();
     setCursorPosition(0, consoleHeight);
