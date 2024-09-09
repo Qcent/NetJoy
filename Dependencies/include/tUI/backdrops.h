@@ -70,7 +70,7 @@ const wchar_t* XBOX_Backdrop = LR"(
 )";
 
 const wchar_t* DS4_Backdrop = LR"(                                                                         
-                                               FPS:                      
+                                                                         
                                                                          
                 /______\      Mode: 2 (DS4)      /______\                
               /\________/#########(-Q-)#########\________/\              
