@@ -255,7 +255,7 @@ ColorScheme simpleSchemeFromFullScheme(FullColorScheme& full) {
 // ********************************
 // tUI THEME
 
-void printDiagonalPattern(int top, int bottom, int start_x, int start_y, int width, int step, wchar_t block = L'░', int dir = 1) {
+void printDiagonalPattern(int top, int bottom, int start_x, int start_y, int width, int step, wchar_t block = L'░', int dir = 0) {
     int ob = 0;
     int x = start_x, y = start_y;
     while (ob < 2) {
@@ -293,6 +293,9 @@ void printDiagonalPattern(int top, int bottom, int start_x, int start_y, int wid
                 x += step;
                 if (x >= width) ob++;
             }
+        }
+        else {
+            return;
         }
     }
 }
@@ -467,7 +470,18 @@ void COLOR_EGGS() {
 }
 
 void THE_HEARTENING() {
-    g_status |= HEART_EGG_a | REDRAW_tUI_f;
+#ifdef JOYSENDER_TUI
+    g_status |= HEART_EGG_a | REDRAW_tUI_f | REFLAG_tUI_f;
+    g_status &= ~tUI_THEME_af;
+    replaceXEveryNth(&SendFooterAnimation[4][8], 31, L"+", L"♥", 1);
+    replaceXEveryNth(&SendFooterAnimation[12][9], 31, L"+", L"♥", 1);
+    replaceXEveryNth(&SendFooterAnimation[8][29], 31, L"-", L"♥", 1);
+    replaceXEveryNth(&JoySendMain_Backdrop[(consoleWidth + 2) * (consoleHeight - 1)], sizeof(JoyRecvMain_Backdrop), L"\\", L"♥", 6);
+    for (int i = 0; i < FOOTER_ANI_FRAME_COUNT; i++) {
+        replaceXEveryNth(&SendFooterAnimation[i][10], 31, L"\\", L"♥", 1);
+    }
+#else
+    g_status |= HEART_EGG_a | REDRAW_tUI_f | REFLAG_tUI_f;
     g_status &= ~tUI_THEME_af;
     replaceXEveryNth(&FooterAnimation[1][2], 31, L"+", L"♥", 1);
     replaceXEveryNth(FooterAnimation[2], 31, L"┄", L"+", 1);
@@ -476,10 +490,22 @@ void THE_HEARTENING() {
     for (int i = 0; i < FOOTER_ANI_FRAME_COUNT; i++) {
         replaceXEveryNth(&FooterAnimation[i][10], 31, L"\\", L"♥", 1);
     }
+#endif
 }
 void DE_HEARTENING() {
+#ifdef JOYSENDER_TUI
+    g_status |= HEART_EGG_a | REDRAW_tUI_f | REFLAG_tUI_f;
+    g_status &= ~tUI_THEME_af;
+    replaceXEveryNth(&SendFooterAnimation[4][8], 31, L"♥", L"+", 1);
+    replaceXEveryNth(&SendFooterAnimation[12][9], 31, L"♥", L"+", 1);
+    replaceXEveryNth(&SendFooterAnimation[8][29], 31, L"♥", L"-", 1);
+    replaceXEveryNth(&JoySendMain_Backdrop[(consoleWidth + 2) * (consoleHeight - 1)], sizeof(JoyRecvMain_Backdrop), L"♥", L"\\", 6);
+    for (int i = 0; i < FOOTER_ANI_FRAME_COUNT; i++) {
+        replaceXEveryNth(&SendFooterAnimation[i][10], 31, L"♥", L"\\", 1);
+    }
+#else
     g_status &= ~(HEART_EGG_a | tUI_THEME_af);
-    g_status |= REDRAW_tUI_f;
+    g_status |= REDRAW_tUI_f | REFLAG_tUI_f;
     replaceXEveryNth(&FooterAnimation[1][2], 31, L"♥", L"+", 1);
     replaceXEveryNth(FooterAnimation[2], 31, L"+", L"┄", 1);
     replaceXEveryNth(FooterAnimation[8], 31, L"♥", L"+", 1);
@@ -487,18 +513,34 @@ void DE_HEARTENING() {
     for (int i = 0; i < FOOTER_ANI_FRAME_COUNT; i++) {
         replaceXEveryNth(&FooterAnimation[i][10], 31, L"♥", L"\\", 1);
     }
+#endif
 }
+
 
 void THE_CLUBENING() {
     g_status |= CLUB_EGG_a;
+#ifdef JOYSENDER_TUI
+    replaceXEveryNth(&JoySendMain_Backdrop[(consoleWidth + 2) * 4], sizeof(JoySendMain_Backdrop), L"++", L"+╠", 25, 3);
+    replaceXEveryNth(&JoySendMain_Backdrop[(consoleWidth - 1) * 5], sizeof(JoySendMain_Backdrop), L"++", L"╣+", 19);
+    int side, row, col, top;
+    top = generateRandomInt(-1, 6);
+    side = generateRandomInt(0, 1);
+    row = generateRandomInt(0, 1);
+    col = generateRandomInt(3, 16);
+    if (top) {
+        col = generateRandomInt(6, 62);
+        replaceXEveryNth(&JoySendMain_Backdrop[col], sizeof(JoySendMain_Backdrop), (side ? L"►" : L"◄"), L"♣", 1);
+    }
+    replaceXEveryNth(&JoySendMain_Backdrop[((consoleWidth + 2) * col) + (side * 66)], sizeof(JoySendMain_Backdrop), (row ? L"+" : (side ? L"╣" : L"╠")), L"♣", 1);
+#else
     replaceXEveryNth(&JoyRecvMain_Backdrop[(consoleWidth + 2) * 4], sizeof(JoyRecvMain_Backdrop), L"||", L"┋╠", 25, 3);
-    replaceXEveryNth(&JoyRecvMain_Backdrop[(consoleWidth - 1) * 5], sizeof(JoyRecvMain_Backdrop), L"||", L"╣┋", 19);
-    //replaceXEveryNth(&JoyRecvMain_Backdrop[(consoleWidth + 2) * 3], sizeof(JoyRecvMain_Backdrop), L"┋", L"♣", 1);
+    replaceXEveryNth(&JoyRecvMain_Backdrop[(consoleWidth - 1) * 5], sizeof(JoyRecvMain_Backdrop), L"||", L"╣┋", 19);    
     int side, row, col;
     side = generateRandomInt(0, 1);
     row = generateRandomInt(0, 1);
     col = generateRandomInt(3, 16);
     replaceXEveryNth(&JoyRecvMain_Backdrop[((consoleWidth + 2) * col) + (side * 66)], sizeof(JoyRecvMain_Backdrop), (row ? L"┋" : (side ? L"╣" : L"╠")), L"♣", 1);
+#endif
 }
 
 void PRINT_EGG_X() {
@@ -594,6 +636,28 @@ void MAKE_PATTERNS() {
 }
 
 void MORPH_BORDER() {
+#ifdef JOYSENDER_TUI
+    if (!(g_status & BORDER_EGG_a)) {
+        g_status |= BORDER_EGG_a;
+        replaceXEveryNth(JoySendMain_Backdrop, sizeof(JoySendMain_Backdrop), L"____", L"+◄+►", 15);
+        replaceXEveryNth(&JoySendMain_Backdrop[consoleWidth - 6], sizeof(JoySendMain_Backdrop), L"_", L"+", 1);
+        replaceXEveryNth(JoySendMain_Backdrop, sizeof(JoySendMain_Backdrop), L"___", L"═══", 21);
+        
+
+        replaceXEveryNth(JoySendMain_Backdrop, sizeof(JoySendMain_Backdrop), L"=", L"┉", 1);
+        replaceXEveryNth(&JoySendMain_Backdrop[(consoleWidth + 2) * 2], sizeof(JoySendMain_Backdrop), L"||", L"╣┋", 25, 3);
+        replaceXEveryNth(&JoySendMain_Backdrop[(consoleWidth - 1) * 3], sizeof(JoySendMain_Backdrop), L"||", L"┋╠", 8, 2);
+        replaceXEveryNth(&JoySendMain_Backdrop[(consoleWidth + 2) * 17], sizeof(JoySendMain_Backdrop), L"||", L"♥┋", 1);
+        replaceXEveryNth(&JoySendMain_Backdrop[(consoleWidth) * 18], sizeof(JoySendMain_Backdrop), L"||", L"┋╳", 1);
+        if (!(g_status |= CLUB_EGG_a) && generateRandomInt(7, 18) < 11) {
+            g_status |= CLUB_EGG_a;
+            THE_CLUBENING();
+        }
+        replaceXEveryNth(&JoySendMain_Backdrop[(consoleWidth + 2) * 19], sizeof(JoySendMain_Backdrop), L"-{", L"◄∑", 1);
+        replaceXEveryNth(&JoySendMain_Backdrop[(consoleWidth + 5) * 19], sizeof(JoySendMain_Backdrop), L"}-", L"∫►", 1);
+        replaceXEveryNth(rsideFooter, 20, L"}-", L"∫►", 1);
+}
+#else
     if (!(g_status & BORDER_EGG_a)) {
         g_status |= BORDER_EGG_a;
         replaceXEveryNth(JoyRecvMain_Backdrop, sizeof(JoyRecvMain_Backdrop), L"= ", L"══", 30);
@@ -616,6 +680,7 @@ void MORPH_BORDER() {
         replaceXEveryNth(FooterAnimation[8], 31, L"*", L"+", 1);
         replaceXEveryNth(rsideFooter, 20, L"}-", L"∫►", 1);
     }
+#endif
 }
 
 void RESTORE_THEME() {
@@ -642,5 +707,13 @@ void RESTORE_THEME() {
         g_status &= ~PTRN_EGG_b;
         clearPtrn(fullColorSchemes[g_currentColorScheme].menuBg);
     }
+    g_status |= tUI_LOADED_f | REDRAW_tUI_f;
+}
+
+void RESTORE_THEME2() {
+    g_currentColorScheme = RANDOMSCHEME;
+    g_theme.restoreColors(fullColorSchemes[RANDOMSCHEME]);
+    g_simpleScheme = simpleSchemeFromFullScheme(fullColorSchemes[g_currentColorScheme]);
+    g_screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg);
     g_status |= tUI_LOADED_f | REDRAW_tUI_f;
 }
