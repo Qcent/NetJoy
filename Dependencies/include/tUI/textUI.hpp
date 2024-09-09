@@ -999,6 +999,50 @@ public:
         }
     }
 
+    void RemoveButtonById(int ID) {
+        if (_buttonsCount == 0) return;
+        bool popped = false;
+        for (int i = 0; i < _buttonsCount; i++) {
+            if (_buttons[i]->GetId() == ID) {
+                popped = true;
+            }
+            else if (popped) {
+                _buttons[i - 1] = _buttons[i];
+            }
+        }
+        if (popped) {
+            _buttons[_buttonsCount - 1] = nullptr;
+            _buttonsCount--;
+        }
+    }
+
+    void ClearButtonsExcept(std::vector<int> IDs) {
+        int moved = 0;
+        for (int i = 0; i < _buttonsCount; i++) {
+            int id = _buttons[i]->GetId();
+            auto found = std::find(IDs.begin(), IDs.end(), id);
+            if (found != IDs.end()) {
+                // move this button to the front ??
+                if (i != moved) {
+                    _buttons[moved] = _buttons[i];
+                    _buttons[i] = nullptr;
+                }
+                ++moved;
+
+                //remove id from list
+                if (IDs.size() == 1) {
+                    _buttonsCount = moved;
+                    return;
+                }
+                else IDs.erase(found);
+            }
+            else {
+                _buttons[i] = nullptr;
+            }
+        }
+        _buttonsCount = moved;
+    }
+
     void DeleteButton(int id) {
         if (_buttonsCount == 0) return;
 
@@ -1116,6 +1160,7 @@ public:
                 return _buttons[i];
             }
         }
+        return nullptr;
     }
 
 private:
