@@ -37,6 +37,7 @@
 
 # Other Data
 *.json
+*.theme
 
 # Other Directories
 JoyReceiver++/JoyReceiver++/
