@@ -224,3 +224,21 @@ void replaceXEveryNth(TCHAR* source, size_t sourceSize, const TCHAR* target, con
             break;
     }
 }
+
+bool getCharsAtPosition(int x, int y, int len, TCHAR* buffer) {
+    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+    DWORD charsRead = 0;
+    COORD coord = { static_cast<SHORT>(x), static_cast<SHORT>(y) };
+
+    // Resize buffer to store the characters
+    //buffer.resize(len, L' ');
+
+    // Read console characters starting at (x, y)
+    if (!ReadConsoleOutputCharacter(hConsole, &buffer[0], len, coord, &charsRead)) {
+        return false;  // Reading failed
+    }
+
+    // Shrink buffer if fewer characters were read
+    //buffer.resize(charsRead);
+    return true;
+}
