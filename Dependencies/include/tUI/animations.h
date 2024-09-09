@@ -52,6 +52,27 @@ const wchar_t* ConnectAnimationRight[CX_ANI_FRAME_COUNT + 1] = {
     {L" *** "},
 };
 
+const int SEND_FOOTER_ANI_FRAME_COUNT = 15;
+wchar_t SendFooterAnimation[SEND_FOOTER_ANI_FRAME_COUNT + 1][31] = {
+{L"  .+-.    :.:::.\\:::'      `--"},
+{L"   __     :::::.~:::          "},
+{L"          -::::.----          "},
+{L"        __::::::~.::          "},
+{L".      .+-:^::::/.::  `--'    "},
+{L"        __::::::~.::          "},
+{L"          :------:::          "},
+{L"   __     :~.:::::::          "},
+
+{L"  .-+.    :/.:::^:::'      `--"},
+{L"   __     :~.:::::::          "},
+{L"          -::::.----          "},
+{L"        __:~:::::::.          "},
+{L".      .-+:\\::::.::.  `--'    "},
+{L"        __:~:::::::.          "},
+{L"          :------:::          "},
+{L"   __     :::::.~:::          "},
+};
+
 const int FOOTER_ANI_FRAME_COUNT = 9;
 wchar_t FooterAnimation[FOOTER_ANI_FRAME_COUNT + 1][31] = {
 {L" .--.     :::::.\\:::'      `--"},
