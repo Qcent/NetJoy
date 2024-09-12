@@ -169,7 +169,7 @@ int joySendertUI(Arguments& args) {
             // Do remapping if triggered (freezes host)
             if (MAPPING_FLAG) {
                 // REMAP STUFF ** pauses communication (freezing host) till finished
-                tUIRemapInputsScreen(activeGamepad, g_screen);
+                 tUIRemapInputsScreen(activeGamepad);
                 if (APP_KILLED) {
                     inConnection = false;
                     break; // Break out of the loop
