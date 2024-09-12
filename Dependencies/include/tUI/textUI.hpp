@@ -31,7 +31,7 @@ THE SOFTWARE.
 #define CONSOLE_WIDTH       72
 #define CONSOLE_HEIGHT      20
 
-#define MAX_SCREEN_BUTTONS  32
+#define MAX_SCREEN_BUTTONS  40
 #define MAX_SCREEN_INPUTS   8
 
 // mouse button status flags
@@ -45,7 +45,7 @@ THE SOFTWARE.
 // mouse button settings flags
 #define UNCLICKABLE     0x1
 #define UNHOVERABLE     0x2
-//#define SELF_MANAGED    0x8
+#define INACTIVE        0x8
 
 // mouse button default colors
 #define DEFAULT_TEXT        WHITE | BLACK AS_BG
@@ -150,6 +150,14 @@ public:
     }
     tUIColorPkg GetColors() {
         return tUIColorPkg(_defaultColor, _highlightColor, _selectColor, _activeColor);
+    }
+
+    COORD GetPosition() {
+        return _pos;
+    }
+
+    size_t GetLength() {
+        return _length;
     }
 
     tUIObj() {
@@ -641,7 +649,7 @@ public:
         _lines = std::max(1, _length / _width);
         _callback = nullptr;
         _partner = nullptr;
-        _id = 0;
+        _id = INT_MIN;
     }
     mouseButton(int x, int y, int w, const wchar_t* text) {
         _pos.X = x;
@@ -660,7 +668,7 @@ public:
 
         _callback = nullptr;
         _partner = nullptr;
-        _id = 0;
+        _id = INT_MIN;
     }
     mouseButton(int x, int y, int w, const wchar_t* text, byte set) {
         _pos.X = x;
@@ -678,14 +686,14 @@ public:
 
         _callback = nullptr;
         _partner = nullptr;
-        _id = 0;
+        _id = INT_MIN;
     }
     mouseButton() {
         _status = MOUSE_OUT;
         _Settings = 0;
         _callback = nullptr;
         _partner = nullptr;
-        _id = 0;
+        _id = INT_MIN;
     }
 
     ~mouseButton() {
@@ -694,6 +702,10 @@ public:
     void SetId(int id) {
         _id = id;
     }
+    
+    void SetSettings(BYTE set) {
+        _Settings = set;
+    }
 
     void SetStatus(BYTE status) {
         _status = status;
@@ -701,6 +713,10 @@ public:
 
     BYTE Status() {
         return _status;
+    }
+
+    BYTE Settings() {
+        return _Settings;
     }
 
     void Update() {
@@ -714,6 +730,8 @@ public:
             setTextColor(_highlightColor);
         else                            // default
             setTextColor(_defaultColor);
+
+        if (_Settings & INACTIVE) return;
 
         int line = 0;
         setCursorPosition(_pos);
@@ -1092,7 +1110,6 @@ public:
                 _textInputs[i]->CheckMouseHover(mousePos);
         }
     }
-
     
     void SetButtonsHighlightColor(WORD col) {
         for (int i = 0; i < _buttonsCount; i++) {
