@@ -466,7 +466,7 @@ tUIColorPkg GET_EGG_COLOR() {
 void COLOR_EGGS() {
     tUIColorPkg colors = GET_EGG_COLOR();
     g_screen.SetButtonsColorsById(colors, { 42,43,44,45,46,47 });
-    g_screen.DrawButtons();
+    //g_screen.DrawButtons();  // commenting this may break things but im trying it here 
 }
 
 void THE_HEARTENING() {
@@ -715,5 +715,5 @@ void RESTORE_THEME2() {
     g_theme.restoreColors(fullColorSchemes[RANDOMSCHEME]);
     g_simpleScheme = simpleSchemeFromFullScheme(fullColorSchemes[g_currentColorScheme]);
     g_screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg);
-    g_status |= tUI_LOADED_f | REDRAW_tUI_f;
+    g_status |= tUI_LOADED_f | REDRAW_tUI_f | RECOL_tUI_f;
 }
