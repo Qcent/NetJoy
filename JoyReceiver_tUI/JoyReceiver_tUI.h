@@ -416,7 +416,7 @@ void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(TCPConnection& server, Arguments&
         g_status |= REDRAW_tUI_f;
     }
 
-    COLOR_AND_DRAW_CX_tUI();
+    //COLOR_AND_DRAW_CX_tUI();
     //COLOR_EGGS();
 
     /* Set up thread */
@@ -471,7 +471,7 @@ void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(TCPConnection& server, Arguments&
             g_status |= RECOL_tUI_f | REFLAG_tUI_f;
         }
         if (g_status & RECOL_tUI_f) {
-            g_status &= ~RECOL_tUI_f;
+            g_status &= ~(RECOL_tUI_f | REDRAW_tUI_f);
             COLOR_CX_tUI();
             g_screen.DrawBackdrop();
             if (g_status & PTRN_EGG_b) {
@@ -481,7 +481,6 @@ void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(TCPConnection& server, Arguments&
             leftBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
             rightBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
             ani2.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
-            //COLOR_EGGS();
             PRINT_EGG_X();
         }
         if (g_status & REDRAW_tUI_f) {
@@ -490,7 +489,6 @@ void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(TCPConnection& server, Arguments&
             leftBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
             rightBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
             ani2.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
-            //COLOR_EGGS();
             PRINT_EGG_X();
         }
         if (g_status & REFLAG_tUI_f) {
@@ -521,6 +519,7 @@ void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(TCPConnection& server, Arguments&
         /* return to blocking mode */
         server.set_client_blocking(true);
         server.set_server_blocking(true);
+        server.set_client_timeout(NETWORK_TIMEOUT_MILLISECONDS);
     }
 }
 
@@ -671,6 +670,99 @@ void EGG_LOOP() {
             applyTheme->SetText(L"♦");
             applyTheme->Update();
         }
+    }
+}
+
+int JOYRECEIVER_tUI_WAIT_FOR_CLIENT_MAPPING(TCPConnection& server, char* buffer, int buffer_size) {
+    int bytesReceived = 0, counter = 0, len = 43;
+    int lastAniFrame = g_frameNum - 1, bgDrawCount = 0;
+
+    // Setup
+    swprintf(errorPointer, len, L" << Client Is Mapping Their Controller >> ", connectionIP);
+    errorOut.SetWidth(len);
+    errorOut.SetText(errorPointer);
+    COORD oldErrorPos = errorOut.GetPosition();
+    errorOut.SetPosition(oldErrorPos.X, oldErrorPos.Y+2);
+
+    swprintf(fpsPointer, 8, L"  --  ", fpsOutput.c_str());
+    fpsMsg.SetText(fpsPointer);
+
+    tUITheme bgPtrn;
+    bgPtrn.setColors(fullColorSchemes[g_currentColorScheme]);
+    
+    auto cleanUp = [&]() {
+        server.set_client_blocking(true);
+        errorOut.SetPosition(oldErrorPos);
+        setErrorMsg(L"\0", 1);
+        if (!(g_status & BORDER_EGG_a)) {
+            clearPtrn(fullColorSchemes[g_currentColorScheme].controllerBg);
+        }
+        };
+
+    server.set_client_blocking(false);
+
+    // Draw
+    MAKE_PATTERNS();
+    bgPtrn.recordBlocks();
+
+    auto draw_objects = [&]() {
+        errorOut.Draw();
+        fpsMsg.Draw();
+        output1.Draw();
+        clientMsg.Draw();
+        output3.Draw();
+        g_screen.DrawButtons();
+        };
+    draw_objects();
+
+    // loop
+    while (!APP_KILLED) {
+        // check on network traffic
+        bytesReceived = server.receive_data(buffer, buffer_size);
+        if (bytesReceived != -WSAEWOULDBLOCK) {
+            // An error or disconnect occurred
+            cleanUp();
+            return -1;
+        }
+        if (bytesReceived > -1) {
+            cleanUp();
+            return bytesReceived;
+        }
+
+        // do stuff here
+
+        /* Animation */
+        if (lastAniFrame != g_frameNum) {
+            lastAniFrame = g_frameNum;
+
+            if ((counter - 1) % 26 == 0) {
+                bgPtrn.drawPtrnDiag(bgDrawCount);
+                if(++bgDrawCount > 9){
+                    bgDrawCount = 0;
+                    bgPtrn.shiftPtrnLeft();
+                }
+                draw_objects();
+            }
+
+            
+            output2.SetText(ConnectAnimationLeft[g_frameNum]);
+            output2.SetPosition((consoleWidth / 2) - (len/2) - 5, 7);
+            output2.Draw();
+
+            output2.SetText(ConnectAnimationRight[g_frameNum]);
+            output2.SetPosition((consoleWidth / 2) + (len / 2) + 2, 7);
+            output2.Draw();
+
+
+        }
+        if (counter % 13 == 0) {
+            loopCount(g_frameNum, CX_ANI_FRAME_COUNT);
+        }
+        
+
+        screenLoop(g_screen);
+        Sleep(20);
+        counter++;
     }
 }
 
