@@ -123,11 +123,18 @@ int main(int argc, char* argv[]) {
             // Receive joystick input from client to the buffer
             bytesReceived = server.receive_data(buffer, buffer_size);
             if (bytesReceived < 1) {
-                int len = INET_ADDRSTRLEN + 31;
-                swprintf(errorPointer, len, L" << Connection From: %S Lost >> ", connectionIP);
-                errorOut.SetWidth(len);
-                errorOut.SetText(errorPointer);
-                break;
+                if (WSAGetLastError() == WSAETIMEDOUT) {
+                    bytesReceived = JOYRECEIVER_tUI_WAIT_FOR_CLIENT_MAPPING(server, buffer, buffer_size);
+                    fps_counter.reset();
+                    g_status |= REDRAW_tUI_f;
+                }
+                else {
+                    int len = INET_ADDRSTRLEN + 31;
+                    swprintf(errorPointer, len, L" << Connection From: %S Lost >> ", connectionIP);
+                    errorOut.SetWidth(len);
+                    errorOut.SetText(errorPointer);
+                    break;
+                }
             }
 
             //******************************
