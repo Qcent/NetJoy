@@ -312,6 +312,7 @@ void REDRAW_CX_TEXT() {
 
     errorOut.Draw();
     output1.Draw();
+    COLOR_EGGS();
     g_screen.DrawButtons();
 
     /* Show PORT and IPs */
@@ -416,7 +417,7 @@ void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(TCPConnection& server, Arguments&
     }
 
     COLOR_AND_DRAW_CX_tUI();
-    COLOR_EGGS();
+    //COLOR_EGGS();
 
     /* Set up thread */
     allGood = WSAEWOULDBLOCK;
@@ -480,7 +481,7 @@ void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(TCPConnection& server, Arguments&
             leftBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
             rightBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
             ani2.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
-            COLOR_EGGS();
+            //COLOR_EGGS();
             PRINT_EGG_X();
         }
         if (g_status & REDRAW_tUI_f) {
@@ -489,7 +490,7 @@ void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(TCPConnection& server, Arguments&
             leftBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
             rightBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
             ani2.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
-            COLOR_EGGS();
+            //COLOR_EGGS();
             PRINT_EGG_X();
         }
         if (g_status & REFLAG_tUI_f) {
@@ -512,6 +513,7 @@ void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(TCPConnection& server, Arguments&
     }
     connectThread.detach();
     g_screen.RemoveButton(&colorEgg);
+    g_screen.RemoveButton(&borderEgg);
     CLEAN_EGGS();
     memset(feedbackData, 0, sizeof(feedbackData));
 
@@ -532,7 +534,6 @@ void RECOLOR_MAIN_LOOP_tUI() {
     tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
     /* Color non-controller buttons */
     g_screen.SetButtonsColors(buttonColors);
-    COLOR_EGGS();
 }
 
 void REDRAW_MAIN_LOOP_tUI() {
@@ -555,6 +556,7 @@ void REDRAW_MAIN_LOOP_tUI() {
         button_R2_outline.SetText(button_L2_outline1);
     }
     ReDrawControllerFace(g_screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, g_mode, (g_status & BORDER_EGG_a));
+    COLOR_EGGS();
     g_screen.DrawButtons();
     output1.Draw();
     clientMsg.Draw();
@@ -622,15 +624,13 @@ void BUILD_MAIN_LOOP_tUI(char* connectionIP) {
     tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
     /* Color non-controller buttons and draw them */
     g_screen.SetButtonsColors(buttonColors);
-    COLOR_EGGS();
 
     g_status |= REDRAW_tUI_f;
 }
 
-
 void EGG_LOOP() {
     if (g_status & RECOL_tUI_f) {
-        g_status &= ~RECOL_tUI_f;
+        g_status &= ~(RECOL_tUI_f | REDRAW_tUI_f);
         RECOLOR_MAIN_LOOP_tUI();
         g_screen.DrawBackdrop();
         if (g_status & PTRN_EGG_b) {
@@ -645,8 +645,6 @@ void EGG_LOOP() {
             rightBorderPiece.Update();
             leftBorderPiece.Update();
         }
-
-        COLOR_EGGS();
         PRINT_EGG_X();
     }
     if (g_status & REDRAW_tUI_f) {
@@ -660,7 +658,6 @@ void EGG_LOOP() {
             rightBorderPiece.Update();
             leftBorderPiece.Update();
         }
-        COLOR_EGGS();
         PRINT_EGG_X();
     }
     if (g_status & REFLAG_tUI_f) {

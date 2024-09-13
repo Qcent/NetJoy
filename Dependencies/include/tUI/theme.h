@@ -466,7 +466,6 @@ tUIColorPkg GET_EGG_COLOR() {
 void COLOR_EGGS() {
     tUIColorPkg colors = GET_EGG_COLOR();
     g_screen.SetButtonsColorsById(colors, { 42,43,44,45,46,47 });
-    //g_screen.DrawButtons();  // commenting this may break things but im trying it here 
 }
 
 void THE_HEARTENING() {

@@ -33,7 +33,6 @@ console con(consoleWidth, consoleHeight);
 int main(int argc, char* argv[]) {
     JOYRECEIVER_INIT_VARIABLES();
 
-    char connectionIP[INET_ADDRSTRLEN];
     auto do_fps_counting = [&fps_counter](int report_frequency = 30) {
         if (fps_counter.increment_frame_count() >= report_frequency) {
             double fps = fps_counter.get_fps();
