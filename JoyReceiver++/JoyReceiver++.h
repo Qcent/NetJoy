@@ -85,14 +85,15 @@ std::unique_lock<std::mutex> lock(mtx, std::defer_lock); \
 int allGood; \
 UINT8 connection_error_count = 0; \
 char buffer[64] = { 0 }; \
-int buffer_size = sizeof(buffer); \
+constexpr int buffer_size = sizeof(buffer); \
 int bytesReceived = 0; \
 int op_mode = 0; \
 int client_timing = 0; \
 double expectedFrameDelay = 0; \
 std::string externalIP; \
 std::string localIP; \
-std::string fpsOutput; 
+std::string fpsOutput; \
+char connectionIP[INET_ADDRSTRLEN];
  
 
 #define JOYRECEIVER_INIT_VIGEM_BUS() \
@@ -108,7 +109,7 @@ if (!VIGEM_SUCCESS(vigemErr)){ \
 }
 
 #define JOYRECEIVER_DETERMINE_IPS_START_SERVER() \
-externalIP = server.get_external_ip(); \
+externalIP = "192.168.15.12";/*server.get_external_ip(); */\
 localIP = server.get_local_ip(); \
 server.set_silence(true); \
 server.start_server(); 
@@ -141,6 +142,8 @@ server.start_server();
             } \
         } else { \
             connection_error_count = 0; \
+            sockaddr_in clientAddress = connectionResult.second; \
+            inet_ntop(AF_INET, &(clientAddress.sin_addr), connectionIP, INET_ADDRSTRLEN); \
             break; \
         } \
     } \
@@ -151,12 +154,19 @@ server.start_server();
 }
 
 #define JOYRECEIVER_GET_MODE_AND_TIMING_FROM_BUFFER() \
-{\
+try {\
     std::vector<std::string> split_settings = split(std::string(buffer, bytesReceived), ':'); \
     client_timing = std::stoi(split_settings[0]); \
     op_mode = (split_settings.size() > 1) ? std::stoi(split_settings[1]) : 0; \
     expectedFrameDelay = 1000.0 / client_timing; \
+} \
+catch (...) { \
+    std::cerr << "\r\n<< Illegal connection attempted: program exiting >>" << std::endl; \
+    std::cerr << " Received from " << connectionIP << ": " << std::endl; \
+    displayBytes((BYTE*)buffer, bytesReceived); \
+    std::cerr << std::endl << std::string(buffer, bytesReceived) << std::endl; \
 }
+
 
 #define JOYRECEIVER_PLUGIN_VIGEM_CONTROLLER() \
 { \

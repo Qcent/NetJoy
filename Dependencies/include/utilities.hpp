@@ -242,3 +242,10 @@ bool getCharsAtPosition(int x, int y, int len, TCHAR* buffer) {
     //buffer.resize(charsRead);
     return true;
 }
+
+void displayBytes(BYTE* buffer, DWORD bufferSize) {
+    for (DWORD i = 0; i < bufferSize; i++) {
+        printf("%02X ", buffer[i]);
+    }
+    printf("\r\n");
+}
