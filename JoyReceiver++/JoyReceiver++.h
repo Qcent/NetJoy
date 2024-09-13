@@ -71,6 +71,7 @@ xbox_rumble( PVIGEM_CLIENT Client, PVIGEM_TARGET Target,
 
 // xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 // Defined Common Functionality
+#define NETWORK_TIMEOUT_MILLISECONDS 800
 
 #define JOYRECEIVER_INIT_VARIABLES() \
 Arguments args = parse_arguments(argc, argv); \
@@ -150,6 +151,7 @@ server.start_server();
     if (!APP_KILLED) { \
         server.set_client_blocking(true); \
         server.set_server_blocking(true); \
+        server.set_server_timeout(NETWORK_TIMEOUT_MILLISECONDS); \
     } \
 }
 
