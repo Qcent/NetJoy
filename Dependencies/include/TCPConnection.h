@@ -49,6 +49,7 @@ private:
     // Header packing and unpacking methods...
     std::vector<char> pack_header(const std::unordered_map<std::string, std::string>& header);
     std::unordered_map<std::string, std::string> unpack_header(const char* headerData, int dataSize);
+    void setSocketTimeout(int socket, int timeoutMillisec);
 
 public:
     // Constructor and destructor...
@@ -62,6 +63,8 @@ public:
     void set_silence(bool setting);
     int set_server_blocking(bool block=true);
     int set_client_blocking(bool block=true);
+    void set_server_timeout(int timeoutMillisec);
+    void set_client_timeout(int timeoutMillisec);
 
     // Server-related methods...
     int start_server();
@@ -220,7 +223,7 @@ int TCPConnection::receive_data(char* buffer, int bufferSize) {
                 std::cerr << "Failed to receive data : " << err << std::endl;
             return -1;
         }
-        return err;
+        return -err; //lets keep errors negative
     }
     return bytesReceived;
 }
@@ -358,6 +361,27 @@ int TCPConnection::set_server_blocking(bool block) {
 int TCPConnection::set_client_blocking(bool block) {
     u_long mode = !block;
     return ioctlsocket(clientSocket, FIONBIO, &mode);
+}
+
+void TCPConnection::setSocketTimeout(int socket, int timeoutMillisec) {
+    // Set receive timeout
+    if (setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeoutMillisec, sizeof(timeoutMillisec)) < 0) {
+        if (!silent)
+            std::cerr << "Error setting receive timeout" << std::endl;
+    }
+
+    // Set send timeout
+    if (setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, (const char*)&timeoutMillisec, sizeof(timeoutMillisec)) < 0) {
+        if (!silent)
+            std::cerr << "Error setting send timeout" << std::endl;
+    }
+}
+
+void TCPConnection::set_server_timeout(int timeoutMillisec) {
+    setSocketTimeout(serverSocket, timeoutMillisec);
+}
+void TCPConnection::set_client_timeout(int timeoutMillisec) {
+    setSocketTimeout(clientSocket, timeoutMillisec);
 }
 
 std::string TCPConnection::get_local_ip() {
