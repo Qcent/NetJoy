@@ -340,6 +340,7 @@ void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(TCPConnection& server, Arguments&
     /* Set up animation variables */
     int frameDelay = 0;
     int footFrameNum = 0;
+    bool no_theme = false;
     std::memcpy(feedbackData, (void*)&args.port, sizeof(int)); // you wanna get nuts? let's get nutz
     mouseButton leftBorderPiece(3, 18, 2, L"\\\t\t\t \t");
     mouseButton rightBorderPiece(68, 18, 5, rsideFooter);
@@ -382,6 +383,11 @@ void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(TCPConnection& server, Arguments&
             }
             g_status |= tUI_LOADED_f | REDRAW_tUI_f;
         }
+        else
+            no_theme = true;
+    }
+    else{
+        g_status |= tUI_RESTART_f;
     }
 
     CX_EGG_BUTTS();
@@ -405,7 +411,7 @@ void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(TCPConnection& server, Arguments&
         }
     }
 
-    if ((g_status & tUI_LOADED_f) || (g_status & tUI_RESTART_f)) {
+    if (no_theme || (g_status & tUI_RESTART_f)) {
         if (g_status & BORDER_EGG_a) {
             SPEC_EGGS();
         }
@@ -533,6 +539,7 @@ void RECOLOR_MAIN_LOOP_tUI() {
     tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
     /* Color non-controller buttons */
     g_screen.SetButtonsColors(buttonColors);
+    // g_screen.SetBackdropColor(); i should probaby set this
 }
 
 void REDRAW_MAIN_LOOP_tUI() {
@@ -731,6 +738,44 @@ int JOYRECEIVER_tUI_WAIT_FOR_CLIENT_MAPPING(TCPConnection& server, char* buffer,
 
         // do stuff here
 
+        if (g_status & RECOL_tUI_f) {
+            g_status &= ~RECOL_tUI_f;
+            RECOLOR_MAIN_LOOP_tUI();
+            bgPtrn.setColors(fullColorSchemes[g_currentColorScheme]);
+            g_status |= REDRAW_tUI_f;
+        }
+        if (g_status & REDRAW_tUI_f) {
+            g_status &= ~REDRAW_tUI_f;
+            COLOR_EGGS();
+
+            if (g_status & BORDER_EGG_a) {
+                setCursorPosition(0,0);
+                setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
+                std::wcout << JoyRecvMain_Backdrop;
+            }
+
+            bgPtrn.drawPtrn();
+            bgPtrn.shiftPtrnLeft();
+            bgDrawCount = 0;
+            draw_objects();
+            PRINT_EGG_X();
+        }
+        if (g_status & REFLAG_tUI_f) {
+            g_status &= ~REFLAG_tUI_f;
+            mouseButton* applyTheme = g_screen.GetButtonById(46);
+            if (applyTheme != nullptr) {
+                if (!(g_status & tUI_THEME_af)) {
+                    applyTheme->SetText(L"◊");
+                    applyTheme->Update();
+                }
+                if (g_status & tUI_THEME_af) {
+                    applyTheme->SetText(L"♦");
+                    applyTheme->Update();
+                }
+            }
+        }
+
+
         /* Animation */
         if (lastAniFrame != g_frameNum) {
             lastAniFrame = g_frameNum;
@@ -797,9 +842,10 @@ void newControllerColorsCallback(mouseButton& button) {
         g_currentColorScheme = RANDOMSCHEME;
 
         g_screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].controllerBg);
-        RECOLOR_MAIN_LOOP_tUI();
+        //RECOLOR_MAIN_LOOP_tUI();
 
         // draw messages
-        g_status |= REDRAW_tUI_f;
+        g_status |= RECOL_tUI_f | REFLAG_tUI_f;
+        g_status &= ~tUI_THEME_af;
     }
 }
