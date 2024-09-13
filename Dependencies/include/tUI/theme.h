@@ -418,6 +418,10 @@ public:
         return true;
     }
 
+    void setColors(FullColorScheme& scheme) {
+        _colors = scheme;
+    }
+
     void const restoreColors(FullColorScheme& scheme) {
         scheme = _colors;
     }
@@ -435,6 +439,23 @@ public:
         }
         return 1;
     }
+
+    void drawPtrnDiag(int block) {
+        int dir = _ptrnBlocks[10] * -1;
+        setTextColor(_colors.menuBg);
+        printDiagonalPattern(2, 19, 5, (block+9) + dir * 7, 68, -7, getWcharFromByte(_ptrnBlocks[block]), dir);
+    }
+
+    void shiftPtrnLeft() {
+        byte temp = _ptrnBlocks[0];
+
+        for (int i = 1; i < 10; ++i) {
+            _ptrnBlocks[i - 1] = _ptrnBlocks[i];
+        }
+        _ptrnBlocks[9] = temp;
+    }
+
+
 };
 
 byte g_currentColorScheme;
@@ -632,6 +653,26 @@ void MAKE_PATTERNS() {
     printDiagonalPattern(2, 19, 5, numbers[7] + dir * 7, 68, -7, blocks[3], dir);
     printDiagonalPattern(2, 19, 5, numbers[8] + dir * 7, 68, -7, L'░', dir);
     printDiagonalPattern(2, 19, 5, numbers[9] + dir * 7, 68, -7, L'▒', dir);
+}
+
+// dont really like this function
+void RANDOM_DIAGONAL(int col = -1) {
+    std::vector<wchar_t> blocks = { L'▓', L'▒', L'█', L'▓', L'░', L'▒' };
+    std::vector<int> startpoints = { 9, 10, 11, 12, 13, 14, 15, 16, 17, 18 };
+    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+    std::default_random_engine rng(seed);
+    std::shuffle(startpoints.begin(), startpoints.end(), rng);
+
+    int block = generateRandomInt(0, 5);
+    int dir = generateRandomInt(-1, 0);
+    int start = generateRandomInt(0, 9);
+
+    if(col > -1)
+        setTextColor(col);
+    else
+        setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
+
+    printDiagonalPattern(2, 19, 5, start + dir * 7, 68, -7,blocks[block], dir);
 }
 
 void MORPH_BORDER() {
