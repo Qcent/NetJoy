@@ -66,7 +66,6 @@ int joySendertUI(Arguments& args) {
     
     g_mode = args.mode;
     JOYSENDER_tUI_INIT_UI();
-    g_screen.AddButton(&quitButton);
     
     // User or Auto Select Gamepad
     if (!JOYSENDER_tUI_SELECT_JOYSTICK(activeGamepad, args, allGood)) {
