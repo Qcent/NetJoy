@@ -63,7 +63,7 @@ void printCurrentController(SDLJoystickData& activeGamepad);
 char IpInputLoop();
 int screenLoop(textUI& screen);
 int tUISelectJoystickDialog(SDLJoystickData& joystick, textUI& screen);
-int tUISelectDS4Dialog(std::vector<HidDeviceInfo>devList, textUI& screen);
+int tUISelectDS4Dialog(std::vector<HidDeviceInfo>devList, textUI& screen, int autoSelect);
 std::string tUIGetHostAddress(textUI& screen);
 void threadedEstablishConnection(TCPConnection& client, int& retVal);
 int tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonName>& inputList);
@@ -1083,7 +1083,7 @@ int tUISelectJoystickDialog(SDLJoystickData& joystick, textUI& screen) {
     return 1;
 }
 
-int tUISelectDS4Dialog(std::vector<HidDeviceInfo> devList, textUI& screen) {
+int tUISelectDS4Dialog(std::vector<HidDeviceInfo> devList, textUI& screen, int autoSelect) {
     constexpr int START_LINE = 7;
     constexpr int START_COL = 18;
 
@@ -1098,11 +1098,13 @@ int tUISelectDS4Dialog(std::vector<HidDeviceInfo> devList, textUI& screen) {
     g_joystickSelected = -1;
 
     if (!numJoysticks) {
-        //APP_KILLED = true;
         errorOut.SetPosition(consoleWidth / 2, START_LINE + 1, 50, 0, ALIGN_CENTER);
     }
     else {
         errorOut.SetPosition(consoleWidth / 2, 4, 50, 0, ALIGN_CENTER);
+        if (autoSelect) {
+            g_joystickSelected = 0;
+        }
     }
 
     std::vector<mouseButton> gamepadButtons;
@@ -1177,7 +1179,6 @@ int tUISelectDS4Dialog(std::vector<HidDeviceInfo> devList, textUI& screen) {
         screen.AddButton(&gamepadButtons.back());
     }
 
-
     quitButton.SetPosition(10, 17);
     screen.AddButton(&quitButton);
 
@@ -1240,7 +1241,7 @@ int tUISelectDS4Dialog(std::vector<HidDeviceInfo> devList, textUI& screen) {
                 setErrorMsg(L"\0", 1); // clear errors
             }
             cleanMemory();
-            return tUISelectDS4Dialog(newConnections, screen);
+            return tUISelectDS4Dialog(newConnections, screen, autoSelect);
         }
 
 
@@ -2517,7 +2518,7 @@ int JOYSENDER_tUI_SELECT_JOYSTICK(SDLJoystickData& activeGamepad, Arguments& arg
           break;
     case 2: {   // DS4 MODE
         g_screen.DrawBackdrop();
-        allGood = tUISelectDS4Dialog(getDS4ControllersList(), g_screen);
+        allGood = tUISelectDS4Dialog(getDS4ControllersList(), g_screen, args.select);
         if (!allGood) {
             if (RESTART_FLAG) return 0;
             g_screen.DrawBackdrop();
