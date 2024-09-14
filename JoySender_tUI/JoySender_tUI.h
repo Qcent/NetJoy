@@ -969,6 +969,7 @@ int tUISelectJoystickDialog(SDLJoystickData& joystick, textUI& screen) {
     }
 
     quitButton.SetPosition(10, 17);
+    g_screen.AddButton(&quitButton);
 
     g_status |= RECOL_tUI_f;
 
@@ -2471,6 +2472,10 @@ int JOYSENDER_tUI_SELECT_JOYSTICK(SDLJoystickData& activeGamepad, Arguments& arg
         if (g_status & PTRN_EGG_b) {
             theme.drawPtrn();
         }
+        if (g_status & tUI_RESTART_f) {
+            Sleep(1000); // when connected locally trying to connect to a contoller connection that has just restarted = bad
+            // this hopefully gives time for emulated controller to fully disconnect
+        }
         g_status &= ~tUI_RESTART_f;
         g_status |= REDRAW_tUI_f;
     }
@@ -2848,7 +2853,6 @@ void JOYSENDER_tUI_BUILD_MAIN_LOOP(Arguments& args) {
     // color non controller buttons and draw them
     restartButton[3].SetColors(buttonColors);  // mode section of restart button
     g_screen.SetButtonsColors(buttonColors);
-    //g_screen.DrawButtons();
 
     restartButton[0].setCallback(restartStatusCallback);
     restartButton[1].setCallback(restartModeCallback);
@@ -2883,10 +2887,6 @@ void JOYSENDER_tUI_BUILD_MAIN_LOOP(Arguments& args) {
         fpsMsg.SetPosition(60, 1);
     }
 
-    //restartButton[3].Draw(-2); // in x64 release build the default parameter of -1 does not work??? debug show it set as 0. manually specifying value less then -1 here works
-    //output1.Draw();
-    //hostMsg.Draw();
-
     COLOR_EGGS();
     REDRAW_MAIN_LOOP_tUI();
 }
@@ -2913,7 +2913,7 @@ void REDRAW_MAIN_LOOP_tUI() {
     SET_SHOULDER_BUTTONS_FOR_BG();
     ReDrawControllerFace(g_screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, g_mode, (g_status & BORDER_EGG_a));
     g_screen.DrawButtons();
-    restartButton[3].Draw(-2);
+    restartButton[3].Draw(-2); // in x64 release build the default parameter of -1 does not work??? debug show it set as 0. manually specifying value less then -1 here works
     output1.Draw();
     hostMsg.Draw();
     output3.Draw();
