@@ -32,6 +32,7 @@ constexpr byte DS4_VIA_BT = 3;
 
 
 // for testing
+#if 0
 void displayBytes(BYTE* buffer, DWORD bufferSize) {
     for (DWORD i = 0; i < bufferSize; i++) {
         // Check if the current byte is "CC"
@@ -77,6 +78,7 @@ void outputLastError() {
     DWORD errorNum = GetLastError();
     PrintErrorMessage(errorNum);
 }
+#endif
 
 
 template<int N> struct BTAudio {

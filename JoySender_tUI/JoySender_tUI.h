@@ -283,41 +283,6 @@ void joystickSelectCallback(mouseButton& button) {
 }
 
 // will generate a new color scheme for program and controller face
-void og_newControllerColorsCallback(mouseButton& button) {
-  
-    if (button.Status() & MOUSE_UP) {
-        button.SetStatus(MOUSE_OUT);
-
-        WORD newRandomBG = generateRandomInt(0, 15) << 4;
-    
-        // update globals for universal color consistency
-        g_simpleScheme = createRandomScheme();
-        ColorScheme menuScheme = createRandomScheme();
-        fullColorSchemes[RANDOMSCHEME] = trueFullSchemeFromSimpleScheme(g_simpleScheme, menuScheme, newRandomBG);
-        g_currentColorScheme = RANDOMSCHEME;
-
-        g_screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].controllerBg);
-        // Draw Controller
-        ReDrawControllerFace(g_screen, g_simpleScheme, newRandomBG, g_mode);
-
-        tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[RANDOMSCHEME].controllerColors);
-
-        // non controller buttons
-        restartButton[3].SetColors(buttonColors);  // mode section of restart button
-        g_screen.SetButtonsColors(buttonColors);
-        g_screen.DrawButtons();
-        restartButton[3].Draw();
-
-        // on screen text 
-        output1.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
-        hostMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
-        fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
-
-        // redraw messages
-        output1.Draw();
-        hostMsg.Draw();
-    }
-}
 void newControllerColorsCallback(mouseButton& button) {
     if (button.Status() & MOUSE_UP) {
         button.SetStatus(MOUSE_OUT);
@@ -326,7 +291,7 @@ void newControllerColorsCallback(mouseButton& button) {
         // update globals for universal color consistency
         g_simpleScheme = createRandomScheme();
         ColorScheme menuScheme = createRandomScheme();
-        fullColorSchemes[RANDOMSCHEME] = trueFullSchemeFromSimpleScheme(g_simpleScheme, menuScheme, newRandomBG);
+        fullColorSchemes[RANDOMSCHEME] = fullSchemeFromSimpleScheme(g_simpleScheme, menuScheme, newRandomBG);
         g_currentColorScheme = RANDOMSCHEME;
 
         g_screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].controllerBg);
@@ -1055,10 +1020,8 @@ int tUISelectJoystickDialog(SDLJoystickData& joystick, textUI& screen) {
 
         if (MAPPING_FLAG > 199) {
             int stickIdx = MAPPING_FLAG-200;
-            int allGood = 0;
             if (ConnectToJoystick(stickIdx, joystick)) {
                 BuildJoystickInputData(joystick);
-
 
                 std::string mapName = encodeStringToHex(joystick.name);
                 auto result = check_for_saved_mapping(mapName);
@@ -2238,7 +2201,6 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick) {
         }
 
         JOYSENDER_tUI_EGG_LOOP(re_color, draw_screen);
-        //JOYSENDER_tUI_ANIMATE_FOOTER();
 
         Sleep(20);
     }

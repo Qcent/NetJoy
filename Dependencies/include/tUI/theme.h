@@ -169,34 +169,7 @@ tUIColorPkg controllerButtonsToScreenButtons(tUIColorPkg& inButs) {
 }
 
 // converts a simple color scheme to a full color scheme *random color scheme generation can be converted to a full scheme
-FullColorScheme fullSchemeFromSimpleScheme(ColorScheme& simp, WORD bg) {
-    FullColorScheme ret = {
-        L"Random",
-        {
-            // Menu Colors
-            BLACK | (GREY AS_BG),			// Header
-            BLACK | (RED AS_BG),		        // Error
-            BLACK | (BRIGHT_GREY AS_BG),		// message 1
-            BLACK | (WHITE AS_BG)			// message 2
-        },
-        {
-            // Controller Colors
-            static_cast<WORD>(simp.outlineColor | simp.faceColor),	    // outline | faceColor 
-            static_cast<WORD>(simp.buttonColor | simp.faceColor),		// buttonColor
-            static_cast<WORD>(simp.highlightColor | simp.faceColor),	    // highlightColor
-            simp.selectColor                         // selectColor 
-        },
-        // Menu background
-        BLACK | (WHITE AS_BG),
-        // Controller background
-        static_cast<WORD>(simp.outlineColor | bg)
-    };
-
-    return ret;
-}
-
-// converts a simple color scheme to a full color scheme *random color scheme generation can be converted to a full scheme
-FullColorScheme trueFullSchemeFromSimpleScheme(ColorScheme& simp, ColorScheme& menu, WORD bg) {
+FullColorScheme fullSchemeFromSimpleScheme(ColorScheme& simp, ColorScheme& menu, WORD bg) {
     FullColorScheme ret = {
         L"Random",
         {
@@ -621,7 +594,7 @@ void GET_NEW_COLOR_SCHEME() {
         ColorScheme menuScheme = createRandomScheme();
         WORD newRandomBG = generateRandomInt(0, 15) AS_BG;
         ColorScheme randomScheme = createRandomScheme();
-        fullColorSchemes[RANDOMSCHEME] = trueFullSchemeFromSimpleScheme(randomScheme, menuScheme, newRandomBG);
+        fullColorSchemes[RANDOMSCHEME] = fullSchemeFromSimpleScheme(randomScheme, menuScheme, newRandomBG);
     }
     g_simpleScheme = simpleSchemeFromFullScheme(fullColorSchemes[g_currentColorScheme]); /* Set for compatibility with DrawControllerFace */
 }
