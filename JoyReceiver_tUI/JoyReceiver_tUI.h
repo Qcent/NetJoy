@@ -835,11 +835,10 @@ void newControllerColorsCallback(mouseButton& button) {
         // update globals for universal color consistency
         g_simpleScheme = createRandomScheme();
         ColorScheme menuScheme = createRandomScheme();
-        fullColorSchemes[RANDOMSCHEME] = trueFullSchemeFromSimpleScheme(g_simpleScheme, menuScheme, newRandomBG);
+        fullColorSchemes[RANDOMSCHEME] = fullSchemeFromSimpleScheme(g_simpleScheme, menuScheme, newRandomBG);
         g_currentColorScheme = RANDOMSCHEME;
 
         g_screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].controllerBg);
-        //RECOLOR_MAIN_LOOP_tUI();
 
         // draw messages
         g_status |= RECOL_tUI_f | REFLAG_tUI_f;
