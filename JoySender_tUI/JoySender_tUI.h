@@ -1788,6 +1788,7 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick) {
     // import the eggs from g_screen
     load_eggs();
 
+    errorOut.SetText(L"\0");
     quitButton.SetPosition(CONSOLE_WIDTH / 2 - 5, XBOX_QUIT_LINE + 1);
     screen.AddButton(&quitButton);
     otherButtons.AddButton(&quitButton);
@@ -1855,18 +1856,8 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick) {
 
         currentInputTitle.SetColor(BRIGHT_BLUE);
         currentInputMap.SetColor(YELLOW);
-        output3.SetColor(BRIGHT_RED | BLUE AS_BG);
-        
-        if (g_status & PTRN_EGG_b) {
-            outlineRedraw.SetDefaultColor(fullColorSchemes[g_currentColorScheme].controllerBg);
-        }
-        else if(g_status & BORDER_EGG_a) {
-            outlineRedraw.SetDefaultColor(fullColorSchemes[g_currentColorScheme].controllerBg);
-        }
-        else {
-            outlineRedraw.SetDefaultColor(fullColorSchemes[g_currentColorScheme].controllerBg);
-        }
-
+        output3.SetColor(BRIGHT_RED | BLUE AS_BG);        
+        outlineRedraw.SetDefaultColor(fullColorSchemes[g_currentColorScheme].controllerBg);
         faceRedraw.SetDefaultColor(fullColorSchemes[g_currentColorScheme].controllerColors.col1);
         
         tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);

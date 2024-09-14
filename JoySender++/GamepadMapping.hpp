@@ -212,6 +212,7 @@ public:
     int saveMapping(const std::string& filename) {
         std::ofstream file(filename, std::ios::binary);
         if (file.is_open()) {
+            file.write("v2", 2);
             std::vector<std::tuple<ButtonName, ButtonType, int, int, int>> buttonList;
             for (const auto& buttonMap : buttonMaps) {
                 const auto& buttonName = buttonMap.first;
@@ -239,22 +240,17 @@ public:
             std::size_t fileSize = static_cast<std::size_t>(file.tellg());
             file.seekg(0, std::ios::beg);
 
-            if (fileSize % sizeof(std::tuple<ButtonName, ButtonType, int, int, int>) != 0) {
-                // Error: Invalid file size for mapping version 2
-                // Check if size matches version 1
-                if(fileSize % sizeof(std::tuple<ButtonName, ButtonType, int, int>) == 0) {
-                    V1_Flag = true;
-                    g_outputText += OLDMAP_WARNING_MSG;
-                    g_outputText += "\r\n";
-                }
-                else {
-                    file.close();
-                    return 0;
-                }
+            char version[2];
+            file.read(version, 2);
+            if (version[0] != 'v' && version[1] != '2') {
+                V1_Flag = true;
+                g_outputText += OLDMAP_WARNING_MSG;
+                g_outputText += "\r\n";
             }
 
             if (V1_Flag) {
                 // Old format
+                file.seekg(0, std::ios::beg);
                 std::vector<std::tuple<ButtonName, ButtonType, int, int>> buttonList(fileSize / sizeof(std::tuple<ButtonName, ButtonType, int, int>));
                 file.read(reinterpret_cast<char*>(buttonList.data()), static_cast<std::streamsize>(fileSize));
 
