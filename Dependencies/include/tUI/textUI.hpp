@@ -1159,6 +1159,19 @@ public:
         }
     }
 
+    void UpdateButtonsById(std::vector<int> IDs) {
+        if (_buttonsCount == 0) return;
+        for (int i = 0; i < _buttonsCount; i++) {
+            int id = _buttons[i]->GetId();
+            auto found = std::find(IDs.begin(), IDs.end(), id);
+            if (found != IDs.end()) {
+                _buttons[i]->Update();
+                if (IDs.size() == 1) return;
+                else IDs.erase(found);
+            }
+        }
+    }
+
     void SetButtonsCallback(mouseButton::CallbackFunction cbFunc) {
         for (int i = 0; i < _buttonsCount; i++) {
             _buttons[i]->setCallback(cbFunc);
