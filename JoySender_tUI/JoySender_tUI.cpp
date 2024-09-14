@@ -260,8 +260,9 @@ int joySendertUI(Arguments& args) {
                 if (getKeyState('2'))
                     RESTART_FLAG = 3;
             }
-            g_screen.ClearButtons();
+            g_screen.ClearButtonsExcept({ 42,45,46,47 });
             g_screen.SetBackdrop(JoySendMain_Backdrop);
+            g_status |= tUI_RESTART_f;
             return RESTART_FLAG;
         }
 

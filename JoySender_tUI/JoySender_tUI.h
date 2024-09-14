@@ -272,7 +272,7 @@ void joystickSelectCallback(mouseButton& button) {
                 std::wcout << bgFill[i];
             }
         }
-        else {
+        else if(mapBtn->Settings()==0){
             mapBtn->Clear(fullColorSchemes[g_currentColorScheme].menuBg);
         }
         COORD loc = button.GetPosition();
@@ -797,7 +797,6 @@ void JOYSENDER_tUI_EGG_LOOP(std::function<void()>re_color, std::function<void()>
     }
     if (g_status & REDRAW_tUI_f) {
         g_status &= ~REDRAW_tUI_f;
-        g_screen.DrawBackdrop();
         if (g_status & PTRN_EGG_b) {
             MAKE_PATTERNS();
         }
@@ -836,7 +835,6 @@ int tUISelectJoystickDialog(SDLJoystickData& joystick, textUI& screen) {
     joystick_list = SDL_GetJoysticks(&numJoysticks);
 
     if (!numJoysticks) {
-        //APP_KILLED = true;
         errorOut.SetPosition(consoleWidth / 2, START_LINE+1, 50, 0, ALIGN_CENTER);
     }
     else {
@@ -861,7 +859,7 @@ int tUISelectJoystickDialog(SDLJoystickData& joystick, textUI& screen) {
     output1.SetText(msgPointer1);
 
     // map from sellect screen
-    mouseButton remapSelectScreenButton(CONSOLE_WIDTH / 2 - 5, 8, 18, L"\t\t\t\t╔════════════╗◄───╢ MAP INPUTS ║\t\t\t\t╚════════════╝");
+    mouseButton remapSelectScreenButton(CONSOLE_WIDTH + 10, 8, 18, L"\t\t\t\t╔════════════╗◄───╢ MAP INPUTS ║\t\t\t\t╚════════════╝");
     remapSelectScreenButton.SetSettings(INACTIVE);
     remapSelectScreenButton.setCallback([](mouseButton& btn) {
         if (btn.Settings() & INACTIVE) return;
@@ -2409,8 +2407,6 @@ void JOYSENDER_tUI_INIT_UI() {
     OLDMAP_FLAG = 0;
     RESTART_FLAG = 0;
     MAPPING_FLAG = 0;
-    
-    GET_NEW_COLOR_SCHEME(); 
 
     // set element properties
     CoupleControllerButtons(); // sets up controller outline/highlight coupling for nice looks & button ids
@@ -2451,6 +2447,9 @@ int JOYSENDER_tUI_SELECT_JOYSTICK(SDLJoystickData& activeGamepad, Arguments& arg
                 theme.drawPtrn();
             }
             g_status |= tUI_LOADED_f | REDRAW_tUI_f;
+        }
+        else {
+            GET_NEW_COLOR_SCHEME();
         }
     }
     DEFAULT_EGG_BUTTS();
@@ -2962,9 +2961,6 @@ void EGG_LOOP()
         }
     }
 }
-
-
-
 
 void JOYSENDER_tUI_BUILD_MAP_SCREEN() {
     int QUITLINE;
