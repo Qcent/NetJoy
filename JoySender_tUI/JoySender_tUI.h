@@ -1036,6 +1036,8 @@ int tUISelectJoystickDialog(SDLJoystickData& joystick, textUI& screen) {
                     reset_shared_resources();
                     loadedBgFill = false;
                     errorOut.SetText(L"\0"); // error message is bastardized by remap screen and can safely be discarded
+                    quitButton.SetPosition(10, 17);
+                    screen.AddButton(&quitButton);
                 }
                 g_status |= RECOL_tUI_f;
             }
