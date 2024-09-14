@@ -225,11 +225,8 @@ saveTheme->setCallback([](mouseButton& btn) { \
 
 // to allow for screen loop and animation, wait for connection to client in a separate thread
 void threadedAwaitConnection(TCPConnection& server, int& retVal, char* clientIP) {
-    \
-
-        //
-        // Await Connection in Non Blocking Mode
-        server.set_server_blocking(false);
+    // Await Connection in Non Blocking Mode
+    server.set_server_blocking(false);
     std::pair<SOCKET, sockaddr_in> connectionResult;
     SOCKET clientSocket;
     while (!APP_KILLED && retVal == WSAEWOULDBLOCK) {

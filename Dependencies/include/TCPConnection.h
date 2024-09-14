@@ -37,6 +37,8 @@ THE SOFTWARE.
 
 #pragma comment(lib, "ws2_32.lib")
 
+#define NETWORK_TIMEOUT_MILLISECONDS 800
+
 class TCPConnection {
 private:
     char hostAddress[16];
