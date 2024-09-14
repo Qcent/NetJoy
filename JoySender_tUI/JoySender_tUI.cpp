@@ -71,6 +71,7 @@ int joySendertUI(Arguments& args) {
     if (!JOYSENDER_tUI_SELECT_JOYSTICK(activeGamepad, args, allGood)) {
         if (RESTART_FLAG) {
             g_status |= tUI_RESTART_f;
+            errorOut.SetText(L"\0");
             return RESTART_FLAG;
         }
         return -1;
@@ -265,6 +266,7 @@ int joySendertUI(Arguments& args) {
             }
             g_screen.ClearButtonsExcept({ 42,45,46,47 });
             g_screen.SetBackdrop(JoySendMain_Backdrop);
+            errorOut.SetText(L"\0");
             g_status |= tUI_RESTART_f;
             return RESTART_FLAG;
         }
@@ -277,7 +279,10 @@ int joySendertUI(Arguments& args) {
         }
         g_screen.ClearButtonsExcept({ 42,45,46,47 });
         g_screen.SetBackdrop(JoySendMain_Backdrop);
+        g_status |= tUI_RESTART_f;
     }
+    g_screen.ClearButtonsExcept({ 42,45,46,47 });
+    g_status |= tUI_RESTART_f;
     return APP_KILLED ? 0 : 1;
 }
 

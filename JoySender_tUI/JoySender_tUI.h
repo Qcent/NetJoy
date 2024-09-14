@@ -2416,7 +2416,7 @@ void JOYSENDER_tUI_INIT_UI() {
     g_screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].menuBg);
     output1.SetPosition(14, 5, 50, 1, ALIGN_LEFT); // output1 is a textarea used for g_screen headers/titles
     errorOut.SetPosition(consoleWidth / 2, 4, 50, 0, ALIGN_CENTER); // used for error messaging
-    setErrorMsg(L"\0", 1);
+    //setErrorMsg(L"\0", 1);
     fpsMsg.SetPosition(51, 1, 7, 1, ALIGN_LEFT);                // fps output
     quitButton.setCallback(&exitAppCallback);
     newColorsButton.setCallback(&newControllerColorsCallback);
@@ -2482,7 +2482,7 @@ int JOYSENDER_tUI_SELECT_JOYSTICK(SDLJoystickData& activeGamepad, Arguments& arg
             theme.drawPtrn();
         }
         if (g_status & tUI_RESTART_f) {
-            Sleep(1000); // when connected locally trying to connect to a contoller connection that has just restarted = bad
+            Sleep(200); // when connected locally trying to connect to a contoller connection that has just restarted = bad
             // this hopefully gives time for emulated controller to fully disconnect
         }
         g_status &= ~tUI_RESTART_f;
@@ -2747,7 +2747,7 @@ if (bytesReceived > 0) { \
     failed_connections = 0; \
 } \
 else { \
-    swprintf(errorPointer, 46, L" << Connection To: %S Lost >> ", args.host.c_str()); \
+    swprintf(errorPointer, 46, L" << Connection To: %S Failed >> ", args.host.c_str()); \
     errorOut.SetText(errorPointer); \
     break; \
 }} 
