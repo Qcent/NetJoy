@@ -81,18 +81,19 @@ int main(int argc, char* argv[]) {
         // Receive Operating Mode and Client Timing
         bytesReceived = server.receive_data(buffer, buffer_size);
         if (bytesReceived < 1) {
-            std::cout << "<< Connection Failed >>" << std::endl;
+            std::cout << "<< Connection (" << connectionIP << ") Failed >> " << std::endl;
             break;
         }
         
         JOYRECEIVER_GET_MODE_AND_TIMING_FROM_BUFFER();
+        std::cout << "<< Connection (" << connectionIP << ") Received >> \r\n";
         std::cout << "  Emulating " << ((op_mode == 2) ? "DS4" : "XBOX") << " Controller @ " << client_timing << "fps" << std::endl;
         JOYRECEIVER_PLUGIN_VIGEM_CONTROLLER();
 
         // Send response back to client
         allGood = server.send_data("Go for Joy!", 12);
         if (allGood < 1) {
-            std::cout << "<< Connection Failed >>" << std::endl;
+            std::cout << "<< Connection (" << connectionIP << ") Failed >>" << std::endl;
             break;
         }
         
@@ -147,7 +148,7 @@ int main(int argc, char* argv[]) {
         
         if (!APP_KILLED) {
             std::system("cls");
-            std::cout << "<< Connection Lost >>" << std::endl;
+            std::cout << "<< Connection (" << connectionIP << ") Lost >>" << std::endl;
         }
 
         // Unregister rumble notifications // unplug virtual deveice
