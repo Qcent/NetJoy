@@ -72,6 +72,7 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick);
 void RECOLOR_MAIN_LOOP_tUI();
 void REDRAW_MAIN_LOOP_tUI();
 void JOYSENDER_tUI_BUILD_MAP_SCREEN();
+void SET_SHOULDER_BUTTONS_FOR_BG();
 
 #define MAP_BUTTON_CLICKED 10000  // a value to add to an input index to indicate it was clicked on
 
@@ -1724,7 +1725,6 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick) {
     mouseButton dummyBtn; // used to spoof a callback button click
     dummyBtn.SetStatus(MOUSE_UP);
 
-    //
     // set screen title to msgPointer1
     const int maxTitleLength = consoleWidth - 8;
     //   message + prefix + null terminator
@@ -1747,7 +1747,6 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick) {
 
     textBox& screenTitle = output1;
 
-    //
     // Set up a current mapped Input area
     textBox& currentInputTitle = output2;
     currentInputTitle.SetPosition(9, 2, 17, 1, ALIGN_CENTER);
@@ -1763,8 +1762,7 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick) {
     int hoveredButton = -1;
     g_extraData = static_cast<void*>(&hoveredButton);
 
-    //
-    // Set up a Noisy/Detected Input area
+    // Set up a Detected Input area
     output3.SetPosition(63, 2, 18, 1, ALIGN_CENTER);
     swprintf(msgPointer3, 18, L" Detected Input: "); // title
     output3.SetText(msgPointer3);
@@ -1785,9 +1783,7 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick) {
         buttonSetter.SetButtonsCallback(mappingControllerButtonsCallback);
     }
     AddControllerButtons(screen);
-    // import the eggs from g_screen
     load_eggs();
-
     errorOut.SetText(L"\0");
     quitButton.SetPosition(CONSOLE_WIDTH / 2 - 5, XBOX_QUIT_LINE + 1);
     screen.AddButton(&quitButton);
@@ -1815,16 +1811,13 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick) {
 
     // Save conformation message
     textBox saveMsg(CONSOLE_WIDTH / 2, XBOX_QUIT_LINE - 3, 24, 1, ALIGN_CENTER, L" Mapping Saved! ", fullColorSchemes[g_currentColorScheme].menuColors.col3);
-
     // create Click To Map footer highlight area
     textBox footerMsg(CONSOLE_WIDTH / 2, XBOX_QUIT_LINE - 1, 24, 1, ALIGN_CENTER, L" Click Button to Remap ", DEFAULT_TEXT);
-
     // create a # characters to redraw a portion of the controller outline
     mouseButton outlineRedraw(57, 6, 8, L"##\t\t\t\t\t\t\t##\t\t\t\t\t\t\t##\t\t\t\t\t\t\t##\t\t\t\t\t\t\t#&\t\t\t\t\t\t\t#\\\t\t\t\t\t\t\t#\t\t\t\t\t\t\t\t#\t\t\t\t\t\t\t#");
     // create a space character to redraw a portion of the controller face
     mouseButton faceRedraw(58, 8, 6, L" \t\t\t\t\t  \t\t\t\t   \t\t\t    \t\t     \t            ");
-
-    // ****************************
+    // *********
     
     // this should provide the ability to make saveMsg message disappear
     FPSCounter timer;
@@ -1845,10 +1838,6 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick) {
 
     };
     
-
-    // *********
-
-
     auto re_color = [&]() {
         screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].controllerBg);
         screen.SetButtonsColors(controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors));
@@ -1880,7 +1869,7 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick) {
             setCursorPosition(0, 0);
             setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
             std::wcout << JoySendMain_Backdrop;
-            MAKE_PATTERNS();
+            SET_SHOULDER_BUTTONS_FOR_BG();
 
             if (~(g_status & tUI_THEME_af) || !loadedBgFill) {
                 getCharsAtPosition(fill1x, fill1y, fill1len, leftFill);
@@ -1938,7 +1927,7 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick) {
     int lastHovered = -1;
     int inputsListed = 0;
     int mouseState = 0;
-    //
+
     // Logic Loop
     while (!APP_KILLED && MAPPING_FLAG) {
 
@@ -2129,18 +2118,6 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick) {
             }
 
             // re draw everything
-            /*
-            ReDrawControllerFace(screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, 1);
-            screen.DrawButtons();
-            otherButtons.DrawButtons();
-
-            screenTitle.Draw();
-            gamepadName.Draw();
-
-            currentInputTitle.Draw();
-            detectedInputTitle.Draw();
-            footerMsg.Draw();  // click to map message bottom
-            */
             draw_screen();
         }
 
@@ -2752,6 +2729,22 @@ else { \
     break; \
 }} 
 
+void SET_SHOULDER_BUTTONS_FOR_BG() {
+    if (g_status & PTRN_EGG_b) {
+        MAKE_PATTERNS();
+        button_L1_outline.SetText(button_L1_outline2);
+        button_L2_outline.SetText(button_L2_outline2);
+        button_R1_outline.SetText(button_L1_outline2);
+        button_R2_outline.SetText(button_L2_outline2);
+    }
+    else {
+        clearPtrn(fullColorSchemes[g_currentColorScheme].controllerBg);
+        button_L1_outline.SetText(button_L1_outline1);
+        button_L2_outline.SetText(button_L2_outline1);
+        button_R1_outline.SetText(button_R1_outline1);
+        button_R2_outline.SetText(button_L2_outline1);
+    }
+}
 
 void JOYSENDER_tUI_RESET_AFTER_MAP(Arguments& args) {
     // reset output1
@@ -2908,20 +2901,7 @@ void REDRAW_MAIN_LOOP_tUI() {
     setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
     std::wcout << JoySendMain_Backdrop;
 
-    if (g_status & PTRN_EGG_b) {
-        MAKE_PATTERNS();
-        button_L1_outline.SetText(button_L1_outline2);
-        button_L2_outline.SetText(button_L2_outline2);
-        button_R1_outline.SetText(button_L1_outline2);
-        button_R2_outline.SetText(button_L2_outline2);
-    }
-    else {
-        clearPtrn(fullColorSchemes[g_currentColorScheme].controllerBg);
-        button_L1_outline.SetText(button_L1_outline1);
-        button_L2_outline.SetText(button_L2_outline1);
-        button_R1_outline.SetText(button_R1_outline1);
-        button_R2_outline.SetText(button_L2_outline1);
-    }
+    SET_SHOULDER_BUTTONS_FOR_BG();
     ReDrawControllerFace(g_screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, g_mode, (g_status & BORDER_EGG_a));
     g_screen.DrawButtons();
     restartButton[3].Draw(-2);
