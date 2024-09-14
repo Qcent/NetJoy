@@ -599,9 +599,6 @@ void GET_NEW_COLOR_SCHEME() {
     g_simpleScheme = simpleSchemeFromFullScheme(fullColorSchemes[g_currentColorScheme]); /* Set for compatibility with DrawControllerFace */
 }
 
-
-
-
 void MAKE_PATTERNS() {
     if ((g_status & PTRN_EGG_b) && (g_status & tUI_THEME_af)) {
         g_theme.drawPtrn();

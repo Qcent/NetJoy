@@ -1705,6 +1705,7 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick) {
                 g_status |= PTRN_EGG_b; 
                 SPEC_EGGS(); 
                 COMMON_EGG_BUTTS();
+                g_status |= PTRN_HELD_f; // using this to signal we need to add the eggs to map screen
 
                 // move common buttons for remap screen
                 mouseButton* btn = g_screen.GetButtonById(46);
@@ -1783,7 +1784,9 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick) {
         buttonSetter.SetButtonsCallback(mappingControllerButtonsCallback);
     }
     AddControllerButtons(screen);
-    load_eggs();
+    if (g_status & BORDER_EGG_a) {
+        load_eggs();
+    }
     errorOut.SetText(L"\0");
     quitButton.SetPosition(CONSOLE_WIDTH / 2 - 5, XBOX_QUIT_LINE + 1);
     screen.AddButton(&quitButton);
@@ -2181,6 +2184,10 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick) {
             }
         }
 
+        if (g_status & PTRN_HELD_f) {
+            g_status &= ~PTRN_HELD_f;
+            load_eggs();
+        }
         JOYSENDER_tUI_EGG_LOOP(re_color, draw_screen);
 
         Sleep(20);
