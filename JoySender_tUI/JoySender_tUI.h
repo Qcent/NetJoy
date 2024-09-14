@@ -1041,6 +1041,11 @@ int tUISelectJoystickDialog(SDLJoystickData& joystick, textUI& screen) {
             MAPPING_FLAG = 0;
         }
 
+        if (RESTART_FLAG) {
+            cleanMemory();
+            return 0;
+        }
+
         // if selection has been assigned
         if (g_joystickSelected > -1) {
             // Check if the selected index is invalid
@@ -1079,6 +1084,11 @@ int tUISelectDS4Dialog(std::vector<HidDeviceInfo> devList, textUI& screen) {
     constexpr int START_COL = 18;
 
     JOYSENDER_tUI_INIT_FOOTER_ANIMATION();
+
+    {  // adjust mode button
+        mouseButton* modeBut = g_screen.GetButtonById(99);
+        modeBut->SetText(L" Mode 2 ");
+    }
 
     int numJoysticks = devList.size();
     g_joystickSelected = -1;
@@ -1202,6 +1212,11 @@ int tUISelectDS4Dialog(std::vector<HidDeviceInfo> devList, textUI& screen) {
                 g_joystickSelected = 7;
             else if (getKeyState(0x39) || getKeyState(VK_NUMPAD9))
                 g_joystickSelected = 8;
+        }
+
+        if (RESTART_FLAG) {
+            cleanMemory();
+            return 0;
         }
 
         // if selection has been assigned
@@ -2483,11 +2498,23 @@ int JOYSENDER_tUI_SELECT_JOYSTICK(SDLJoystickData& activeGamepad, Arguments& arg
         g_status |= REDRAW_tUI_f;
     }
 
+    mouseButton changeModeButton(55, 3, 9, L" Mode 1 ");
+    changeModeButton.SetId(99);
+    changeModeButton.setCallback([](mouseButton& btn) {
+        if (btn.Status() & MOUSE_UP) {
+            btn.SetStatus(MOUSE_OUT);
+            RESTART_FLAG = (g_mode == 2) ? 2 : 3;
+            g_screen.RemoveButtonById(99);
+        }
+        });
+    g_screen.AddButton(&changeModeButton);
+
     switch (args.mode) {
     case 1: {   // SDL MODE
         if (!args.select) { // not auto select
             allGood = tUISelectJoystickDialog(activeGamepad, g_screen);
             if (!allGood) {
+                if (RESTART_FLAG) return 0;
                 SDL_Quit();
                 return 0;
             }
@@ -2510,6 +2537,7 @@ int JOYSENDER_tUI_SELECT_JOYSTICK(SDLJoystickData& activeGamepad, Arguments& arg
         g_screen.DrawBackdrop();
         allGood = tUISelectDS4Dialog(getDS4ControllersList(), g_screen);
         if (!allGood) {
+            if (RESTART_FLAG) return 0;
             g_screen.DrawBackdrop();
             errorOut.SetPosition(consoleWidth / 2, 7);
             setErrorMsg(L" Unable to connect to a DS4 device !! ", 39);

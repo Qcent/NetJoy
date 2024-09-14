@@ -70,6 +70,10 @@ int joySendertUI(Arguments& args) {
     
     // User or Auto Select Gamepad
     if (!JOYSENDER_tUI_SELECT_JOYSTICK(activeGamepad, args, allGood)) {
+        if (RESTART_FLAG) {
+            g_status |= tUI_RESTART_f;
+            return RESTART_FLAG;
+        }
         return -1;
     }
     if (APP_KILLED) { // if user has quit stop execution
