@@ -494,7 +494,6 @@ BYTE ShortToByte(SHORT value){
     // Round the scaled value to the nearest integer
     BYTE byteValue = static_cast<BYTE>(std::round(scaledValue));
 
-    if (byteValue < 3) byteValue &= byteValue; // filter low values
     return byteValue;
 }
 
