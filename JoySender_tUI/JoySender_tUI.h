@@ -2201,6 +2201,14 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick) {
         return 0;
     }
 
+    // clean up spill over border text
+    {
+        WORD col = fullColorSchemes[g_currentColorScheme].menuBg;
+        currentInputTitle.Clear(col);
+        currentInputMap.Clear(col);
+        detectedInputTitle.Clear(col);
+        detectedInput.Clear(col);
+    }
     // move common buttons back
     {
         mouseButton* btn = g_screen.GetButtonById(46);
