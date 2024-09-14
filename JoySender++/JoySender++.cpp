@@ -217,6 +217,7 @@ int joySender(Arguments& args) {
         // *******************
         // Attempt timing and mode setting handshake
         if (allGood > 0) {
+            client.set_client_timeout(NETWORK_TIMEOUT_MILLISECONDS);
             g_outputText += "<< Connected To : " + args.host + " >>  "; //  \r\n";
             displayOutputText();
             std::cout << std::endl;

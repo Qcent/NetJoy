@@ -126,9 +126,9 @@ int joySendertUI(Arguments& args) {
 
         // Setup UI and do timing/mode handshake with host
         else if(!APP_KILLED){
+            client.set_client_timeout(NETWORK_TIMEOUT_MILLISECONDS);
             // Set up g_screen for main connection loop
             JOYSENDER_tUI_BUILD_MAIN_LOOP(args);
-
             // Attempt timing and mode setting handshake * sets inConnection true
             JOYSENDER_tUI_CX_HANDSHAKE();
         }
