@@ -2841,7 +2841,7 @@ void JOYSENDER_tUI_BUILD_MAIN_LOOP(Arguments& args) {
     output1.SetPosition(3, 1, 40, 1, ALIGN_LEFT);
     output1.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg);
 
-    output3.SetPosition(46, 1);
+    output3.SetPosition(46, 1, 5, 1, ALIGN_LEFT);
     output3.SetText(L" FPS:");
     output3.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg);
 
