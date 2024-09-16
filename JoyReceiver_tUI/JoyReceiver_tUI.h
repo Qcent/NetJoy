@@ -99,7 +99,8 @@ void setErrorMsg(const wchar_t* text, size_t length) {
 // ^*%*^*&^*%*^*&^*%*^*&^*%*^*&^*%*^*&^*%*^*&^*%*^*&^*%*^*&^
 // tUI Helper Defines
 
-#define THEME_FILE    "recv.theme"
+//#define THEME_FILE    "recv.theme"
+const char* THEME_FILE = "recv.theme";
 
 
 #define SET_tUI_CONSOLE_MODE(){ \
@@ -688,7 +689,7 @@ int JOYRECEIVER_tUI_WAIT_FOR_CLIENT_MAPPING(TCPConnection& server, char* buffer,
     COORD oldErrorPos = errorOut.GetPosition();
     errorOut.SetPosition(oldErrorPos.X, oldErrorPos.Y+2);
 
-    swprintf(fpsPointer, 8, L"  --  ", fpsOutput.c_str());
+    swprintf(fpsPointer, 8, L"  --  ");
     fpsMsg.SetText(fpsPointer);
 
     tUITheme bgPtrn;

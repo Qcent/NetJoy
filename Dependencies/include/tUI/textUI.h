@@ -52,7 +52,7 @@ struct console
     CONSOLE_SCREEN_BUFFER_INFO csbi;
 };
 
-
+#include "themeEditor.hpp"
 
 // ********************************
 // tUI Helper Functions
