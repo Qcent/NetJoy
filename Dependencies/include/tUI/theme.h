@@ -19,6 +19,24 @@ struct FullColorScheme {
 
     FullColorScheme(const wchar_t* n, tUIColorPkg mColors, tUIColorPkg cColors, WORD mBg, WORD cBg)
         : name(n), menuColors(mColors), controllerColors(cColors), menuBg(mBg), controllerBg(cBg) {}
+
+    bool operator==(const FullColorScheme& other) const {
+        if (!(this->menuColors == other.menuColors)) {
+            return false;
+        }
+        if (!(this->controllerColors == other.controllerColors)) {
+            return false;
+        }
+
+        if (this->menuBg != other.menuBg) {
+            return false;
+        }
+        if (this->controllerBg != other.controllerBg) {
+            return false;
+        }
+
+        return true;
+    }
 };
 
 #define NUM_COLOR_SCHEMES   5   // number of defined color schemes + a place for a random scheme
@@ -331,11 +349,28 @@ void clearPtrn(WORD color) {
 class tUITheme {
 private:
     byte _ptrnBlocks[11] = { 0 };
-    FullColorScheme _colors;
     DWORD _state = 0x0000;
 
 public:
+    FullColorScheme _colors;
+
     tUITheme() {};
+
+    // Custom comparator (equality operator)
+    bool operator==(const tUITheme& other) const {
+        if (!std::equal(std::begin(_ptrnBlocks), std::end(_ptrnBlocks), std::begin(other._ptrnBlocks))) {
+            return false;
+        }
+        if (!(this->_colors == other._colors)) {
+            return false;
+        }
+        return this->_state == other._state;
+    }
+
+    // Inequality operator 
+    bool operator!=(const tUITheme& other) const {
+        return !(*this == other);
+    }
 
     void recordTheme(FullColorScheme& scheme, DWORD state) {
         recordBlocks();
@@ -391,12 +426,20 @@ public:
         return true;
     }
 
-    void setColors(FullColorScheme& scheme) {
+    void setColors(const FullColorScheme& scheme) {
         _colors = scheme;
     }
 
     void const restoreColors(FullColorScheme& scheme) {
         scheme = _colors;
+    }
+
+    DWORD& getState() {
+        return _state;
+    }
+
+    void setState(const DWORD state) {
+        _state = state;
     }
 
     void const restoreState(DWORD& state) {
