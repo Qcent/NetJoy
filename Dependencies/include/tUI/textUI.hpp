@@ -45,6 +45,7 @@ THE SOFTWARE.
 // mouse button settings flags
 #define UNCLICKABLE     0x1
 #define UNHOVERABLE     0x2
+#define PADDED_TEXT     0x4
 #define INACTIVE        0x8
 
 // mouse button default colors
@@ -284,7 +285,8 @@ protected:
                     return;
                 }
                 setCursorPosition(_pos.X, _pos.Y + line);
-                nextBreak = findNextLineBreak(_text, i - 1, _width);
+                // nextBreak = findNextLineBreak(_text, i - 1, _width); // OG
+                nextBreak = findNextLineBreak(_text, i, _width);
             }
         }
     }
@@ -651,7 +653,7 @@ public:
         _partner = nullptr;
         _id = INT_MIN;
     }
-    mouseButton(int x, int y, int w, const wchar_t* text) {
+    mouseButton(int x, int y, int w, const wchar_t* text, int id = INT_MIN) {
         _pos.X = x;
         _pos.Y = y;
         _width = w;
@@ -668,7 +670,7 @@ public:
 
         _callback = nullptr;
         _partner = nullptr;
-        _id = INT_MIN;
+        _id = id;
     }
     mouseButton(int x, int y, int w, const wchar_t* text, byte set) {
         _pos.X = x;
@@ -705,6 +707,9 @@ public:
     
     void SetSettings(BYTE set) {
         _Settings = set;
+        if (_Settings & PADDED_TEXT) {
+
+        }
     }
 
     void SetStatus(BYTE status) {
@@ -735,6 +740,7 @@ public:
 
         int line = 0;
         setCursorPosition(_pos);
+        if (_Settings & PADDED_TEXT) std::wcout << " ";
         for (int i = 1; i - 1 < _length; i++) {
             if (_text[i - 1] == '\t') {
                 // advance cursor
@@ -747,7 +753,7 @@ public:
                 setCursorPosition(_pos.X, _pos.Y + line);
             }
         }
-        //setTextColor(_defaultColor); // ?? get rid of this ??
+        if (_Settings & PADDED_TEXT) std::wcout << " ";
     }
 
     void Clear(int color = -1) {
@@ -780,6 +786,7 @@ public:
 
         int line = 0;
         setCursorPosition(_pos);
+        if (_Settings & PADDED_TEXT) std::wcout << " ";
         for (int i = 1; i - 1 < _length; i++) {
             if (_text[i - 1] == '\t') {
                 // advance cursor
@@ -792,10 +799,15 @@ public:
                 setCursorPosition(_pos.X, _pos.Y + line);
             }
         }
+        if (_Settings & PADDED_TEXT) std::wcout << " ";
     }
 
     void CheckMouseHover(COORD mousePos) {
-        if (mousePos.X >= _pos.X && mousePos.X <= _pos.X + _width - 1 && mousePos.Y >= _pos.Y && mousePos.Y <= _pos.Y + _lines - 1) {
+        int padding = 0;
+        if (_Settings & PADDED_TEXT) {
+            padding = 2;
+        }
+        if (mousePos.X >= _pos.X && mousePos.X <= _pos.X + (_width - 1)+padding && mousePos.Y >= _pos.Y && mousePos.Y <= _pos.Y + _lines - 1) {
             if (!(_status & MOUSE_HOVERED)) {
                 _status = MOUSE_HOVERED;
                 if (_Settings & UNHOVERABLE) return;
