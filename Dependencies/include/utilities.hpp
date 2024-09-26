@@ -186,18 +186,20 @@ std::vector<std::string> split(const std::string& str, char delimiter) {
     return tokens;
 }
 
-void replaceXEveryNth(TCHAR* source, size_t sourceSize, const TCHAR* target, const TCHAR* replacement, int max_targets, int skip = 0) {
+// returns index of last seen match
+int replaceXEveryNth(TCHAR* source, size_t sourceSize, const TCHAR* target, const TCHAR* replacement, int max_targets, int skip = 0) {
+    int retVal = -1;
     size_t targetLen = _tcslen(target);
     size_t replacementLen = _tcslen(replacement);
     if (replacementLen > targetLen) {
-        return; // cannot replace with a larger length
+        return retVal; // cannot replace with a larger length
     }
     int occurrences = 0;
 
     for (int i = 0; i < sourceSize; i++) {
         bool match = false;
         if (source[i] == _T('\0'))
-            return;
+            return retVal;
         if (source[i] == target[0]) {
             match = true;
             int j = 1;
@@ -210,6 +212,7 @@ void replaceXEveryNth(TCHAR* source, size_t sourceSize, const TCHAR* target, con
             }
         }
         if (match) {
+            retVal = i;
             if (skip && (occurrences % (skip - 1) != 0)) {
                 ++occurrences;
                 continue;
@@ -223,6 +226,7 @@ void replaceXEveryNth(TCHAR* source, size_t sourceSize, const TCHAR* target, con
         if (occurrences >= max_targets)
             break;
     }
+    return retVal;
 }
 
 bool getCharsAtPosition(int x, int y, int len, TCHAR* buffer) {
