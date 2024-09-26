@@ -8,6 +8,7 @@
 #pragma comment(lib, "setupapi.lib")
 #pragma comment(lib, "VIGEmClient.lib")
 
+constexpr auto APP_NAME = "NetJoy";
 volatile sig_atomic_t APP_KILLED = 0;
 std::mutex mtx;
 char feedbackData[5] = { 0 }; // For sending rumble data back to joySender
@@ -108,7 +109,7 @@ if (!VIGEM_SUCCESS(vigemErr)){ \
 }
 
 #define JOYRECEIVER_DETERMINE_IPS_START_SERVER() \
-externalIP = "192.168.15.12";/*server.get_external_ip(); */\
+externalIP = server.get_external_ip(); \
 localIP = server.get_local_ip(); \
 server.set_silence(true); \
 server.start_server(); 
@@ -165,6 +166,11 @@ catch (...) { \
     std::cerr << " Received from " << connectionIP << ": " << std::endl; \
     displayBytes((BYTE*)buffer, bytesReceived); \
     std::cerr << std::endl << std::string(buffer, bytesReceived) << std::endl; \
+    std::cerr << "\n\t<< PRESS ESCAPE TO QUIT >>" << std::endl; \
+    while( !APP_KILLED ){ \
+        Sleep(50); \
+        if(checkKey(VK_ESCAPE, IS_RELEASED) && IsAppActiveWindow()){ APP_KILLED = true; } \
+    } \
 }
 
 
