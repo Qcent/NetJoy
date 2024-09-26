@@ -79,10 +79,6 @@ int joySendertUI(Arguments& args) {
     if (APP_KILLED) { // if user has quit stop execution
         return 0;
     }
-
-    // tidy the screen butttons
-    g_screen.ClearButtonsExcept({42,45,46,47});
-
     // Initial Settings for Operating Mode:  DS4 / XBOX
     JOYSENDER_tUI_OPMODE_INIT(activeGamepad, args, allGood);
     
@@ -96,8 +92,6 @@ int joySendertUI(Arguments& args) {
         // Acquire host address for connection attempt
         if (args.host.empty()) {       
             args.host = tUIGetHostAddress(activeGamepad);
-            // tidy the screen butttons
-            g_screen.ClearButtonsExcept({ 42,45,46,47 });
 
             if (APP_KILLED) {
                 return -1;
@@ -129,7 +123,7 @@ int joySendertUI(Arguments& args) {
         else if(!APP_KILLED){
             client.set_client_timeout(NETWORK_TIMEOUT_MILLISECONDS);
             // Set up g_screen for main connection loop
-            JOYSENDER_tUI_BUILD_MAIN_LOOP(args);
+            tUI_BUILD_MAIN_LOOP(args);            
             // Attempt timing and mode setting handshake * sets inConnection true
             JOYSENDER_tUI_CX_HANDSHAKE();
         }
@@ -144,35 +138,40 @@ int joySendertUI(Arguments& args) {
         // Connection Loop  //######################################  //
         fps_counter.reset();
         while (inConnection){
-            screenLoop(g_screen);
-            EGG_LOOP();
+            // ignore user input if in theme selector/editor
+            if (theme_mtx.try_lock() && !(g_status & EDIT_THEME_f)) {
+                theme_mtx.unlock();
+                screenLoop(g_screen);
+                tUI_UPDATE_INTERFACE(tUI_RECOLOR_MAIN_LOOP, tUI_REDRAW_MAIN_LOOP);
 
-            // Catch hot key button presses
-            if (!MAPPING_FLAG && getKeyState(VK_SHIFT) && IsAppActiveWindow()) {
-                if (checkKey('C', IS_PRESSED)) {
-                    // change colors
-                    button_Guide_highlight.SetStatus(MOUSE_UP);
-                    newControllerColorsCallback(button_Guide_highlight);
-                }
-                if (getKeyState('M') && args.mode == 1) {
-                    MAPPING_FLAG = 1;                    
-                }
-                if (getKeyState('R') || getKeyState('Q')) {
-                    if (getKeyState('R'))
-                        RESTART_FLAG = 1;
+                // Catch hot key button presses
+                if (!MAPPING_FLAG && getKeyState(VK_SHIFT) && IsAppActiveWindow()) {
+                    if (checkKey('C', IS_PRESSED)) {
+                        // change colors
+                        button_Guide_highlight.SetStatus(MOUSE_UP);
+                        newControllerColorsCallback(button_Guide_highlight);
+                    }
+                    if (getKeyState('M') && args.mode == 1) {
+                        MAPPING_FLAG = 1;
+                    }
+                    if (getKeyState('R') || getKeyState('Q')) {
+                        if (getKeyState('R'))
+                            RESTART_FLAG = 1;
 
-                    if (getKeyState('Q'))
-                        APP_KILLED = true;
+                        if (getKeyState('Q'))
+                            APP_KILLED = true;
+                    }
                 }
             }
+
             if (RESTART_FLAG || APP_KILLED) {
                 inConnection = false;
                 break;
             }
 
-            // Do remapping if triggered (freezes host)
+            // Do remapping if triggered
             if (MAPPING_FLAG) {
-                // REMAP STUFF ** pauses communication (freezing host) till finished
+                // REMAP STUFF ** pauses communication till finished
                  tUIRemapInputsScreen(activeGamepad);
                 if (APP_KILLED) {
                     inConnection = false;
@@ -186,12 +185,20 @@ int joySendertUI(Arguments& args) {
             if (args.mode == 2) {
                 //# Read the next HID report from DS4 controller
                 allGood = GetDS4Report(); // *ds4_report will be set
-                buttonStatesFromDS4Report(&ds4_report[ds4DataOffset]);
+                // don't draw to screen if in theme selector/editor
+                if (theme_mtx.try_lock()) {
+                    buttonStatesFromDS4Report(&ds4_report[ds4DataOffset]);
+                    theme_mtx.unlock();
+                }
             }
             else {
                 //# set the XBOX REPORT from SDL inputs
                 allGood = get_xbox_report_from_SDL_events(activeGamepad, xbox_report);
-                buttonStatesFromXboxReport(xbox_report);
+                // don't draw to screen if in theme selector/editor
+                if (theme_mtx.try_lock()) {
+                    buttonStatesFromXboxReport(xbox_report);
+                    theme_mtx.unlock();
+                }
             }
             if (!allGood) {
                 swprintf(errorPointer, 28, L" << Device Disconnected >> ");
@@ -234,7 +241,11 @@ int joySendertUI(Arguments& args) {
                 //updateFPS(g_converter.from_bytes(fpsOutput + "   ").c_str(), 8);
                 swprintf(fpsPointer, 8, L" %S   ",fpsOutput.c_str());
                 fpsMsg.SetText(fpsPointer);
-                fpsMsg.Draw();
+                // don't draw to screen if in theme selector/editor
+                if (theme_mtx.try_lock()) {
+                    fpsMsg.Draw();
+                    theme_mtx.unlock();
+                }
             }
 
             // Sleep to yield thread
@@ -247,8 +258,13 @@ int joySendertUI(Arguments& args) {
         // #########################################################  \\
         // Connection Ended    ######################################  \\
 
+        theme_mtx.lock(); // must exit theme thread
+        theme_mtx.unlock();  // before restarting
+        tUI_SET_SUIT_POSITIONS(SUIT_POSITIONS_SCATTERED());
+
+        g_status &= ~CTRLR_SCREEN_f;
         if (allGood == DISCONNECT_ERROR) {
-            g_screen.ClearButtons();
+            g_screen.ClearButtonsExcept(HEAP_BTN_IDs);
             break;
         }
         if (APP_KILLED) {
@@ -264,7 +280,7 @@ int joySendertUI(Arguments& args) {
                 if (getKeyState('2'))
                     RESTART_FLAG = 3;
             }
-            g_screen.ClearButtonsExcept({ 42,45,46,47 });
+            g_screen.ClearButtonsExcept( HEAP_BTN_IDs );
             g_screen.SetBackdrop(JoySendMain_Backdrop);
             errorOut.SetText(L"\0");
             g_status |= tUI_RESTART_f;
@@ -277,11 +293,11 @@ int joySendertUI(Arguments& args) {
             args.host = "";
             failed_connections = 0;
         }
-        g_screen.ClearButtonsExcept({ 42,45,46,47 });
+        g_screen.ClearButtonsExcept(HEAP_BTN_IDs);
         g_screen.SetBackdrop(JoySendMain_Backdrop);
         g_status |= tUI_RESTART_f;
     }
-    g_screen.ClearButtonsExcept({ 42,45,46,47 });
+    g_screen.ClearButtonsExcept(HEAP_BTN_IDs);
     g_status |= tUI_RESTART_f;
     return APP_KILLED ? 0 : 1;
 }
