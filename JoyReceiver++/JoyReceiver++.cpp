@@ -78,6 +78,8 @@ int main(int argc, char* argv[]) {
         // Await Connection in Non Blocking Mode
         JOYRECEIVER_CONSOLE_AWAIT_CONNECTION();
 
+        if (APP_KILLED) break;
+
         // Receive Operating Mode and Client Timing
         bytesReceived = server.receive_data(buffer, buffer_size);
         if (bytesReceived < 1) {
