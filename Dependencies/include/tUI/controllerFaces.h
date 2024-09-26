@@ -26,8 +26,8 @@ THE SOFTWARE.
 
 #include "ColorSchemes.h"
 
-#define XBOX_FACE_LINES		17
-#define DS4_FACE_LINES		17
+constexpr int XBOX_FACE_LINES = 17;
+constexpr int DS4_FACE_LINES = 17;
 
 // defines the area to be colored in for the controller face
 textBox ControllerFace[XBOX_FACE_LINES];
