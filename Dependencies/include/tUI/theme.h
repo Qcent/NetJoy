@@ -724,7 +724,7 @@ void tUI_THEME_BUTTONS() {
             }
             else if (g_status & tUI_LOADED_f) {
                 tUI_APPLY_LOADED_THEME();
-                g_status |= REDRAW_tUI_f | tUI_THEME_af | tUI_THEME_f;
+                g_status |= RECOL_tUI_f | tUI_THEME_af | tUI_THEME_f;
                 btn.SetText(L"♦");
             }
         }
@@ -737,8 +737,7 @@ void tUI_THEME_BUTTONS() {
 
             btn.SetStatus(MOUSE_OUT);
             if (!(g_status & tUI_THEME_f)) {
-
-                g_status |= tUI_THEME_f | tUI_THEME_af | REFLAG_tUI_f;
+                g_status |= tUI_THEME_f | tUI_THEME_af | tUI_LOADED_f | REFLAG_tUI_f;
                 tUITheme& theme = g_theme;
                 theme.updateTheme(
                     fullColorSchemes[g_currentColorScheme],
@@ -746,13 +745,13 @@ void tUI_THEME_BUTTONS() {
                         HEART_EGG_a | BORDER_EGG_a | PTRN_EGG_b | CLUB_EGG_a | DIAMONDS_a))
                 );
                 theme.saveToFile(THEME_FILE);
+                loadedTheme = theme;
                 btn.SetText(L"♦");
             }
             else if (g_status & tUI_THEME_f) {
 
                 int result = MessageBox(NULL, L"Do you want to clear the favorite theme?", L"Confirm Delete", MB_ICONQUESTION | MB_YESNO);
                 if (result == IDYES) {
-
                     remove(THEME_FILE);
                     g_status &= ~(tUI_THEME_f | tUI_THEME_af | tUI_LOADED_f);
                     g_status |= REFLAG_tUI_f;
