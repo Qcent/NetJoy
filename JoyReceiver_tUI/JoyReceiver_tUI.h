@@ -266,7 +266,6 @@ void REDRAW_CX_TEXT() {
     tUI_DRAW_BG_AND_BUTTONS();
     errorOut.Draw();
     output1.Draw();
-    g_screen.DrawButtons();
     PRINT_EGG_X();
 
     /* Show PORT and IPs */
