@@ -160,6 +160,14 @@ public:
     size_t GetLength() {
         return _length;
     }
+    
+    size_t GetLines() {
+        return _lines;
+    }
+
+    size_t GetWidth() {
+        return _width;
+    }
 
     tUIObj() {
         _pos.X = 0;
@@ -215,6 +223,10 @@ public:
 
     void SetColor(WORD col) {
         _color = col;
+    }
+
+    WORD GetColor() {
+        return _color;
     }
 
     void Draw() {
@@ -959,27 +971,31 @@ public:
     }
 
     void DrawBackdropClearWhitespace() {
+        constexpr int MAX_WIDTH = 100;
         setTextColor(_backdropColor);
-        int line = 0, x = 0, y = 0, i = 1, width = 1000;
-        setCursorPosition(0,0);
-        while (_backdrop[i-1] != L'\0') {
-            if (width==1000 && _backdrop[i-1] == L'\n') {
-                width = i;
+        int line = 0, x = 0, y = 0, i = 0;
+        int width = MAX_WIDTH;
+
+        while (_backdrop[i] != L'\0') {
+            if (width == MAX_WIDTH && i > 0 && _backdrop[i - 1] == L'\n') {
+                width = i;  // determine width after first newline
             }
-            if (_backdrop[i-1] == L' ') {
-                // advance cursor
-                setCursorPosition(x + i % width, y + line);
-            }
-            else {
-                std::wcout << _backdrop[i-1];
-            }
-            if (i % width == 0) {
+            if (_backdrop[i] == L'\n') {
                 line++;
-                setCursorPosition(x, y + line);
+                i++;
+                continue;  
+            }
+            if (_backdrop[i] != L' ') {
+                setCursorPosition(x + (i % width), y + line);
+                std::wcout << _backdrop[i];
+            }
+            if ((i % width) == width - 1) {
+                line++;
             }
             i++;
         }
     }
+
 
     void DrawButtons() {
         for (int i = 0; i < _buttonsCount; i++) {
@@ -1060,11 +1076,7 @@ public:
                 ++moved;
 
                 //remove id from list
-                if (IDs.size() == 1) {
-                    _buttonsCount = moved;
-                    return;
-                }
-                else IDs.erase(found);
+                IDs.erase(found);
             }
             else {
                 _buttons[i] = nullptr;
