@@ -53,12 +53,11 @@ int main(int argc, char* argv[]) {
 
     // Set Up Console
     SET_tUI_CONSOLE_MODE();
-    INIT_tUI_SCREEN();
+    JOYRECEIVER_INIT_tUI_SCREEN();
     ///********************************
     // Make Connection -> Receive Input Loop
     while (!APP_KILLED) {
-        BUILD_CONNECTION_tUI();
-        //COLOR_AND_DRAW_CX_tUI(args.port);
+        JOYRECEIVER_tUI_BUILD_CONNECTION();
 
         // Await Connection in separate thread while animating the screen
         JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(server, args, allGood, connectionIP);
@@ -99,23 +98,27 @@ int main(int argc, char* argv[]) {
         }
 
         // Prep UI for loop
-        BUILD_MAIN_LOOP_tUI(connectionIP);
+        tUI_BUILD_MAIN_LOOP(args);
         fps_counter.reset();
 
         /* Start Receive Joystick Data Loop */
         while (!APP_KILLED) {
-            EGG_LOOP();
-            screenLoop(g_screen);
+            // ignore user input if in theme selector/editor
+            if (theme_mtx.try_lock() && !(g_status & EDIT_THEME_f)) {
+                theme_mtx.unlock();
+                screenLoop(g_screen);
+                tUI_UPDATE_INTERFACE(tUI_RECOLOR_MAIN_LOOP, tUI_REDRAW_MAIN_LOOP);
 
-            // Catch hot key button presses
-            if (getKeyState(VK_SHIFT) && IsAppActiveWindow()) {
-                if (checkKey('C', IS_PRESSED)) {  // change colors
-                    button_Guide_highlight.SetStatus(MOUSE_UP);
-                    newControllerColorsCallback(button_Guide_highlight);
-                }
-                if (getKeyState('Q')) {
-                    APP_KILLED = true;
-                    break;
+                // Catch hot key button presses
+                if (getKeyState(VK_SHIFT) && IsAppActiveWindow()) {
+                    if (checkKey('C', IS_PRESSED)) {  // change colors
+                        button_Guide_highlight.SetStatus(MOUSE_UP);
+                        newControllerColorsCallback(button_Guide_highlight);
+                    }
+                    if (getKeyState('Q')) {
+                        APP_KILLED = true;
+                        break;
+                    }
                 }
             }
 
@@ -144,16 +147,24 @@ int main(int argc, char* argv[]) {
                 ds4_report_ex = *reinterpret_cast<DS4_REPORT_EX*>(buffer);
                 vigem_target_ds4_update_ex(vigemClient, gamepad, ds4_report_ex);
 
-                // activate screen buttons from ds4_report_ex
-                buttonStatesFromDS4Report(reinterpret_cast<BYTE*>(buffer));
+                // don't draw to screen if in theme selector/editor
+                if (theme_mtx.try_lock()) {
+                    // activate screen buttons from ds4_report_ex
+                    buttonStatesFromDS4Report(reinterpret_cast<BYTE*>(buffer));
+                    theme_mtx.unlock();
+                }
             }
             else {
                 // Cast the buffer to an XUSB_REPORT pointer
                 xbox_report = *reinterpret_cast<XUSB_REPORT*>(buffer);
                 vigem_target_x360_update(vigemClient, gamepad, xbox_report);
 
-                // activate screen buttons from xbox report
-                buttonStatesFromXboxReport(xbox_report);
+                // don't draw to screen if in theme selector/editor
+                if (theme_mtx.try_lock()) {
+                    // activate screen buttons from xbox report
+                    buttonStatesFromXboxReport(xbox_report);
+                    theme_mtx.unlock();
+                }
             }
 
             //*******************************
@@ -174,15 +185,22 @@ int main(int argc, char* argv[]) {
             if (!fpsOutput.empty()) {
                 swprintf(fpsPointer, 8, L" %S   ", fpsOutput.c_str());
                 fpsMsg.SetText(fpsPointer);
-                fpsMsg.Draw();
+                // don't draw to screen if in theme selector/editor
+                if (theme_mtx.try_lock()) {
+                    fpsMsg.Draw();
+                    theme_mtx.unlock();
+                }
             }
         }
         /* End of Receive Joystick Data Loop */
-        
-        CLEAN_EGGS();
+                
         if (!APP_KILLED) {
-            g_screen.ClearButtons();
+            theme_mtx.lock(); // must exit theme thread
+            theme_mtx.unlock();  // before restarting
+            tUI_SET_SUIT_POSITIONS(SUIT_POSITIONS_SCATTERED());
+            g_screen.ClearButtonsExcept(HEAP_BTN_IDs);
             g_status |= tUI_RESTART_f;
+            g_status &= ~CTRLR_SCREEN_f;
         }
 
         // Unregister rumble notifications // unplug virtual deveice
@@ -190,6 +208,7 @@ int main(int argc, char* argv[]) {
     }
 
     JOYRECEIVER_SHUTDOWN_VIGEM_BUS();
+    CLEAN_EGGS();
     swallowInput();
     setCursorPosition(0, consoleHeight);
     showConsoleCursor();
