@@ -9,7 +9,7 @@
 #include "backdrops.h"
 #include "uiButtons.h"
 #include "controllerFaces.h"
-#include "animations.h"
+#include "fullColorSchemes.h"
 
 
 constexpr int consoleWidth = 72;
@@ -17,7 +17,26 @@ constexpr int consoleHeight = 20;
 
 HANDLE g_hConsoleInput;
 textUI g_screen;
+byte g_mode = 1;
 
+wchar_t g_stringBuff[500];      // for holding generated text data
+wchar_t* errorPointer = g_stringBuff;   // max length 100
+wchar_t* cxPointer = g_stringBuff + 100;    // max length 25
+wchar_t* fpsPointer = cxPointer + 25;   // max length 10
+wchar_t* msgPointer1 = fpsPointer + 10;   // max length 100
+wchar_t* msgPointer2 = msgPointer1 + 100;   // max length 100
+wchar_t* msgPointer3 = msgPointer2 + 100;   // max length 165
+
+textBox errorOut(4, 22, 45, 0, ALIGN_CENTER, errorPointer, BRIGHT_RED);
+textBox cxMsg(1, 8, 20, 0, ALIGN_LEFT, cxPointer, BRIGHT_GREEN);
+textBox fpsMsg(1, 9, 20, 0, ALIGN_LEFT, fpsPointer, BRIGHT_CYAN);
+textBox output1(3, 19, 60, 0, ALIGN_LEFT, msgPointer1, BRIGHT_BLUE);
+textBox output2(3, 21, 60, 0, ALIGN_LEFT, msgPointer2, BRIGHT_BLUE);
+textBox output3(3, 24, 60, 0, ALIGN_LEFT, msgPointer3, BRIGHT_BLUE);
+
+
+#include "DrawUtils.h"
+#include "animations.h"
 #include "theme.h"
 
 //----------------------------------------------------------------------------
