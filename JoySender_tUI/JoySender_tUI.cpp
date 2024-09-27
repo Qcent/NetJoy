@@ -121,11 +121,11 @@ int joySendertUI(Arguments& args) {
 
         // Setup UI and do timing/mode handshake with host
         else if(!APP_KILLED){
-            client.set_client_timeout(NETWORK_TIMEOUT_MILLISECONDS);
-            // Set up g_screen for main connection loop
-            tUI_BUILD_MAIN_LOOP(args);            
+            client.set_client_timeout(NETWORK_TIMEOUT_MILLISECONDS);          
             // Attempt timing and mode setting handshake * sets inConnection true
             JOYSENDER_tUI_CX_HANDSHAKE();
+            // Set up g_screen for main connection loop
+            tUI_BUILD_MAIN_LOOP(args);
         }
 
         if (inConnection && OLDMAP_FLAG == true) {
@@ -264,7 +264,6 @@ int joySendertUI(Arguments& args) {
 
         g_status &= ~CTRLR_SCREEN_f;
         if (allGood == DISCONNECT_ERROR) {
-            g_screen.ClearButtonsExcept(HEAP_BTN_IDs);
             break;
         }
         if (APP_KILLED) {
@@ -280,11 +279,7 @@ int joySendertUI(Arguments& args) {
                 if (getKeyState('2'))
                     RESTART_FLAG = 3;
             }
-            g_screen.ClearButtonsExcept( HEAP_BTN_IDs );
-            g_screen.SetBackdrop(JoySendMain_Backdrop);
             errorOut.SetText(L"\0");
-            g_status |= tUI_RESTART_f;
-            return RESTART_FLAG;
         }
 
         // Connection has failed or been aborted
@@ -293,12 +288,17 @@ int joySendertUI(Arguments& args) {
             args.host = "";
             failed_connections = 0;
         }
+        tUI_SET_SUIT_POSITIONS(SUIT_POSITIONS_SCATTERED());
         g_screen.ClearButtonsExcept(HEAP_BTN_IDs);
         g_screen.SetBackdrop(JoySendMain_Backdrop);
         g_status |= tUI_RESTART_f;
     }
+    tUI_SET_SUIT_POSITIONS(SUIT_POSITIONS_SCATTERED());
+    g_screen.SetBackdrop(JoySendMain_Backdrop);
     g_screen.ClearButtonsExcept(HEAP_BTN_IDs);
     g_status |= tUI_RESTART_f;
+
+    if (RESTART_FLAG) return RESTART_FLAG;
     return APP_KILLED ? 0 : 1;
 }
 
