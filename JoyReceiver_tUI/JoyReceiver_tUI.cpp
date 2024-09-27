@@ -104,7 +104,7 @@ int main(int argc, char* argv[]) {
         /* Start Receive Joystick Data Loop */
         while (!APP_KILLED) {
             // ignore user input if in theme selector/editor
-            if (theme_mtx.try_lock() && !(g_status & EDIT_THEME_f)) {
+            if (!(g_status & EDIT_THEME_f) && theme_mtx.try_lock()) {
                 theme_mtx.unlock();
                 screenLoop(g_screen);
                 tUI_UPDATE_INTERFACE(tUI_RECOLOR_MAIN_LOOP, tUI_REDRAW_MAIN_LOOP);
