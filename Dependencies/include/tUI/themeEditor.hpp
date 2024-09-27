@@ -1052,7 +1052,6 @@ void tUI_THEME_SELECTOR_SCREEN() {
     textUI screen;
     tUITheme tmpTheme, customTheme[4];
     FullColorScheme tmpScheme;
-    bool controllerScreen = g_status & CTRLR_SCREEN_f;
     int selected = -1;
     WORD state = 0;
     g_extraData2 = (void*)&state;
@@ -1327,6 +1326,7 @@ void tUI_THEME_SELECTOR_SCREEN() {
         // Set Active
         if (state & THEME_SELECTED) {
             state &= ~THEME_SELECTED;
+            bool controllerScreen = g_status & CTRLR_SCREEN_f;
             loadedTheme = tmpTheme;
             tUI_APPLY_LOADED_THEME();
             g_status |= (CTRLR_SCREEN_f * controllerScreen);
@@ -1389,8 +1389,7 @@ void tUI_THEME_SELECTOR_SCREEN() {
     screen.ClearButtons();
     g_indexSelected = -1;
     g_extraData2 = nullptr;
-    g_status |= (CTRLR_SCREEN_f * controllerScreen);
-    if (controllerScreen)
+    if (g_status & CTRLR_SCREEN_f)
     {
         output1.SetPosition(6, 1, 45, 1, ALIGN_LEFT);
         output3.SetPosition(55, 1);
