@@ -52,12 +52,15 @@ struct console
 
         r.Left = r.Top = 0;
         r.Right = width;
-        r.Bottom = height + 1;
+        r.Bottom = height+1;
         SetConsoleWindowInfo(hConOut, TRUE, &r);
 
-        c.X = width;
-        c.Y = height;
+        c.X = width-1;
+        c.Y = height-1;
         SetConsoleScreenBufferSize(hConOut, c);
+
+        HWND consoleWindow = GetConsoleWindow();
+        SetWindowLong(consoleWindow, GWL_STYLE, GetWindowLong(consoleWindow, GWL_STYLE) & ~WS_MAXIMIZEBOX & ~WS_SIZEBOX);
     }
 
     ~console()
