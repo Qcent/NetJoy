@@ -1230,8 +1230,6 @@ void tUI_THEME_SELECTOR_SCREEN() {
             tail = head;
             stepAroundScreen(tail, consoleWidth, consoleHeight, (i%2==0?1:2) * (step > 0 ? 1 : -1));
             turnedCorner = stepAroundScreen(head, consoleWidth, consoleHeight, step + bonus);
-
-
         }
         };
 
@@ -1252,13 +1250,12 @@ void tUI_THEME_SELECTOR_SCREEN() {
         setFavBtn.SetSettings(INACTIVE);
         // color and draw buttons
         screen.SetButtonsColors(controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors));
-
-        clubStamp.SetColors({
-    fullColorSchemes[g_currentColorScheme].controllerColors.col1,
-    fullColorSchemes[g_currentColorScheme].controllerColors.col1,
-    fullColorSchemes[g_currentColorScheme].controllerColors.col4,
-    fullColorSchemes[g_currentColorScheme].controllerColors.col1
-            }
+        WORD clubCol1 = makeSafeColors(fullColorSchemes[g_currentColorScheme].controllerColors.col1);
+        WORD clubCol2 = makeSafeColors(fullColorSchemes[g_currentColorScheme].controllerColors.col4);
+        clubStamp.SetColors({   clubCol1,
+                                clubCol1,
+                                clubCol2,
+                                clubCol1}
         ); 
 
         screen.DrawButtons();
@@ -1374,10 +1371,14 @@ void tUI_THEME_SELECTOR_SCREEN() {
             animate_bg(21);
         }
         if((shineDelay++ % shineRate) < SHINE_FRAMES){
-            setTextColor(clubStamp.getDefaultColor());
+            setTextColor(clubStamp.getCurrentColor());
         
             drawClubShine((shineDelay - 6) % shineRate, false);
             drawClubShine((shineDelay - 5) % shineRate, false);
+            if (((shineDelay - 1) % shineRate) == SHINE_FRAMES - 1) {
+                clubStamp.Update();
+                continue;
+            }
             drawClubShine((shineDelay - 4) % shineRate, false);
 
             drawClubShine(shineDelay % shineRate);
@@ -1385,6 +1386,7 @@ void tUI_THEME_SELECTOR_SCREEN() {
             drawClubShine(++shineDelay % shineRate);
         }
     }
+    // end of loop
 
     screen.ClearButtons();
     g_indexSelected = -1;
