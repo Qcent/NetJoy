@@ -353,51 +353,18 @@ void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(TCPConnection& server, Arguments&
     std::thread connectThread(threadedAwaitConnection, std::ref(server), std::ref(allGood), std::ref(connectionIP));
 
     while (!APP_KILLED && allGood == WSAEWOULDBLOCK) {
-
-        JOYRECEIVER_tUI_ANIMATE_CONNECTION();
+        if (theme_mtx.try_lock()) {
+            JOYRECEIVER_tUI_ANIMATE_CONNECTION();
+            theme_mtx.unlock();
+        }
 
         /* Check input */
         checkForQuit();
-        /*
-        if (g_status & COLOR_EGG_b) {
-            g_status &= ~COLOR_EGG_b;
-            g_status &= ~tUI_THEME_af;
-            roll_new_color();
-            g_status |= RECOL_tUI_f | REFLAG_tUI_f;
+        if (theme_mtx.try_lock()) {
+            theme_mtx.unlock();
+            screenLoop(g_screen);
+            tUI_UPDATE_INTERFACE(re_color, REDRAW_CX_TEXT);
         }
-        if (g_status & RECOL_tUI_f) {
-            g_status &= ~(RECOL_tUI_f | REDRAW_tUI_f);
-            COLOR_CX_tUI();
-            g_screen.DrawBackdrop();
-            REDRAW_CX_TEXT();
-            leftBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
-            rightBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
-            ani2.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
-            PRINT_EGG_X();
-        }
-        if (g_status & REDRAW_tUI_f) {
-            g_status &= ~REDRAW_tUI_f;
-            REDRAW_CX_TEXT();
-            leftBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
-            rightBorderPiece.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
-            ani2.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
-            PRINT_EGG_X();
-        }
-        if (g_status & REFLAG_tUI_f) {
-            g_status &= ~REFLAG_tUI_f;
-            if (!(g_status & tUI_THEME_af)) {
-                applyTheme->SetText(L"◊");
-                applyTheme->Update();
-            }
-            if (g_status & tUI_THEME_af) {
-                applyTheme->SetText(L"♦");
-                applyTheme->Update();
-            }
-        }
-        */
-
-        screenLoop(g_screen);
-        tUI_UPDATE_INTERFACE(re_color, REDRAW_CX_TEXT);
 
         if (!APP_KILLED && allGood == WSAEWOULDBLOCK) {
             Sleep(20);
