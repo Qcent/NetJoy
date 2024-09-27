@@ -234,25 +234,6 @@ int g_clubPos = 0;
 
 WORD tUI_FLAGS() {
     return g_status & (DIAMONDS_a | BORDER_EGG_a | HEART_EGG_a | PTRN_EGG_b);
-
-    /*
-
-    // Except when P and not B // show Fullscreen PTRN - 1 color
-    if ((tUI_FLAGS() & (DIAMONDS_a | PTRN_EGG_a | BORDER_EGG_a)) == (DIAMONDS_a | PTRN_EGG_a)) {
-
-    }
-
-    // DIAMONDS and HEARTS ONLY - show BORDER, show PTRN
-    if (tUI_FLAGS() == (DIAMONDS_a | HEART_EGG_a)) {
-
-    }
-
-    // DIAMONDS ONLY - show BORDER (no morph)
-    if (tUI_FLAGS() == DIAMONDS_a) {
-
-    }
-
-    */
 }
 
 WORD DIAMOND_COLOR() {
@@ -528,6 +509,7 @@ void CLEAN_CLUBBIN() {
             if (btn.Status() & MOUSE_UP) {
                 btn.SetStatus(MOUSE_OUT);
 
+#ifdef JOYSENDER_TUI
                 if (g_status & CTRLR_SCREEN_f) {
                     // Spin up a new thread so connection can continue 
                     std::thread editThread(tUI_THEME_SELECTOR_SCREEN);
@@ -537,6 +519,11 @@ void CLEAN_CLUBBIN() {
                 else {
                     tUI_THEME_SELECTOR_SCREEN();
                 }
+#else
+                std::thread editThread(tUI_THEME_SELECTOR_SCREEN);
+                g_status |= EDIT_THEME_f;
+                editThread.detach();
+#endif
             }
             });
     }
@@ -940,7 +927,7 @@ void tUI_DRAW_BORDER() {
 #endif
 
     // draw top
-    printSubsetOfBuffer({ 0,0 }, { 0,0,74,2 }, { 0,0,72,2 }, backdrop, true);
+    printSubsetOfBuffer({ 0,0 }, { 0,0,74,2 }, { 0,0,73,2 }, backdrop, true);
 
     //draw left 
     printSubsetOfBuffer({ 0,2 }, { 0,0,74,21 }, { 0,2,5,18 }, backdrop, true);
@@ -1034,7 +1021,7 @@ void tUI_BUILD_MAIN_LOOP(Arguments& args) {
 
     swprintf(msgPointer1, 40, L" << Connection To: %S  >> ", args.host);
     swprintf(cxPointer, 18, L" %S ", args.host);
-    cxMsg.SetPosition(20, 1, 38, 1, ALIGN_LEFT);
+    cxMsg.SetPosition(21, 1, 38, 1, ALIGN_LEFT);
 
 #else
     swprintf(msgPointer1, 43, L" << Connection From: %S  >> ", connectionIP);
@@ -1079,8 +1066,12 @@ void tUI_BUILD_MAIN_LOOP(Arguments& args) {
         tUI_SET_SUIT_POSITIONS(SUIT_POSITIONS_COLLECTED());
     }
 
-    g_status |= RECOL_tUI_f | REDRAW_tUI_f | CTRLR_SCREEN_f;
-    tUI_UPDATE_INTERFACE(tUI_RECOLOR_MAIN_LOOP, tUI_REDRAW_MAIN_LOOP);
+    g_status |= CTRLR_SCREEN_f;
+    if (theme_mtx.try_lock()) {
+        theme_mtx.unlock();
+        g_status |= RECOL_tUI_f | REDRAW_tUI_f;
+        tUI_UPDATE_INTERFACE(tUI_RECOLOR_MAIN_LOOP, tUI_REDRAW_MAIN_LOOP);
+    }
 }
 
 void tUI_THEME_AUTO_ACTIVATION()
@@ -1108,7 +1099,6 @@ void tUI_THEME_RESTART() {
             HEARTS_N_SPADES_BUTTONS();
             CLEAN_CLUBBIN();
         }
-
         g_status &= ~tUI_RESTART_f;
         g_status |= REDRAW_tUI_f | RECOL_tUI_f;
     }
