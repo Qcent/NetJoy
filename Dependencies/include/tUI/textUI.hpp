@@ -803,16 +803,13 @@ public:
         int line = 0;
         setCursorPosition(_pos);
         if (_Settings & PADDED_TEXT) std::wcout << " ";
-        for (int i = 1; i - 1 < _length; i++) {
-            if (_text[i - 1] == '\t') {
-                // advance cursor
-                setCursorPosition(_pos.X + i % _width, _pos.Y + line);
+        for (int i = 0; i < _length; i++) {
+            if (_text[i] != '\t') {
+                setCursorPosition(_pos.X + (i % _width), _pos.Y + line);
+                std::wcout << _text[i];
             }
-            else
-                std::wcout << _text[i - 1];
-            if (i % _width == 0 && i < _length) {
+            if ((i % _width) == (_width - 1) && i < _length) {
                 line++;
-                setCursorPosition(_pos.X, _pos.Y + line);
             }
         }
         if (_Settings & PADDED_TEXT) std::wcout << " ";
