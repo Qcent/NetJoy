@@ -55,12 +55,22 @@ struct console
         r.Bottom = height+1;
         SetConsoleWindowInfo(hConOut, TRUE, &r);
 
-        c.X = width-1;
-        c.Y = height-1;
+        c.X = width;
+        c.Y = height;
         SetConsoleScreenBufferSize(hConOut, c);
 
         HWND consoleWindow = GetConsoleWindow();
         SetWindowLong(consoleWindow, GWL_STYLE, GetWindowLong(consoleWindow, GWL_STYLE) & ~WS_MAXIMIZEBOX & ~WS_SIZEBOX);
+
+        if (GetConsoleScreenBufferInfo(hConOut, &csbi)) {
+            // Set the buffer size to be the same as the window size (no scroll)
+            COORD bufferSize;
+            bufferSize.X = csbi.srWindow.Right - csbi.srWindow.Left;
+            bufferSize.Y = csbi.srWindow.Bottom - csbi.srWindow.Top;
+
+            // Apply the buffer size
+            SetConsoleScreenBufferSize(hConOut, bufferSize);
+        }
     }
 
     ~console()
