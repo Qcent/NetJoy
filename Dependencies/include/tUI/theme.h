@@ -120,20 +120,22 @@ public:
         else
             _ptrnBlocks[10] = 0;
     }
-
     bool const saveToFile(const char* filename) {
         std::ofstream outFile(filename, std::ios::binary);
         if (!outFile) {
             std::wcerr << L"Error opening file for saving!" << std::endl;
-            return 0;
+            return false;
         }
-
         outFile.write(reinterpret_cast<const char*>(_ptrnBlocks), 11);
-        outFile.write(reinterpret_cast<const char*>(&_colors), sizeof(_colors));
+        uint64_t namePtr = reinterpret_cast<uint64_t>(nullptr);
+        outFile.write(reinterpret_cast<const char*>(&namePtr), sizeof(namePtr));
+        outFile.write(reinterpret_cast<const char*>(&_colors.menuColors), sizeof(_colors.menuColors));
+        outFile.write(reinterpret_cast<const char*>(&_colors.controllerColors), sizeof(_colors.controllerColors));
+        outFile.write(reinterpret_cast<const char*>(&_colors.menuBg), sizeof(_colors.menuBg));
+        outFile.write(reinterpret_cast<const char*>(&_colors.controllerBg), sizeof(_colors.controllerBg));
         outFile.write(reinterpret_cast<const char*>(&_state), sizeof(_state));
-
         outFile.close();
-        return 1;
+        return true;
     }
 
     bool const loadFromFile(const char* filename) {
@@ -142,11 +144,15 @@ public:
             return false;
         }
         inFile.read(reinterpret_cast<char*>(_ptrnBlocks), 11);
-        inFile.read(reinterpret_cast<char*>(&_colors), sizeof(FullColorScheme));
+        uint64_t namePtr;
+        inFile.read(reinterpret_cast<char*>(&namePtr), sizeof(namePtr));
         _colors.name = L"SavedTheme";
+        inFile.read(reinterpret_cast<char*>(&_colors.menuColors), sizeof(_colors.menuColors));
+        inFile.read(reinterpret_cast<char*>(&_colors.controllerColors), sizeof(_colors.controllerColors));
+        inFile.read(reinterpret_cast<char*>(&_colors.menuBg), sizeof(_colors.menuBg));
+        inFile.read(reinterpret_cast<char*>(&_colors.controllerBg), sizeof(_colors.controllerBg));
         inFile.read(reinterpret_cast<char*>(&_state), sizeof(_state));
         inFile.close();
-
         return true;
     }
 
