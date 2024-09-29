@@ -294,11 +294,10 @@ void restartModeCallback(mouseButton& button) {
     }
 
     else if (button.Status() == MOUSE_OUT) {
-        restartButton[3].Clear(fullColorSchemes[g_currentColorScheme].controllerBg);
+        restartButtonCover.Draw();
         restartButton[3].SetText(L"[mode] ");
         restartButton[3].Draw(restartButton[0].getCurrentColor());
     }
-
     lastStatus = button.Status();
 }
 
@@ -901,7 +900,8 @@ int tUISelectJoystickDialog(SDLJoystickData& joystick) {
                     loadedBgFill = false;
                     errorOut.SetText(L"\0"); // error message is bastardized by remap screen and can safely be discarded
                     quitButton.SetPosition(10, 17);
-                    g_screen.AddButton(&quitButton);
+                    //g_screen.AddButton(&quitButton);
+                    tUI_AUTO_SET_SUIT_POSITIONS();
                 }
                 g_status |= RECOL_tUI_f;
             }
@@ -1571,6 +1571,9 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick) {
             mouseButton* btn = g_screen.GetButtonById(42);
             if (btn != nullptr)
                 screen.AddButton(btn);
+            btn = g_screen.GetButtonById(41);
+            if (btn != nullptr)
+                screen.AddButton(btn);
             btn = g_screen.GetButtonById(45);
             if (btn != nullptr)
                 screen.AddButton(btn);
@@ -1580,15 +1583,16 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick) {
             btn = g_screen.GetButtonById(47);
             if (btn != nullptr)
                 screen.AddButton(btn);
+            tUI_SET_SUIT_POSITIONS(SUIT_POSITIONS_MAP_STACKED());
         };
     //custom egg
     mouseButton uiEgg(34, 4, 6, L"(-Q-)"); 
     uiEgg.setCallback([](mouseButton& btn) { 
         if (btn.Status() & MOUSE_UP) {
             btn.SetStatus(MOUSE_OUT); 
-            if (!(g_status & BORDER_EGG_a)) {                        
+            if (!(g_status & BORDER_EGG_a | tUI_LOADED_f)) {                        
                 MORPH_BORDER();   
-                MAKE_PATTERNS(); 
+                //MAKE_PATTERNS(); 
                 g_status |= PTRN_EGG_b; 
                 HEARTS_N_SPADES_BUTTONS(); 
                 tUI_THEME_BUTTONS();
@@ -1671,7 +1675,7 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick) {
         buttonSetter.SetButtonsCallback(mappingControllerButtonsCallback);
     }
     AddControllerButtons(screen);
-    if (g_status & BORDER_EGG_a) {
+    if (g_status & BORDER_EGG_a | tUI_LOADED_f) {
         load_eggs();
     }
     errorOut.SetText(L"\0");
@@ -1729,7 +1733,7 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick) {
     };
     
     auto re_color = [&]() {
-        screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].controllerBg);
+        screen.SetBackdropColor(DIAMOND_COLOR());
         screen.SetButtonsColors(controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors));
         errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2);
 
@@ -1757,7 +1761,7 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick) {
     auto draw_screen = [&]() {
         if (g_status & PTRN_EGG_b) {
             setCursorPosition(0, 0);
-            setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
+            setTextColor(DIAMOND_COLOR());
             std::wcout << JoySendMain_Backdrop;
             tUI_SET_BG_AND_SHOULDER_BUTTONS();
 
@@ -1784,9 +1788,8 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick) {
             //screen.DrawBackdrop();
         }
 
-        // Set button and controller colors
-    // Sets controller to color scheme colors with some contrast correction for bg color then 
-    // draws screen backdrop and face
+        tUI_DRAW_CONTROLLER_FACE();
+        /*
         if (g_status & PTRN_EGG_b) {
             ReDrawControllerFace(screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].menuBg, 1, (g_status & PTRN_EGG_b));
         }
@@ -1796,6 +1799,7 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick) {
         else {
             ReDrawControllerFace(screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, 1 );
         }
+        */
         otherButtons.DrawButtons();
         screenTitle.Draw();
         gamepadName.Draw();
@@ -1821,262 +1825,268 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick) {
     // Logic Loop
     while (!APP_KILLED && MAPPING_FLAG) {
 
-        vanishingMessage();
+        if (theme_mtx.try_lock()) {
+            theme_mtx.unlock();
 
-        // get activeInputs to identify noisy Inputs // temporary?
-        activeInputs = get_sdljoystick_input_list(joystick);
+            vanishingMessage();
 
-        // update detected input area and controller buttons
-        if (lastInputs != activeInputs) {
-            // Create dummy report for controller buttons
-            get_xbox_report_from_activeInputs(joystick, activeInputs, dummyReport);
-            buttonStatesFromXboxReport(dummyReport);
+            // get activeInputs to identify noisy Inputs // temporary?
+            activeInputs = get_sdljoystick_input_list(joystick);
 
-            // clear active input area
-        if (g_status & PTRN_EGG_b) {
-            for (int i = 0; i < inputsListed; i++) {
-                setCursorPosition(fill2x, fill2y+i);
-                setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
-                std::wcout << rightFill[i];
-            }
-            
-        }
-        else if(g_status & BORDER_EGG_a) {
-            detectedInput.Clear(fullColorSchemes[g_currentColorScheme].controllerBg);
-            for (int i = 0; i < inputsListed; i++) {
-                setCursorPosition(consoleWidth - 4, fill2y + i);
-                setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
-                wprintf(L"%.5ls", &JoySendMain_Backdrop[(consoleWidth + 2) * (fill2y+1 + i) - 6]); ;
-            }
-        }
-        else {
-            detectedInput.Clear(fullColorSchemes[g_currentColorScheme].controllerBg);
-        }
+            // update detected input area and controller buttons
+            if (lastInputs != activeInputs) {
+                // Create dummy report for controller buttons
+                get_xbox_report_from_activeInputs(joystick, activeInputs, dummyReport);
+                buttonStatesFromXboxReport(dummyReport);
 
-            detectedInput.SetText(L" (NONE) ");
-            if (inputsListed > 3) { // after four inputs controller could get drawn over
-                outlineRedraw.Draw(); // redraw controller edge
-                faceRedraw.Draw();  // and face
-            }
+                // clear active input area
+                if (g_status & PTRN_EGG_b) {
+                    for (int i = 0; i < inputsListed; i++) {
+                        setCursorPosition(fill2x, fill2y + i);
+                        setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
+                        std::wcout << rightFill[i];
+                    }
 
-            
-            inputPtr = 0;
-            // write active inputs text data to memory
-            int i = 0;
-            inputsListed = i;
-            for (auto input : activeInputs) {
-                inputsListed = i+1;
-                // get formatted string
-                auto txt = SDLButtonMapping::displayInput(input);
-                // add formatted input to wchar_t pointer
-                swprintf(detectedInputs + inputPtr, txt.size() + 4, L"%s %S ", i ? L"\n" : L"", txt.c_str());
-                // update inputPtr
-                inputPtr += txt.size() + 2 + (i>0);
-
-                if (++i == MAX_INPUTS_SHOWN) // limit inputs displayed on screen // also prevents buffer overflow
-                    break;
-            }
-            
-            // display active inputs on screen
-            if (activeInputs.size()) {
-                // update display
-                detectedInput.SetText(detectedInputs);    
-            }
-
-            detectedInput.Draw();
-            lastInputs = activeInputs;
-        }    
-        
-        mouseState = screenLoop(screen); // a button callback, called through screenLoop, will set hoveredButton
-
-        // display current mapping for hovered button
-        if (hoveredButton != lastHovered) {
-            if (g_status & PTRN_EGG_b) {
-                setCursorPosition(fill1x, fill1y);
-                setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
-                std::wcout << leftFill;
-            }
-            else if (g_status & BORDER_EGG_a) {
-                currentInputMap.Clear(fullColorSchemes[g_currentColorScheme].controllerBg);
-                setCursorPosition(2, fill1y);
-                setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
-                wprintf(L"%.3ls", &JoySendMain_Backdrop[((consoleWidth + 2) * fill1y) + 2]);
-            }
-            else {
-                currentInputMap.Clear(fullColorSchemes[g_currentColorScheme].controllerBg);
-            }
-
-            if (hoveredButton > -1) {
-
-                auto txt = SDLButtonMapping::displayInput(
-                    joystick.mapping.buttonMaps[static_cast<SDLButtonMapping::ButtonName>(hoveredButton - (hoveredButton > MAP_BUTTON_CLICKED - 1) * MAP_BUTTON_CLICKED)]
-                );
-                swprintf(currentInputText, txt.size() + 3, L" %S  ", txt.c_str());
-                currentInputMap.SetText(currentInputText);
-                currentInputMap.Draw();
-            }
-        }
-        lastHovered = hoveredButton;
-
-        // Check for screen Hot Keys
-        if (getKeyState(VK_SHIFT) && IsAppActiveWindow()) {
-            // Map All
-            if (checkKey('A', IS_RELEASED)) {
-                dummyBtn.SetStatus(MOUSE_UP);
-                mappingAllButtonsCallback(dummyBtn);
-            }
-            // Done
-            else if (checkKey('D', IS_RELEASED)) {
-                dummyBtn.SetStatus(MOUSE_UP);
-                mappingDoneButtonCallback(dummyBtn);
-                if (changes && OLDMAP_FLAG) {
-                    OLDMAP_FLAG == false;
                 }
-            }
-            // Cancel
-            else if (checkKey('C', IS_RELEASED)) {
-                cancelButton.SetStatus(MOUSE_UP);
-                mouseState = MOUSE_UP;
-            }
-            // Save
-            else if (checkKey('S', IS_RELEASED)) {
-                saveMapButton.SetStatus(MOUSE_UP);
-                mouseState = MOUSE_UP;
-            }
-            // Quit
-            else if (checkKey('Q', IS_RELEASED)) {
-                dummyBtn.SetStatus(MOUSE_UP);
-                exitAppCallback(dummyBtn);
-            }
-        }
-        else {
-            // still check all keys to keep state current
-            checkKey('A', IS_RELEASED);
-            checkKey('D', IS_RELEASED);
-            checkKey('C', IS_RELEASED);
-            checkKey('S', IS_RELEASED);
-            checkKey('Q', IS_RELEASED);
-        }
-
-        // Save & Cancel buttons
-        if (mouseState == MOUSE_UP) {
-            if (saveMapButton.Status() & MOUSE_UP)
-            {
-                if (changes) {
-                    joystick.mapping.saveMapping(filePath.string());
-                    saveMsg.SetText(L" Mapping Saved! ");
-                    if (OLDMAP_FLAG) {
-                        OLDMAP_FLAG == false;
+                else if (g_status & BORDER_EGG_a) {
+                    detectedInput.Clear(fullColorSchemes[g_currentColorScheme].controllerBg);
+                    for (int i = 0; i < inputsListed; i++) {
+                        setCursorPosition(consoleWidth - 4, fill2y + i);
+                        setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
+                        wprintf(L"%.5ls", &JoySendMain_Backdrop[(consoleWidth + 2) * (fill2y + 1 + i) - 6]); ;
                     }
                 }
                 else {
-                    saveMsg.SetText(L" Nothing has Changed! ");
+                    detectedInput.Clear(fullColorSchemes[g_currentColorScheme].controllerBg);
                 }
-                changes = false;
-                saveMsg.Draw();
-                timer.reset_timer();
-                timing = true;
 
-                saveMapButton.SetStatus(MOUSE_OUT);
-                saveMapButton.Update();
+                detectedInput.SetText(L" (NONE) ");
+                if (inputsListed > 3) { // after four inputs controller could get drawn over
+                    outlineRedraw.Draw(); // redraw controller edge
+                    faceRedraw.Draw();  // and face
+                }
+
+
+                inputPtr = 0;
+                // write active inputs text data to memory
+                int i = 0;
+                inputsListed = i;
+                for (auto input : activeInputs) {
+                    inputsListed = i + 1;
+                    // get formatted string
+                    auto txt = SDLButtonMapping::displayInput(input);
+                    // add formatted input to wchar_t pointer
+                    swprintf(detectedInputs + inputPtr, txt.size() + 4, L"%s %S ", i ? L"\n" : L"", txt.c_str());
+                    // update inputPtr
+                    inputPtr += txt.size() + 2 + (i > 0);
+
+                    if (++i == MAX_INPUTS_SHOWN) // limit inputs displayed on screen // also prevents buffer overflow
+                        break;
+                }
+
+                // display active inputs on screen
+                if (activeInputs.size()) {
+                    // update display
+                    detectedInput.SetText(detectedInputs);
+                }
+
+                detectedInput.Draw();
+                lastInputs = activeInputs;
             }
-            else if (cancelButton.Status() & MOUSE_UP)
-            {
-                if (changes && mapExists) {
-                    joystick.mapping.loadMapping(filePath.string());
-                }
-                cancelButton.SetStatus(MOUSE_OUT);
 
-                mouseButton dummyBtn;
-                dummyBtn.SetStatus(MOUSE_UP);
-                mappingDoneButtonCallback(dummyBtn);
+            mouseState = screenLoop(screen); // a button callback, called through screenLoop, will set hoveredButton
+
+            if (theme_mtx.try_lock()) {
+                theme_mtx.unlock();
+                // display current mapping for hovered button
+                if (hoveredButton != lastHovered) {
+                    if (g_status & PTRN_EGG_b) {
+                        setCursorPosition(fill1x, fill1y);
+                        setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
+                        std::wcout << leftFill;
+                    }
+                    else if (g_status & BORDER_EGG_a) {
+                        currentInputMap.Clear(fullColorSchemes[g_currentColorScheme].controllerBg);
+                        setCursorPosition(2, fill1y);
+                        setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
+                        wprintf(L"%.3ls", &JoySendMain_Backdrop[((consoleWidth + 2) * fill1y) + 2]);
+                    }
+                    else {
+                        currentInputMap.Clear(fullColorSchemes[g_currentColorScheme].controllerBg);
+                    }
+
+                    if (hoveredButton > -1) {
+
+                        auto txt = SDLButtonMapping::displayInput(
+                            joystick.mapping.buttonMaps[static_cast<SDLButtonMapping::ButtonName>(hoveredButton - (hoveredButton > MAP_BUTTON_CLICKED - 1) * MAP_BUTTON_CLICKED)]
+                        );
+                        swprintf(currentInputText, txt.size() + 3, L" %S  ", txt.c_str());
+                        currentInputMap.SetText(currentInputText);
+                        currentInputMap.Draw();
+                    }
+                }
+                lastHovered = hoveredButton;
+
+                // Check for screen Hot Keys
+                if (getKeyState(VK_SHIFT) && IsAppActiveWindow()) {
+                    // Map All
+                    if (checkKey('A', IS_RELEASED)) {
+                        dummyBtn.SetStatus(MOUSE_UP);
+                        mappingAllButtonsCallback(dummyBtn);
+                    }
+                    // Done
+                    else if (checkKey('D', IS_RELEASED)) {
+                        dummyBtn.SetStatus(MOUSE_UP);
+                        mappingDoneButtonCallback(dummyBtn);
+                        if (changes && OLDMAP_FLAG) {
+                            OLDMAP_FLAG == false;
+                        }
+                    }
+                    // Cancel
+                    else if (checkKey('C', IS_RELEASED)) {
+                        cancelButton.SetStatus(MOUSE_UP);
+                        mouseState = MOUSE_UP;
+                    }
+                    // Save
+                    else if (checkKey('S', IS_RELEASED)) {
+                        saveMapButton.SetStatus(MOUSE_UP);
+                        mouseState = MOUSE_UP;
+                    }
+                    // Quit
+                    else if (checkKey('Q', IS_RELEASED)) {
+                        dummyBtn.SetStatus(MOUSE_UP);
+                        exitAppCallback(dummyBtn);
+                    }
+                }
+                else {
+                    // still check all keys to keep state current
+                    checkKey('A', IS_RELEASED);
+                    checkKey('D', IS_RELEASED);
+                    checkKey('C', IS_RELEASED);
+                    checkKey('S', IS_RELEASED);
+                    checkKey('Q', IS_RELEASED);
+                }
+
+                // Save & Cancel buttons
+                if (mouseState == MOUSE_UP) {
+                    if (saveMapButton.Status() & MOUSE_UP)
+                    {
+                        if (changes) {
+                            joystick.mapping.saveMapping(filePath.string());
+                            saveMsg.SetText(L" Mapping Saved! ");
+                            if (OLDMAP_FLAG) {
+                                OLDMAP_FLAG == false;
+                            }
+                        }
+                        else {
+                            saveMsg.SetText(L" Nothing has Changed! ");
+                        }
+                        changes = false;
+                        saveMsg.Draw();
+                        timer.reset_timer();
+                        timing = true;
+
+                        saveMapButton.SetStatus(MOUSE_OUT);
+                        saveMapButton.Update();
+                    }
+                    else if (cancelButton.Status() & MOUSE_UP)
+                    {
+                        if (changes && mapExists) {
+                            joystick.mapping.loadMapping(filePath.string());
+                        }
+                        cancelButton.SetStatus(MOUSE_OUT);
+
+                        mouseButton dummyBtn;
+                        dummyBtn.SetStatus(MOUSE_UP);
+                        mappingDoneButtonCallback(dummyBtn);
+                    }
+                }
+
+                // Map the clicked button
+                if (MAPPING_FLAG && mouseState == MOUSE_UP && hoveredButton > MAP_BUTTON_CLICKED - 1) {
+                    saveMapButton.Clear();
+                    cancelButton.Clear();
+
+                    changes = true;
+                    std::vector<SDLButtonMapping::ButtonName> inputList;
+                    inputList.push_back(static_cast<SDLButtonMapping::ButtonName>(hoveredButton - MAP_BUTTON_CLICKED));
+
+                    if (tUIMapTheseInputs(joystick, inputList)) {
+                        // will return non zero if canceled
+                        changes = false;
+                    }
+
+                    // re draw everything
+                    draw_screen();
+                }
+
+                // Map all inputs
+                if (MAPPING_FLAG == 2) {
+                    saveMapButton.Clear(fullColorSchemes[g_currentColorScheme].controllerBg);
+                    cancelButton.Clear(fullColorSchemes[g_currentColorScheme].controllerBg);
+
+                    changes = true;
+                    std::vector<SDLButtonMapping::ButtonName> inputList;
+                    // Create a list of all inputs
+                    inputList.insert(inputList.end(), joystick.mapping.stickButtonNames.begin(), joystick.mapping.stickButtonNames.end());
+                    inputList.insert(inputList.end(), joystick.mapping.shoulderButtonNames.begin(), joystick.mapping.shoulderButtonNames.end());
+                    inputList.insert(inputList.end(), joystick.mapping.triggerButtonNames.begin(), joystick.mapping.triggerButtonNames.end());
+                    inputList.insert(inputList.end(), joystick.mapping.thumbButtonNames.begin(), joystick.mapping.thumbButtonNames.end());
+                    inputList.insert(inputList.end(), joystick.mapping.dpadButtonNames.begin(), joystick.mapping.dpadButtonNames.end());
+                    inputList.insert(inputList.end(), joystick.mapping.genericButtonNames.begin(), joystick.mapping.genericButtonNames.end());
+
+                    if (tUIMapTheseInputs(joystick, inputList)) {
+                        // will return non zero if canceled
+                        if (mapExists) {
+                            // undo any changes by reloading saved map
+                            joystick.mapping.loadMapping(filePath.string());
+                            changes = false;
+                        }
+                    }
+                    // clear input already assigned message if it was set
+                    errorOut.SetText(L"\0");
+
+                    // turn down the mapping flag to indicate not to map all inputs again
+                    MAPPING_FLAG = 1;
+
+                    // reset hovered button state **avoids memory fault??
+                    lastHovered = hoveredButton = -1;
+
+                    // re draw everything
+                    /*
+                    ReDrawControllerFace(screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, 1);
+                    screen.DrawButtons();
+                    otherButtons.DrawButtons();
+
+                    screenTitle.Draw();
+                    gamepadName.Draw();
+
+                    currentInputTitle.Draw();
+                    detectedInputTitle.Draw();
+                    footerMsg.Draw();  // click to map message bottom
+                    */
+                    draw_screen();
+
+
+                    // if no saved mapping exists auto save current mapping
+                    if (!mapExists && !APP_KILLED) {
+                        mapExists = joystick.mapping.saveMapping(filePath.string());
+                        if (mapExists) {
+                            changes = false;
+                            saveMsg.Draw();
+                            timer.reset_timer();
+                            timing = true;
+                        }
+                    }
+                }
+
+                if (g_status & MISC_FLAG_f) {
+                    g_status &= ~MISC_FLAG_f;
+                    load_eggs();
+                }
+                tUI_UPDATE_INTERFACE(re_color, draw_screen);
             }
         }
-
-        // Map the clicked button
-        if (MAPPING_FLAG && mouseState == MOUSE_UP && hoveredButton > MAP_BUTTON_CLICKED - 1) {
-            saveMapButton.Clear();
-            cancelButton.Clear();
-
-            changes = true;
-            std::vector<SDLButtonMapping::ButtonName> inputList;
-            inputList.push_back(static_cast<SDLButtonMapping::ButtonName>(hoveredButton - MAP_BUTTON_CLICKED));
-
-            if (tUIMapTheseInputs(joystick, inputList)) {
-                // will return non zero if canceled
-                changes = false;
-            }
-
-            // re draw everything
-            draw_screen();
-        }
-
-        // Map all inputs
-        if (MAPPING_FLAG == 2) {
-            saveMapButton.Clear(fullColorSchemes[g_currentColorScheme].controllerBg);
-            cancelButton.Clear(fullColorSchemes[g_currentColorScheme].controllerBg);
-
-            changes = true;
-            std::vector<SDLButtonMapping::ButtonName> inputList;
-            // Create a list of all inputs
-            inputList.insert(inputList.end(), joystick.mapping.stickButtonNames.begin(), joystick.mapping.stickButtonNames.end());
-            inputList.insert(inputList.end(), joystick.mapping.shoulderButtonNames.begin(), joystick.mapping.shoulderButtonNames.end());
-            inputList.insert(inputList.end(), joystick.mapping.triggerButtonNames.begin(), joystick.mapping.triggerButtonNames.end());
-            inputList.insert(inputList.end(), joystick.mapping.thumbButtonNames.begin(), joystick.mapping.thumbButtonNames.end());
-            inputList.insert(inputList.end(), joystick.mapping.dpadButtonNames.begin(), joystick.mapping.dpadButtonNames.end());
-            inputList.insert(inputList.end(), joystick.mapping.genericButtonNames.begin(), joystick.mapping.genericButtonNames.end());
-
-            if (tUIMapTheseInputs(joystick, inputList)) {
-                // will return non zero if canceled
-                if (mapExists) {
-                    // undo any changes by reloading saved map
-                    joystick.mapping.loadMapping(filePath.string());
-                    changes = false;
-                }
-            }
-            // clear input already assigned message if it was set
-            errorOut.SetText(L"\0");
-
-            // turn down the mapping flag to indicate not to map all inputs again
-            MAPPING_FLAG = 1;
-
-            // reset hovered button state **avoids memory fault??
-            lastHovered = hoveredButton = -1;
-
-            // re draw everything
-            /*
-            ReDrawControllerFace(screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, 1);
-            screen.DrawButtons();
-            otherButtons.DrawButtons();
-
-            screenTitle.Draw();
-            gamepadName.Draw();
-
-            currentInputTitle.Draw();
-            detectedInputTitle.Draw();
-            footerMsg.Draw();  // click to map message bottom
-            */
-            draw_screen();
-
-
-            // if no saved mapping exists auto save current mapping
-            if (!mapExists && !APP_KILLED) {
-                mapExists = joystick.mapping.saveMapping(filePath.string());
-                if (mapExists) {
-                    changes = false;
-                    saveMsg.Draw();
-                    timer.reset_timer();
-                    timing = true;
-                }
-            }
-        }
-
-        if (g_status & MISC_FLAG_f) {
-            g_status &= ~MISC_FLAG_f;
-            load_eggs();
-        }
-        tUI_UPDATE_INTERFACE(re_color, draw_screen);
-
         Sleep(20);
     }
 
@@ -2605,6 +2615,7 @@ void JOYSENDER_tUI_ANIMATED_CX(SDLJoystickData& activeGamepad,TCPConnection& cli
 }
 
 void JOYSENDER_tUI_RESET_AFTER_MAP(Arguments& args) {
+    /*
     // reset output1
     wcsncpy_s(msgPointer1, 40, g_converter.from_bytes(" << Connected to: " + args.host + "  >> ").c_str(), _TRUNCATE);
     output1.SetText(msgPointer1);
@@ -2639,17 +2650,47 @@ void JOYSENDER_tUI_RESET_AFTER_MAP(Arguments& args) {
     quitButton.setCallback(&exitAppCallback);
     quitButton.SetPosition(consoleWidth / 2 - 5, XBOX_QUIT_LINE);
 
-    // redraw everything
-    /*
-    ReDrawControllerFace(g_screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, args.mode);
-    g_screen.DrawButtons();
-    restartButton[3].Draw();
-    output1.Draw();
-    cxMsg.Draw();
-    output3.Draw();
     */
-    g_status |= REDRAW_tUI_f;
 
+    ///////////////////////////////////////////////
+
+    quitButton.SetPosition(consoleWidth / 2 - 5, XBOX_QUIT_LINE);
+    newColorsButton.SetPosition(consoleWidth / 2 - 8, XBOX_QUIT_LINE - 3);
+
+    restartButton[0].SetPosition(CONSOLE_WIDTH / 2 - 12, XBOX_QUIT_LINE - 1);
+    restartButton[1].SetPosition(CONSOLE_WIDTH / 2 - 8, XBOX_QUIT_LINE - 1);
+    restartButton[2].SetPosition(CONSOLE_WIDTH / 2 - 6, XBOX_QUIT_LINE - 1);
+    restartButton[3].SetPosition(CONSOLE_WIDTH / 2 + 6, XBOX_QUIT_LINE - 1);
+
+    swprintf(msgPointer1, 40, L" << Connection To: %S  >> ", args.host.c_str());
+    swprintf(cxPointer, 18, L" %S ", args.host.c_str());
+    cxMsg.SetPosition(21, 1, 38, 1, ALIGN_LEFT);
+    cxMsg.SetText(cxPointer);
+
+    //SetControllerButtonPositions(g_mode);
+
+    output1.SetText(msgPointer1);
+    output1.SetPosition(3, 1, 40, 1, ALIGN_LEFT);
+    output3.SetPosition(46, 1, 5, 1, ALIGN_LEFT);
+    output3.SetText(L" FPS:");
+        
+
+    if ((g_status & BORDER_EGG_a) || (g_status & tUI_LOADED_f)) {
+        tUI_THEME_BUTTONS();
+        HEARTS_N_SPADES_BUTTONS();
+        tUI_SET_WIDE_MSG_LAYOUT(args.host.c_str());
+    }
+    else {
+        g_screen.DeleteButton(46); // apply theme
+        g_screen.DeleteButton(47); // save theme
+    }
+    tUI_AUTO_SET_SUIT_POSITIONS();
+
+
+    //////////////////////////////////////////
+
+
+    g_status |= RECOL_tUI_f;
     MAPPING_FLAG = 0;
 }
 
@@ -2667,7 +2708,9 @@ void JOYSENDER_tUI_BUILD_MAP_SCREEN() {
     }
     errorOut.SetPosition(consoleWidth / 2, 6, 50, 0, ALIGN_CENTER);
     SetControllerButtonPositions(g_mode);
+    g_simpleScheme = simpleSchemeFromFullScheme(fullColorSchemes[g_currentColorScheme]);
     SetControllerFace(g_screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, g_mode);
 
-    tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
+    controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
+    tUI_SET_SUIT_POSITIONS(SUIT_POSITIONS_MAP_STACKED());
 }
