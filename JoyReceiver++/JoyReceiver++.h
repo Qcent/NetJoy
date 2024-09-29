@@ -154,23 +154,27 @@ server.start_server();
     } \
 }
 
-#define JOYRECEIVER_GET_MODE_AND_TIMING_FROM_BUFFER() \
-try {\
-    std::vector<std::string> split_settings = split(std::string(buffer, bytesReceived), ':'); \
-    client_timing = std::stoi(split_settings[0]); \
-    op_mode = (split_settings.size() > 1) ? std::stoi(split_settings[1]) : 0; \
-    expectedFrameDelay = 1000.0 / client_timing; \
-} \
-catch (...) { \
-    std::cerr << "\r\n<< Illegal connection attempted: program exiting >>" << std::endl; \
-    std::cerr << " Received from " << connectionIP << ": " << std::endl; \
-    displayBytes((BYTE*)buffer, bytesReceived); \
-    std::cerr << std::endl << std::string(buffer, bytesReceived) << std::endl; \
-    std::cerr << "\n\t<< PRESS ESCAPE TO QUIT >>" << std::endl; \
-    while( !APP_KILLED ){ \
-        Sleep(50); \
-        if(checkKey(VK_ESCAPE, IS_RELEASED) && IsAppActiveWindow()){ APP_KILLED = true; } \
-    } \
+void JOYRECEIVER_GET_MODE_AND_TIMING_FROM_BUFFER(const char* buffer, const int bytesReceived, int& client_timing, int& op_mode, double& expectedFrameDelay){
+    try {
+        std::vector<std::string> split_settings = split(std::string(buffer, bytesReceived), ':');
+        client_timing = std::stoi(split_settings[0]);
+        op_mode = (split_settings.size() > 1) ? std::stoi(split_settings[1]) : 0;
+        expectedFrameDelay = 1000.0 / client_timing;
+    }
+    catch (...) {
+        std::cerr << "\r\n<< Illegal connection attempted: program exiting >>" << std::endl;
+        std::cerr << " Received from " << connectionIP << ": (" << bytesReceived << " bytes)" << std::endl;
+        displayBytes(reinterpret_cast<const byte*>(buffer), bytesReceived);
+        std::cerr << std::endl << std::string(buffer, bytesReceived) << std::endl;
+        std::cerr << "\n\t<< PRESS ESCAPE TO QUIT >>" << std::endl;
+        while (!APP_KILLED) {
+            Sleep(50);
+            if (checkKey(VK_ESCAPE, IS_RELEASED) && IsAppActiveWindow()) {
+                APP_KILLED = true;
+            }
+            op_mode = -1;
+        }
+    }
 }
 
 

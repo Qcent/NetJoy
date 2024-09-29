@@ -87,7 +87,8 @@ int main(int argc, char* argv[]) {
             break;
         }
         
-        JOYRECEIVER_GET_MODE_AND_TIMING_FROM_BUFFER();
+        JOYRECEIVER_GET_MODE_AND_TIMING_FROM_BUFFER(buffer, bytesReceived, client_timing, op_mode, expectedFrameDelay);
+        if (op_mode == -1) break;
         std::cout << "<< Connection (" << connectionIP << ") Received >> \r\n";
         std::cout << "  Emulating " << ((op_mode == 2) ? "DS4" : "XBOX") << " Controller @ " << client_timing << "fps" << std::endl;
         JOYRECEIVER_PLUGIN_VIGEM_CONTROLLER();

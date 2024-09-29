@@ -84,7 +84,8 @@ int main(int argc, char* argv[]) {
             break;
         }
 
-        JOYRECEIVER_GET_MODE_AND_TIMING_FROM_BUFFER();
+        JOYRECEIVER_GET_MODE_AND_TIMING_FROM_BUFFER(buffer, bytesReceived, client_timing, op_mode, expectedFrameDelay);
+        if (op_mode == -1) break;
         g_mode = op_mode;
         JOYRECEIVER_PLUGIN_VIGEM_CONTROLLER();
 
