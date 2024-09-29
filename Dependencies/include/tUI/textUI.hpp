@@ -579,6 +579,10 @@ public:
         _width = width;
     }
 
+    void setLength(int length) {
+        _length = length;
+
+    }
     wchar_t* getText() {
         return _input;
     }
