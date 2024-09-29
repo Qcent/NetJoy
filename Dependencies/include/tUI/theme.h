@@ -176,7 +176,7 @@ public:
 
     bool const drawPtrn(WORD col = 0xFF00) {
         if (col == 0xff00) col = _colors.menuBg;
-        int block = 0, dir = (_ptrnBlocks[10]) ? 0 : -1;
+        int block = 0, dir = _ptrnBlocks[10] * -1;
         setTextColor(col);
         if (_ptrnBlocks[0] == 255) {
             wchar_t ch;
@@ -254,8 +254,8 @@ WORD DIAMOND_COLOR() {
     }
 }
 
-std::vector<COORD> SUIT_POSITIONS_SCATTERED() {
-    std::vector<COORD> pos = {
+const std::vector<COORD> SUIT_POSITIONS_SCATTERED() {
+    const std::vector<COORD> pos = {
         { static_cast<SHORT>(g_clubPos % 74), static_cast<SHORT>(g_clubPos / 74) }, // 41 - clubs
         { 3, consoleHeight - 3 }, // 42 - hearts
         { consoleWidth - 3, consoleHeight - 3 },  // 45 - spades
@@ -264,9 +264,9 @@ std::vector<COORD> SUIT_POSITIONS_SCATTERED() {
     };
     return pos;
 }
-std::vector<COORD> SUIT_POSITIONS_COLLECTED() {
+const std::vector<COORD> SUIT_POSITIONS_COLLECTED() {
     const short y = (output3.GetPosition().X == 46 ? 0 : 1);
-    std::vector<COORD> pos = {
+    const std::vector<COORD> pos = {
         { consoleWidth - 25, y }, // 41 - clubs
         { consoleWidth - 23, y }, // 42 - hearts
         { consoleWidth - 21, y },  // 45 - spades
@@ -275,7 +275,18 @@ std::vector<COORD> SUIT_POSITIONS_COLLECTED() {
     };
     return pos;
 }
-
+const std::vector<COORD> SUIT_POSITIONS_MAP_STACKED() {
+    constexpr short y = 5;
+    constexpr short x = 2;
+    const std::vector<COORD> pos = {
+        { x, y+1 }, // 41 - clubs
+        { x, y+2 }, // 42 - hearts
+        { x, y+3 },  // 45 - spades
+        { x, y },  // 46 - apply
+        { x, y+4 }  // 47 - save
+    };
+    return pos;
+}
 void tUI_SET_SUIT_POSITIONS(std::vector<COORD> pos) {
     constexpr int num = 5;
     constexpr int ids[num] = HEAP_BTN_IDs;
@@ -285,6 +296,9 @@ void tUI_SET_SUIT_POSITIONS(std::vector<COORD> pos) {
             btn->SetPosition(pos[i]);
         }
     }
+}
+void tUI_AUTO_SET_SUIT_POSITIONS() {
+    tUI_SET_SUIT_POSITIONS((((g_status & BORDER_EGG_a) || !(g_status & CTRLR_SCREEN_f)) ? SUIT_POSITIONS_SCATTERED() : SUIT_POSITIONS_COLLECTED()));
 }
 
 void POPULATE_COLOR_LIST(std::vector<WORD>& colorList) {
@@ -307,7 +321,6 @@ tUIColorPkg GET_EGG_COLOR() {
     (fullColorSchemes[g_currentColorScheme].controllerColors.col3 FG_ONLY | bg_color BG_ONLY); \
     return tUIColorPkg({ bg_color, bg_color, col3, col3 });
 }
-
 void COLOR_EGGS() {
     tUIColorPkg colors = GET_EGG_COLOR();
     g_screen.SetButtonsColorsById(colors, EGG_IDs);
@@ -418,8 +431,10 @@ int THE_CLUBENING() {
             clubPos = replaceXEveryNth(&JoySendMain_Backdrop[col], sizeof(JoySendMain_Backdrop), (side ? L"►" : L"◄"), (side ? L"►" : L"◄"), 1);
             clubPos += col;
         }
-        clubPos = replaceXEveryNth(&JoySendMain_Backdrop[startPoint], sizeof(JoySendMain_Backdrop), (row ? L"+" : (side ? L"╣" : L"╠")), (side ? L"╣" : L"╠"), 1);
-        clubPos += startPoint;
+        else {
+            clubPos = replaceXEveryNth(&JoySendMain_Backdrop[startPoint], sizeof(JoySendMain_Backdrop), (row ? L"+" : (side ? L"╣" : L"╠")), (side ? L"╣" : L"╠"), 1);
+            clubPos += startPoint;
+        }
     }
     else {
         clubPos = replaceXEveryNth(&JoySendMain_Backdrop[startPoint], sizeof(JoySendMain_Backdrop), (row ? L"|" : (side ? L"|" : L"|")), L"|", 1);
@@ -894,11 +909,11 @@ void tUI_SET_BG_AND_SHOULDER_BUTTONS() {
 void tUI_SET_WIDE_MSG_LAYOUT(const char* ip) {
 #ifdef JOYSENDER_TUI
     constexpr int width = 43;
-    swprintf(msgPointer1, width, L"<< Connected to: %S >>", ip);
+    swprintf(msgPointer1, width, L"<< Connected To: %S >>", ip);
     cxMsg.SetPosition(22, 1, 38, 1, ALIGN_LEFT);
 #else
     constexpr int width = 45;
-    swprintf(msgPointer1, width, L"<< Connection from: %S >>", ip);
+    swprintf(msgPointer1, width, L"<< Connection From: %S >>", ip);
     cxMsg.SetPosition(25, 1, 38, 1, ALIGN_LEFT);
 #endif
     output1.SetText(msgPointer1);
@@ -939,6 +954,11 @@ void tUI_DRAW_BORDER() {
     printSubsetOfBuffer({ 0,18 }, { 0,18,74,20 }, { 0,18,73,21 }, backdrop, true);
 }
 
+void tUI_DRAW_CONTROLLER_FACE() {
+    WORD controllerOverBG = (((tUI_FLAGS() == DIAMONDS_a) || (tUI_FLAGS() == (DIAMONDS_a | HEART_EGG_a))) ? fullColorSchemes[g_currentColorScheme].menuBg : fullColorSchemes[g_currentColorScheme].controllerBg);
+    ReDrawControllerFace(g_screen, g_simpleScheme, controllerOverBG, g_mode, ((g_status & BORDER_EGG_a) || (g_status & PTRN_EGG_b) || (tUI_FLAGS() == (DIAMONDS_a | HEART_EGG_a)) || tUI_FLAGS() == DIAMONDS_a));
+}
+
 void tUI_RECOLOR_MAIN_LOOP() {
     g_screen.SetBackdropColor(fullColorSchemes[g_currentColorScheme].controllerBg);
     output1.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4); //"FPS:"
@@ -950,6 +970,7 @@ void tUI_RECOLOR_MAIN_LOOP() {
     tUIColorPkg buttonColors = controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
     /* Color non-controller buttons */
     g_screen.SetButtonsColors(buttonColors);
+    restartButtonCover.SetColor(DIAMOND_COLOR());
 
 #ifdef JOYSENDER_TUI
     restartButton[3].SetColors(buttonColors);  // mode section of restart button
@@ -969,11 +990,12 @@ void tUI_REDRAW_MAIN_LOOP() {
     }
 
     tUI_SET_BG_AND_SHOULDER_BUTTONS();
-    WORD controllerOverBG = (((tUI_FLAGS() == DIAMONDS_a) || (tUI_FLAGS() == (DIAMONDS_a | HEART_EGG_a))) ? fullColorSchemes[g_currentColorScheme].menuBg : fullColorSchemes[g_currentColorScheme].controllerBg);
-    ReDrawControllerFace(g_screen, g_simpleScheme, controllerOverBG, g_mode, ((g_status & BORDER_EGG_a) || (g_status & PTRN_EGG_b) || (tUI_FLAGS() == (DIAMONDS_a | HEART_EGG_a)) || tUI_FLAGS() == DIAMONDS_a));
+    tUI_DRAW_CONTROLLER_FACE();
     g_screen.DrawButtons();
 
 #ifdef JOYSENDER_TUI
+    restartButtonCover.getText()[0] = getCharAtPosition(restartButtonCover.GetPosition().X, restartButtonCover.GetPosition().Y);
+    restartButtonCover.getText()[1] = getCharAtPosition(restartButtonCover.GetPosition().X+1, restartButtonCover.GetPosition().Y);
     // in x64 release build the default parameter of -1 does not work??? debug show it set as 0. manually specifying value less then -1 here works
     restartButton[3].Draw(-2); 
 #endif    
@@ -1007,6 +1029,8 @@ void tUI_BUILD_MAIN_LOOP(Arguments& args) {
     restartButton[1].SetPosition(CONSOLE_WIDTH / 2 - 8, QUITLINE - 1);
     restartButton[2].SetPosition(CONSOLE_WIDTH / 2 - 6, QUITLINE - 1);
     restartButton[3].SetPosition(CONSOLE_WIDTH / 2 + 6, QUITLINE - 1);
+    restartButtonCover.setLength(2);
+    restartButtonCover.getText()[2] = L'\0';
 
     g_screen.AddButton(&restartButton[1]);  // mode 1
     g_screen.AddButton(&restartButton[2]);  // mode 2
@@ -1019,8 +1043,8 @@ void tUI_BUILD_MAIN_LOOP(Arguments& args) {
 
     mappingButton.setCallback(mappingButtonCallback);
 
-    swprintf(msgPointer1, 40, L" << Connection To: %S  >> ", args.host);
-    swprintf(cxPointer, 18, L" %S ", args.host);
+    swprintf(msgPointer1, 40, L" << Connection To: %S  >> ", args.host.c_str());
+    swprintf(cxPointer, 18, L" %S ", args.host.c_str());
     cxMsg.SetPosition(21, 1, 38, 1, ALIGN_LEFT);
 
 #else

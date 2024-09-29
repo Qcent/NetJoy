@@ -57,6 +57,7 @@ int main(int argc, char* argv[]) {
     ///********************************
     // Make Connection -> Receive Input Loop
     while (!APP_KILLED) {
+        server.set_client_timeout(5000);
         JOYRECEIVER_tUI_BUILD_CONNECTION();
 
         // Await Connection in separate thread while animating the screen
@@ -129,7 +130,6 @@ int main(int argc, char* argv[]) {
                 if (WSAGetLastError() == WSAETIMEDOUT) {
                     bytesReceived = JOYRECEIVER_tUI_WAIT_FOR_CLIENT_MAPPING(server, buffer, buffer_size);
                     fps_counter.reset();
-                    g_status |= REDRAW_tUI_f;
                 }
                 else {
                     int len = INET_ADDRSTRLEN + 31;
@@ -195,8 +195,6 @@ int main(int argc, char* argv[]) {
         /* End of Receive Joystick Data Loop */
                 
         if (!APP_KILLED) {
-            theme_mtx.lock(); // must exit theme thread
-            theme_mtx.unlock();  // before restarting
             tUI_SET_SUIT_POSITIONS(SUIT_POSITIONS_SCATTERED());
             g_screen.ClearButtonsExcept(HEAP_BTN_IDs);
             g_status |= tUI_RESTART_f;

@@ -1402,7 +1402,7 @@ void tUI_THEME_SELECTOR_SCREEN() {
         cxMsg.SetPosition(25, 1, 38, 1, ALIGN_LEFT);
 #endif
     }
-    tUI_SET_SUIT_POSITIONS((((g_status & BORDER_EGG_a) || !(g_status & CTRLR_SCREEN_f)) ? SUIT_POSITIONS_SCATTERED() : SUIT_POSITIONS_COLLECTED()));
+    tUI_AUTO_SET_SUIT_POSITIONS();
     tUI_CLEAR_SCREEN(DIAMOND_COLOR());
     g_status |= RECOL_tUI_f | REDRAW_tUI_f;
     g_status &= ~EDIT_THEME_f;

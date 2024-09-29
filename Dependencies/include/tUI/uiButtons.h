@@ -38,7 +38,7 @@ mouseButton restartButton[4] = {
     mouseButton(CONSOLE_WIDTH / 2 - 6, XBOX_QUIT_LINE - 1, 1, L"2"),
     mouseButton(CONSOLE_WIDTH / 2 + 6, XBOX_QUIT_LINE - 1, 9, L"[mode] "),
 };
-
+textInput restartButtonCover(CONSOLE_WIDTH / 2 + 13, XBOX_QUIT_LINE - 1, 2, 2, ALIGN_LEFT);
 
 // *********************************
 // Declare all necessary controller buttons: outline and highlight areas

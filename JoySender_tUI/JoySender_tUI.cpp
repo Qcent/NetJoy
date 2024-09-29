@@ -109,11 +109,11 @@ int joySendertUI(Arguments& args) {
         if (!APP_KILLED && allGood < 0) {
             int len = args.host.size() + 33;;
             if (allGood == CANCELLED_FLAG) {
-                swprintf(errorPointer, len, L" << Connection To %s Canceled >> ", std::wstring(args.host.begin(), args.host.end()).c_str());
+                swprintf(errorPointer, len, L" << Connection To %S Canceled >> ", args.host.c_str());
                 args.host = "";
             }
             else {
-                swprintf(errorPointer, len, L" << Connection To %s Failed: %d >> ", std::wstring(args.host.begin(), args.host.end()).c_str(), failed_connections + 1);
+                swprintf(errorPointer, len, L" << Connection To %S Failed: %d >> ", args.host.c_str(), failed_connections + 1);
             }
             errorOut.SetWidth(len);
             errorOut.SetText(errorPointer);
@@ -172,7 +172,8 @@ int joySendertUI(Arguments& args) {
             // Do remapping if triggered
             if (MAPPING_FLAG) {
                 // REMAP STUFF ** pauses communication till finished
-                 tUIRemapInputsScreen(activeGamepad);
+                tUI_SET_SUIT_POSITIONS(SUIT_POSITIONS_MAP_STACKED());
+                tUIRemapInputsScreen(activeGamepad);
                 if (APP_KILLED) {
                     inConnection = false;
                     break; // Break out of the loop
@@ -217,7 +218,7 @@ int joySendertUI(Arguments& args) {
                 allGood = client.send_data(reinterpret_cast<const char*>(&xbox_report), sizeof(xbox_report));
             }
             if (allGood < 1) {
-                swprintf(errorPointer, 50, L" << Connection To:  %s Failed >> ", std::wstring(args.host.begin(), args.host.end()).c_str());
+                swprintf(errorPointer, 50, L" << Connection To:  %S Failed >> ", args.host.c_str());
                 errorOut.SetText(errorPointer);
                 inConnection = false;
                 break;
@@ -280,6 +281,7 @@ int joySendertUI(Arguments& args) {
                     RESTART_FLAG = 3;
             }
             errorOut.SetText(L"\0");
+            break;
         }
 
         // Connection has failed or been aborted

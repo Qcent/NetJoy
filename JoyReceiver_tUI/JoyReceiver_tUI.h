@@ -346,7 +346,10 @@ void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(TCPConnection& server, Arguments&
     tUI_THEME_AUTO_ACTIVATION();
     tUI_THEME_RESTART();
 
-    g_screen.DrawBackdrop(); // for clear whitespace updates we need to laydown some color
+    if (theme_mtx.try_lock()) {
+        theme_mtx.unlock();
+        g_screen.DrawBackdrop(); // for clear whitespace updates we need to laydown some color
+    }
 
     /* Set up thread */
     allGood = WSAEWOULDBLOCK;
@@ -385,6 +388,7 @@ void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(TCPConnection& server, Arguments&
 int JOYRECEIVER_tUI_WAIT_FOR_CLIENT_MAPPING(TCPConnection& server, char* buffer, int buffer_size) {
     int bytesReceived = 0, counter = 0, len = 43;
     int lastAniFrame = g_frameNum - 1, bgDrawCount = 0;
+    bool inEditor = false;
 
     // Setup
     swprintf(errorPointer, len, L" << Client Is Mapping Their Controller >> ", connectionIP);
@@ -399,23 +403,20 @@ int JOYRECEIVER_tUI_WAIT_FOR_CLIENT_MAPPING(TCPConnection& server, char* buffer,
 
     tUITheme bgPtrn;
     bgPtrn.setColors(fullColorSchemes[g_currentColorScheme]);
+
+    tUI_SET_SUIT_POSITIONS(SUIT_POSITIONS_COLLECTED());
     
     auto cleanUp = [&]() {
         server.set_client_blocking(true);
         errorOut.SetPosition(oldErrorPos);
         errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2);
         setErrorMsg(L"\0", 1);
-        if (!(g_status & BORDER_EGG_a)) {
-            tUI_CLEAR_PTRN_AREA(fullColorSchemes[g_currentColorScheme].controllerBg);
+        tUI_SET_SUIT_POSITIONS((((g_status & BORDER_EGG_a) || !(g_status & CTRLR_SCREEN_f)) ? SUIT_POSITIONS_SCATTERED() : SUIT_POSITIONS_COLLECTED()));
+        if (theme_mtx.try_lock()) {
+            theme_mtx.unlock();
+            g_status |= REDRAW_tUI_f;
         }
         };
-
-    server.set_client_blocking(false);
-
-    // Draw bg
-    setTextColor(DIAMOND_COLOR());
-    drawPatternedArea({ 0,0,consoleWidth, consoleHeight });
-    bgPtrn.recordBlocks();
 
     auto draw_objects = [&]() {
         errorOut.Draw();
@@ -425,7 +426,24 @@ int JOYRECEIVER_tUI_WAIT_FOR_CLIENT_MAPPING(TCPConnection& server, char* buffer,
         output3.Draw();
         g_screen.DrawButtons();
         };
-    draw_objects();
+
+    server.set_client_blocking(false);
+
+    auto setBgPattern = [&]() {
+        setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
+        drawPatternedArea({ 0,0,consoleWidth+1, consoleHeight+1 });
+        bgPtrn.recordBlocks();
+        };
+
+
+    if (theme_mtx.try_lock()) {
+        setBgPattern();
+        draw_objects();
+        theme_mtx.unlock();
+    }
+    else {
+        inEditor = true;
+    }
 
     // loop
     while (!APP_KILLED) {
@@ -437,81 +455,86 @@ int JOYRECEIVER_tUI_WAIT_FOR_CLIENT_MAPPING(TCPConnection& server, char* buffer,
             return -1;
         }
         if (bytesReceived > -1) {
-            cleanUp();
-            return bytesReceived;
+            break;
         }
 
         // do stuff here
-
-        if (g_status & RECOL_tUI_f) {
-            g_status &= ~RECOL_tUI_f;
-            tUI_RECOLOR_MAIN_LOOP();
-            bgPtrn.setColors(fullColorSchemes[g_currentColorScheme]);
-            g_status |= REDRAW_tUI_f;
-        }
-        if (g_status & REDRAW_tUI_f) {
-            g_status &= ~REDRAW_tUI_f;
-            COLOR_EGGS();
-
-            if (g_status & BORDER_EGG_a) {
-                setCursorPosition(0,0);
-                setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
-                std::wcout << JoyRecvMain_Backdrop;
+        if (theme_mtx.try_lock()) {
+            if (inEditor) {
+                inEditor = false;
+                setBgPattern();
             }
-
-            bgPtrn.drawPtrn();
-            bgPtrn.shiftPtrnLeft();
-            bgDrawCount = 0;
-            draw_objects();
-            PRINT_EGG_X();
-        }
-        if (g_status & REFLAG_tUI_f) {
-            g_status &= ~REFLAG_tUI_f;
-            mouseButton* applyTheme = g_screen.GetButtonById(46);
-            if (applyTheme != nullptr) {
-                if (!(g_status & tUI_THEME_af)) {
-                    applyTheme->SetText(L"◊");
-                    applyTheme->Update();
-                }
-                if (g_status & tUI_THEME_af) {
-                    applyTheme->SetText(L"♦");
-                    applyTheme->Update();
-                }
+            theme_mtx.unlock();
+            if (g_status & RECOL_tUI_f) {
+                g_status &= ~RECOL_tUI_f;
+                tUI_RECOLOR_MAIN_LOOP();
+                bgPtrn.setColors(fullColorSchemes[g_currentColorScheme]);
+                g_status |= REDRAW_tUI_f;
             }
-        }
+            if (g_status & REDRAW_tUI_f) {
+                g_status &= ~REDRAW_tUI_f;
+                COLOR_EGGS();
 
-
-        /* Animation */
-        if (lastAniFrame != g_frameNum) {
-            lastAniFrame = g_frameNum;
-
-            if ((counter - 1) % 26 == 0) {
-                bgPtrn.drawPtrnDiag(bgDrawCount, {0,0,consoleWidth, consoleHeight+1});
-                if(++bgDrawCount > 9){
-                    bgDrawCount = 0;
-                    bgPtrn.shiftPtrnLeft();
+                if (g_status & BORDER_EGG_a) {
+                    setCursorPosition(0, 0);
+                    setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
+                    std::wcout << JoyRecvMain_Backdrop;
                 }
+
+                setBgPattern();
+                bgDrawCount = 0;
                 draw_objects();
+                PRINT_EGG_X();
+            }
+            if (g_status & REFLAG_tUI_f) {
+                g_status &= ~REFLAG_tUI_f;
+                mouseButton* applyTheme = g_screen.GetButtonById(46);
+                if (applyTheme != nullptr) {
+                    if (!(g_status & tUI_THEME_af)) {
+                        applyTheme->SetText(L"◊");
+                        applyTheme->Update();
+                    }
+                    if (g_status & tUI_THEME_af) {
+                        applyTheme->SetText(L"♦");
+                        applyTheme->Update();
+                    }
+                }
             }
 
-            
-            output2.SetText(ConnectAnimationLeft[g_frameNum]);
-            output2.SetPosition((consoleWidth / 2) - (len/2) - 5, 7);
-            output2.Draw();
+            /* Animation */
+            if (lastAniFrame != g_frameNum) {
+                lastAniFrame = g_frameNum;
 
-            output2.SetText(ConnectAnimationRight[g_frameNum]);
-            output2.SetPosition((consoleWidth / 2) + (len / 2) + 2, 7);
-            output2.Draw();
+                if ((counter - 1) % 26 == 0) {
+                    bgPtrn.drawPtrnDiag(bgDrawCount, { 0,0,consoleWidth+1, consoleHeight+1 });
+                    if (++bgDrawCount > 9) {
+                        bgDrawCount = 0;
+                        bgPtrn.shiftPtrnLeft();
+                    }
+                    draw_objects();
+                }
 
 
+                output2.SetText(ConnectAnimationLeft[g_frameNum]);
+                output2.SetPosition((consoleWidth / 2) - (len / 2) - 5, 7);
+                output2.Draw();
+
+                output2.SetText(ConnectAnimationRight[g_frameNum]);
+                output2.SetPosition((consoleWidth / 2) + (len / 2) + 2, 7);
+                output2.Draw();
+
+
+            }
+            if (counter % 13 == 0) {
+                loopCount(g_frameNum, CX_ANI_FRAME_COUNT);
+            }
+
+            screenLoop(g_screen);
+            counter++;
         }
-        if (counter % 13 == 0) {
-            loopCount(g_frameNum, CX_ANI_FRAME_COUNT);
-        }
-        
 
-        screenLoop(g_screen);
         Sleep(20);
-        counter++;
     }
+    cleanUp();
+    return bytesReceived;
 }
