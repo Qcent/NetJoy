@@ -1068,6 +1068,10 @@ void tUI_THEME_SELECTOR_SCREEN() {
     std::string appdataFolder = g_getenv("APPDATA");
     appdataFolder += "\\" + std::string(APP_NAME);
     std::filesystem::path saveFolder = std::filesystem::path(appdataFolder);
+    // Create the directory if it does not exist
+    if (!saveFolder.empty() && !std::filesystem::exists(saveFolder)) {
+        std::filesystem::create_directories(saveFolder);
+    }
     std::filesystem::path filename = "";
     auto gen_custom_filename = [&]() {
         filename = saveFolder / ("cust" + std::to_string(selected - NUM_COLOR_SCHEMES) + ".theme");
