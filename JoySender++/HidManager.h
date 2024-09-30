@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2023 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2024 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -42,12 +42,12 @@ struct HidDeviceInfo {
     std::wstring      serial;
     std::wstring      manufacturer;
     std::wstring      product;
-    unsigned short    vendorId;
-    unsigned short    productId;
-    unsigned short    release;
-    unsigned short    usagePage;
-    unsigned short    usage;
-    int               interfaceNumber;
+    unsigned short    vendorId        = 0;
+    unsigned short    productId       = 0;
+    unsigned short    release         = 0;
+    unsigned short    usagePage       = 0;
+    unsigned short    usage           = 0;
+    int               interfaceNumber = 0;
 };
 
 class HidDeviceManager

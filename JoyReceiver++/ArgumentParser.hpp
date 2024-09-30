@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2023 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2024 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -28,7 +28,9 @@ THE SOFTWARE.
 
 struct Arguments {
     int port = 5000;
+#ifndef NetJoyTUI
     bool latency = true;
+#endif
 };
 
 Arguments parse_arguments(int argc, char* argv[]) {
@@ -38,7 +40,9 @@ Arguments parse_arguments(int argc, char* argv[]) {
     options.allow_unrecognised_options();
     options.add_options()
         ("p,port", "Port to run on", cxxopts::value<int>()->default_value("5000"))
+#ifndef NetJoyTUI
         ("l,latency", "Show latency output", cxxopts::value<bool>()->implicit_value("true"))
+#endif
         ("h,help", "Display this help message");
 
     options.parse_positional("port");
@@ -57,7 +61,8 @@ Arguments parse_arguments(int argc, char* argv[]) {
     }
 
     args.port = result["port"].as<int>();
+#ifndef NetJoyTUI
     args.latency = result["latency"].as<bool>();   
- 
+#endif
     return args;
 }

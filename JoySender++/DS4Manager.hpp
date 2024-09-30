@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2023 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2024 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -32,6 +32,7 @@ constexpr byte DS4_VIA_BT = 3;
 
 
 // for testing
+#if 0
 void displayBytes(BYTE* buffer, DWORD bufferSize) {
     for (DWORD i = 0; i < bufferSize; i++) {
         // Check if the current byte is "CC"
@@ -77,6 +78,7 @@ void outputLastError() {
     DWORD errorNum = GetLastError();
     PrintErrorMessage(errorNum);
 }
+#endif
 
 
 template<int N> struct BTAudio {
@@ -282,12 +284,11 @@ struct ReportOut11 {
 };
 
 // Create a buffer to store reports in
-const DWORD ds4_InBuffSize = 1024; // 1024 is smallest value that will receive DS4 report using ReadFileInputReport() ??? i just used 64 in USB mode
-BYTE ds4_InReportBuf[ds4_InBuffSize];
+const DWORD ds4_InBuffSize = 547; // 547 is smallest value that will receive DS4 report using ReadFileInputReport() via BT, USB can be as low as 64?
+BYTE ds4_InReportBuf[ds4_InBuffSize] = { 0 };
 
 // Create an output buffer for sending ReportOut11/ReportOut05 structures
-const DWORD ds4_outBuffSize = sizeof(ReportOut11);
-BYTE ds4_OutReportBuf[ds4_outBuffSize];
+BYTE ds4_OutReportBuf[sizeof(ReportOut11)];
 
 // Holds the position of the relevent input data in HID report depending on USB/BT connection
 size_t ds4DataOffset = 0;
@@ -325,8 +326,8 @@ int ConsoleSelectDS4Dialog(std::vector<HidDeviceInfo>& devList) {
        // Check if the selected index is valid
        if (selectedJoystickIndex < 0 || selectedJoystickIndex >= numJoysticks)
        {
-           std::cout << "Invalid index." << std::endl << std::endl;
-           selectedJoystickIndex = -1;
+           //std::cout << "Invalid index." << std::endl << std::endl;
+           return -1;
        }
    }
 
@@ -348,12 +349,22 @@ bool ConnectToDS4Controller() {
         ANY                 // usage
     );
 
+    if (devList.size() == 0) {
+        std::cout << "\t No Connected DS4 Controllers \n Connect a controller and press a key..." << std::endl;
+        _getch();
+        return ConnectToDS4Controller();
+    }
     if (devList.size() > 1) {
         // User selects from connected DS4 devices
         int idx = ConsoleSelectDS4Dialog(devList);
+        if (idx == -1) {
+            clearConsoleScreen();
+            std::cout << "Invalid index." << std::endl;
+            return ConnectToDS4Controller();
+        }
         selectedDev = &devList[idx];
     }
-    else if (devList.size()) {
+    else{
         selectedDev = &devList[0];
     }
     

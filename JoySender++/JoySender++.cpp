@@ -23,63 +23,14 @@ THE SOFTWARE.
 */
 
 #include "JoySender++.h"
-#include "GamepadMapping.hpp"
-#include "DS4Manager.hpp"
 
-// Function safely return environment variables
-std::string g_getenv(const char* variableName) {
-    std::string value;
-    size_t requiredSize = 0;
-    getenv_s(&requiredSize, nullptr, 0, variableName);
-    if (requiredSize > 0) {
-        value.resize(requiredSize);
-        getenv_s(&requiredSize, &value[0], requiredSize, variableName);
-        value.pop_back(); // Remove the null-terminating character
+void signalHandler(int signal) {
+    if (signal == SIGINT) {
+        APP_KILLED = 1;
+        Sleep(5);
     }
-    return value;
 }
-// Some Console Output, ANSI helper functions
-void enableANSI()
-{
-    HANDLE consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
 
-    DWORD consoleMode;
-    GetConsoleMode(consoleHandle, &consoleMode);
-
-    // Enable ANSI escape sequences support
-    consoleMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-
-    SetConsoleMode(consoleHandle, consoleMode);
-}
-void hideConsoleCursor() {
-    HANDLE consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
-    CONSOLE_CURSOR_INFO cursorInfo;
-    GetConsoleCursorInfo(consoleHandle, &cursorInfo);
-    cursorInfo.bVisible = FALSE;
-    SetConsoleCursorInfo(consoleHandle, &cursorInfo);
-}
-void showConsoleCursor() {
-    HANDLE consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
-    CONSOLE_CURSOR_INFO cursorInfo;
-    GetConsoleCursorInfo(consoleHandle, &cursorInfo);
-    cursorInfo.bVisible = TRUE;
-    SetConsoleCursorInfo(consoleHandle, &cursorInfo);
-}
-void clearConsoleScreen()
-{
-    std::cout << "\033[2J\033[H";
-}
-void repositionConsoleCursor(int lines, int offset) {
-    if (lines < 0) // Move the cursor up by the specified number of lines
-        std::cout << "\033[" << abs(lines) << "F";
-    else if(lines > 0) // Move the cursor down by the specified number of lines
-        std::cout << "\033[" << lines << "E";
-    // Move the cursor to the specified offset from the start of the line
-    std::cout << "\033[" << offset << "G";
-}
-void clearConsoleLine() {
-    std::cout << "\033[K";
-}
 // For FPS and Latency Output
 void overwriteFPS(const std::string& text) {
     // Move the cursor to the beginning of the last line
@@ -91,160 +42,36 @@ void overwriteLatency(const std::string& text) {
     repositionConsoleCursor(-1, 27);
     std::cout << text << std::endl;
 }
-// Function to display g_outputText to console
-void displayOutputText() {
-    clearConsoleScreen();
-    std::cout << g_outputText;
-}
-// Function to detect if keyboard key is pressed
-bool getKeyState(int KEYCODE) {
-    return GetAsyncKeyState(KEYCODE) & 0x8000;
-}
-// Function to convert strings to wide strings
-std::wstring g_toWide(std::string& str) {
-    std::wstring wideString(str.begin(), str.end());
-    return wideString;
-}
-// Function that will prompt for and verify an ip address 
-std::string getHostAddress() {
-    // Lambda function for IP address validation
-    auto validIPAddress = [](const std::string& ipAddress) {
-        std::regex pattern(R"((\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b))");
-        std::smatch match;
-        return std::regex_match(ipAddress, match, pattern);
-    };
-    swallowInput();
-    std::string host_address;
-    showConsoleCursor();
-    while (!APP_KILLED && host_address.empty()) {
-            std::cout << "Please enter the host IP address (or nothing for localhost): ";
-            //std::cin.ignore(80, '\n'); // Flush the input stream
-            std::getline(std::cin, host_address);
-
-        if (host_address.empty()) {
-            host_address = "127.0.0.1";
-        }
-
-        if (!validIPAddress(host_address)) {
-            std::cout << "Invalid IP address. Please try again." << std::endl;
-            host_address = "";
-        }
-    }
-    hideConsoleCursor();
-    return host_address;
-}
-// Function that takes string representing a float and fixes it's decimal places to numDigits
-std::string formatDecimalString(const std::string& str, UINT8 numDigits) {
-    size_t decimalPos = str.find('.');
-    if (decimalPos == std::string::npos) {
-        // No decimal point found, return the original 
-        // string with decimal and padded zeros
-        std::string paddedStr = str + ".";
-        paddedStr.append(numDigits, '0');
-        return paddedStr;
-    }
-    size_t strLen = str.length();
-    size_t numDecimals = strLen - decimalPos - 1;
-    if (numDecimals <= numDigits) {
-        // No need to truncate or pad, return the original string
-        return str;
-    }
-    // Truncate the string to the desired number of decimal places
-    std::string truncatedStr = str.substr(0, decimalPos + numDigits + 1);
-    // Pad with zeros if necessary
-    if (numDecimals < numDigits) {
-        truncatedStr.append(numDigits - numDecimals, '0');
-    }
-
-    return truncatedStr;
-}
-// Function captures all input from the keyboard to clear buffer
-void swallowInput()
-{
-    while (_kbhit())
-    {
-        _getch();
-    }
-}
-// Function waits for no keyboard presses to be detected before returning
-void wait_for_no_keyboard_input() {
-    bool input = true;
-    while (input) {
-        input = false;
-        // Check if any key is currently being pressed
-        for (int i = 48; i < 90; i++) {
-            if (GetAsyncKeyState(i) & 0x8000) {
-                input = true;
-            }
-        }
-    }
-    swallowInput();
-}
-// Function determines if app is the active window
-bool IsAppActiveWindow()
-{
-    HWND consoleWindow = GetConsoleWindow();
-    HWND foregroundWindow = GetForegroundWindow();
-
-    return (consoleWindow == foregroundWindow);
-}
-// Function determines if rumble values need to be updated
-bool updateRumble(const char motor, BYTE val) {
-    static BYTE L, R = 0;
-    switch (motor) {
-    case 'L':
-    {
-        if (val == 0 && L == val) return false;
-        L = val;
-        return true;
-    }
-
-    case 'R':
-    {
-        if (val == 0 && R == val) return false;
-        R = val;
-        return true;
-    }
-    }
-    return false;
-}
 
 int joySender(Arguments& args) {
-    FPSCounter fps_counter;
-    FPSCounter latencyTimer;
+    int allGood;
+    char buffer[24];
+    int buffer_size = sizeof(buffer);
     bool inConnection = false;
     int failed_connections = 0;
-    std::string mapName;
-    std::vector<SDLButtonMapping::ButtonName> activeInputs;
-      
-    int allGood;
-    char buffer[128];
-    int buffer_size = sizeof(buffer);
-    int bytesReceived;
-    int reportSize;
 
     SDLJoystickData activeGamepad;
-    XUSB_REPORT xbox_report;
-    BYTE* hid_report = ds4_InReportBuf;
+    XUSB_REPORT xbox_report = {0};
+    BYTE* ds4_report = ds4_InReportBuf;
 
-    // Lambda Functions and variables for FPS and FPS Limiting calculations
-    int TARGET_FPS = args.fps;
-    double fpsAdjustment = 0.0;
-    
+    // Lambdas and variables for fps/fps-limiting and latency calculations
+    FPSCounter fps_counter;
+    FPSCounter latencyTimer;
     std::string fpsOutput;
-    auto do_fps_counting = [&fps_counter, &TARGET_FPS, &fpsAdjustment](int report_frequency = 30) {
+    double loop_delay = 0.0;
+    auto do_fps_counting = [&fps_counter, &args, &loop_delay](int report_frequency = 30) {
         // set up some static doubles we will use each frame
-        static double averageFrameTime_ms, fps, target_sleep = 1000 / (TARGET_FPS);
-        
+        static double averageFrameTime_ms, fps, target_sleep = 1000 / (args.fps);
+
         int count = fps_counter.increment_frame_count();
 
         // determine how long to sleep to limit frame rate
         averageFrameTime_ms = (fps_counter.get_elapsed_time() / count) * 1000;
         fps = fps_counter.get_fps();
-        if (fps < TARGET_FPS)
-            fpsAdjustment = target_sleep - averageFrameTime_ms;
+        if (fps < args.fps)
+            loop_delay = target_sleep - averageFrameTime_ms;
         else
-            fpsAdjustment = target_sleep;
+            loop_delay = target_sleep;
     
         // output fps to caller
         if (count >= report_frequency) {
@@ -254,8 +81,7 @@ int joySender(Arguments& args) {
         return std::string();
     };
     double latencyOutput = 0.0;
-    const int latency_report_freq = 25;
-    auto do_latency_timing = [&latencyTimer](int report_frequency = 15) {
+    auto do_latency_timing = [&latencyTimer](int report_frequency = 25) {
         if (latencyTimer.increment_frame_count() >= report_frequency) {
             double elapsedTime = latencyTimer.get_elapsed_time();
             latencyTimer.reset();
@@ -264,14 +90,13 @@ int joySender(Arguments& args) {
         return 0.0;
 };
 
-
-    //###########################################################################
-    //# User or auto select gamepad 
+    //##########################################################################
+    // User or auto select gamepad 
     switch (args.mode) {
     case 1: {   // SDL MODE
         if (!args.select) {
-            showConsoleCursor();
-           allGood = ConsoleSelectJoystickDialog(getJoystickList().size(), activeGamepad);
+           showConsoleCursor();
+           allGood = ConsoleSelectJoystickDialog(activeGamepad);
            if (!allGood) {
                std::cout << " Unable to connect to that device !! " << std::endl;
                return -1;
@@ -302,20 +127,14 @@ int joySender(Arguments& args) {
         return -1;
     }
 
-
-    //###########################################################################
+    //##########################################################################
     // Init Settings for Operating Mode
-    if (args.mode == 3) {
-        g_outputText = "HID Mode Activated\r\n";
-            //buttons = HIDButtonMapping()
-    }
-    else if (args.mode == 2) {  
-        
+    if (args.mode == 2) {      
         // Get a report from the device to determine what type of connection it has
         GetDS4Report();
 
         // first byte is used to determine where stick input starts
-        ds4DataOffset = hid_report[0] == 0x11 ? DS4_VIA_BT : DS4_VIA_USB;
+        ds4DataOffset = ds4_report[0] == 0x11 ? DS4_VIA_BT : DS4_VIA_USB;
 
         int attempts = 0;   // DS4 fails to properly initialize when connecting to pc (after power up) via BT so lets hack in multiple attempts
         while (attempts < 2) {
@@ -347,8 +166,6 @@ int joySender(Arguments& args) {
             if (allGood) g_outputText += " Rumble On | ";
             g_outputText += "\r\n";
 
-            reportSize = DS4_REPORT_NETWORK_DATA_SIZE;
-
             // Rumble the Controller
             if (allGood) {
                 // jiggle it
@@ -374,43 +191,33 @@ int joySender(Arguments& args) {
         }
     }
     else {
-        g_outputText = "SDL Mode Activated\r\n";
+        g_outputText = "XBOX Mode Activated\r\n";
         BuildJoystickInputData(activeGamepad);
-        // Convert joystick name to hex  
-        mapName = encodeStringToHex(activeGamepad.name);
-        reportSize = sizeof(xbox_report);
+    }
+
+    //##########################################################################
+    // If not in DS4 Passthrough mode look for Saved Mapping or create one
+    if (args.mode != 2) {
+        // Look for an existing map for selected device
+        OpenOrCreateMapping(activeGamepad);
     }
     displayOutputText();
-    //###########################################################################
-    //# If not in DS4 Passthrough mode look for Saved Mapping or create one
-    if (args.mode != 2) {
-        //# Look for an existing map for selected device
-        OpenOrCreateMapping(activeGamepad, mapName);
-        // Create a list of set joystick inputs
-        activeInputs = activeGamepad.mapping.getSetButtonNames();
-    }
-    if (args.mode == 3) {
-        /// hid_input_lists = get_hidmap_input_lists(buttons, input_list)
-        ///     report_size = len(gamepad.read(64))
-    }
-
-    //###########################################################################
-    //# Main Loop keeps client running
-    //# asks for new host if connection fails 3 times
+    //##########################################################################
+    // Main Loop keeps client running
+    // asks for new host if connection fails 3 times in a row
     while (!APP_KILLED) {
-        fps_counter.reset();
-
         // Aquire host address for connection attempt
         if (args.host.empty()) {
             args.host = getHostAddress();
         }
+        if (APP_KILLED) return 0;
         TCPConnection client(args.host, args.port);
-        client.set_silence(true);
         allGood = client.establish_connection();
 
         // *******************
         // Attempt timing and mode setting handshake
         if (allGood > 0) {
+            client.set_client_timeout(NETWORK_TIMEOUT_MILLISECONDS);
             g_outputText += "<< Connected To : " + args.host + " >>  "; //  \r\n";
             displayOutputText();
             std::cout << std::endl;
@@ -420,23 +227,21 @@ int joySender(Arguments& args) {
             std::string txSettings = std::to_string(args.fps) + ":" + std::to_string(args.mode);
             allGood = client.send_data(txSettings.c_str(), static_cast<int>(txSettings.length()));
             if (allGood < 1) {
-                //std::cout << "<< Connection Failed >> \r\n";
                 g_outputText += "<< Connection Failed >> \r\n";
                 displayOutputText();
-                client.~TCPConnection();
                 break;
             }
 
-            bytesReceived = client.receive_data(buffer, buffer_size);
-            if (bytesReceived > 0) {
-                inConnection = true;
-            }
-            else{
-                //std::cout << "<< Connection Failed >> \r\n";
+            allGood = client.receive_data(buffer, buffer_size);
+            if (allGood < 1) {
                 g_outputText += "<< Connection Failed >> \r\n";
                 displayOutputText();
-                client.~TCPConnection();
                 break;
+            }
+            else{
+                inConnection = true;   
+                client.set_silence(true);
+                failed_connections = 0;
             }
 
             // Set Lines for FPS and Latency output
@@ -444,125 +249,95 @@ int joySender(Arguments& args) {
         }
 
 
-        // ******************
-        // Connection loop
+        // *****************\\
+        // Connection loop   ||
+        fps_counter.reset();
         while (inConnection){
             // Shift + R will Reset program allowing joystick reconnection / selection
             // Shift + M will reMap all buttons on an SDL device
             // Shift + Q will Quit the program
-            // Shift + G will re output g_outputText
-            if (getKeyState(VK_SHIFT)) {
-                if (getKeyState('G')) {
-                    displayOutputText();
-                    // Set Lines for FPS and Latency output
-                    std::cout << std::endl << std::endl;
-                }
+            if (getKeyState(VK_SHIFT) && IsAppActiveWindow()) {
                 if (getKeyState('R') || getKeyState('M') || getKeyState('Q')) {
-                    if (IsAppActiveWindow()) {
-                        client.~TCPConnection();
-                        inConnection = false;
-                    }
+                    inConnection = false;
                 }
             }
             if (!inConnection || APP_KILLED) {
                 break; // Break out of the loop if inConnection is false
             }
 
-            //###################################
-            //# Read from Input
-            if(args.mode == 3) {
-                //# Read the next HID report
-                //# input_report = gamepad.read(report_size)
-                //# set the XBOX REPORT from HID input_report
-                //get_xbox_report_from_hidmap(gamepad, report_size, buttons, hid_input_lists, xbox_report)
-            }
-            else if (args.mode == 2) {
-                //# Read the next HID report for DS4 Passthrough
+            //##################################
+            // Read from Input
+            if (args.mode == 2) {
+                // Read the next HID report for DS4 Passthrough
                 allGood = GetDS4Report();
-                // *hid_report will point to most recent data
-                if (!allGood) {
-                    g_outputText += "<< Device Disconnected >> \r\n";
-                    displayOutputText();
-                    client.~TCPConnection();
-                    inConnection = false;
-                }
+                // *ds4_report will point to most recent data 
             }
             else {
-                //# set the XBOX REPORT from SDL inputs
-                get_xbox_report_from_SDLmap(activeGamepad, activeInputs, xbox_report);
+                // set the XBOX REPORT from SDL events
+                allGood = get_xbox_report_from_SDL_events(activeGamepad, xbox_report);
+#if 0
+                if (fps_counter.get_frame_count() % 10 == 0) {
+                    g_outputText = "";
+                    printXusbReport(xbox_report);
+                    std::cout << g_outputText;
+                    repositionConsoleCursor(-7);
+                }
+#endif
+            }
+            if (!allGood) {
+                g_outputText += "<< Device Disconnected >> \r\n";
+                displayOutputText();
+                inConnection = false;
+                return 1;
             }
 
             // ###################################
-            //# let's calculate some timing
+            // let's calculate some timing
             fpsOutput = do_fps_counting();
             if (args.latency) {
                 if (!fpsOutput.empty()) {
                     overwriteFPS(fpsOutput + " fps  ");
                 }
-                latencyOutput = do_latency_timing(latency_report_freq);
+                latencyOutput = do_latency_timing();
                 if (latencyOutput) {
-                    overwriteLatency("Latency: " + formatDecimalString(std::to_string(((latencyOutput*1000) - fpsAdjustment) / 2), 5) + " ms  ");
+                    overwriteLatency("Latency: " + formatDecimalString(std::to_string(((latencyOutput*1000) - loop_delay) / 2), 5) + " ms  ");
                 }
             }
             // ###################################
                 
-            //####################################
-            //# Send joystick input to server
+            //###################################
+            // Send joystick input to server
             if (args.mode == 2) {
-                //# Shift bytearray to index of first stick value
-                allGood = client.send_data(reinterpret_cast<const char*>(hid_report+ds4DataOffset), reportSize);     
+                // Shift bytearray to index of first stick value
+                allGood = client.send_data(reinterpret_cast<const char*>(ds4_report+ds4DataOffset), DS4_REPORT_NETWORK_DATA_SIZE);
             }
             else {
-                allGood = client.send_data(reinterpret_cast<const char*>(&xbox_report), reportSize); 
+                allGood = client.send_data(reinterpret_cast<const char*>(&xbox_report), sizeof(xbox_report));
             }
-            //  Error ?
+            // Error check
             if (allGood < 1) {
-                //std::cout << "<< Connection Lost >> \r\n";
                 g_outputText += "<< Connection Lost >> \r\n";
                 displayOutputText();
-                client.~TCPConnection();
-                inConnection = false;
-                break;
-            }
-
-            //###################################
-            // # Wait for server response
-            allGood = client.receive_data(buffer, buffer_size);                
-            if (allGood < 1) {
-                //std::cout << "<< Connection Lost >> \r\n";
-                g_outputText += "<< Connection Lost >> \r\n";
-                displayOutputText();
-                client.~TCPConnection();
                 inConnection = false;
                 break;
             }
 
             //##################################
-            // **  Process Rumble Feedback data
-            if (updateRumble('L', byte(buffer[0])) || updateRumble('R', byte(buffer[1]))) {
-#if 0
-                if (args.latency) {
-                    repositionConsoleCursor(-2);
-                    std::cout << "Feedback: " << std::to_string(byte(buffer[0])) << " : " << std::to_string(byte(buffer[1])) << "     ";
-                    repositionConsoleCursor(2);
-                }
-#endif
-                if (args.mode == 2){
-                    SetDS4RumbleValue(byte(buffer[0]), byte(buffer[1]));
-                    allGood = SendDS4Update();
-                    if (!allGood) {
-                        // USB always errors // not anymore right?
-                        outputLastError();
-                        displayBytes(ds4_OutReportBuf, 16);
-                    }
-                }
-                else if (args.mode == 1) {
-                    SDLRumble(activeGamepad, byte(buffer[0]), byte(buffer[1]));
-                }
+            // # Wait for server response
+            allGood = client.receive_data(buffer, buffer_size);                
+            if (allGood < 1) {
+                g_outputText += "<< Connection Lost >> \r\n";
+                displayOutputText();
+                inConnection = false;
+                break;
             }
 
+            //#################################
+            // **  Process Feedback data
+            processFeedbackBuffer((byte*)&buffer, activeGamepad, args.mode);
+            
             // Sleep to yield thread
-            Sleep(max(fpsAdjustment, 0)); 
+            Sleep(loop_delay > 0 ? loop_delay : 0);
             if (args.mode == 2) {
                 // make sure we get a recent report
                 DS4manager.Flush();
@@ -573,7 +348,7 @@ int joySender(Arguments& args) {
 
 
         // Catch key presses that could have terminiated connection
-        //# Shift + R  Resets program allowing joystick reconnection / selection, holding a number will change op mode
+        // Shift + R  Resets program allowing joystick reconnection / selection, holding a number will change op mode
         if (getKeyState('R')) {
             g_outputText += "<< Restarted >>\r\n";
             while (getKeyState('R')) {
@@ -581,25 +356,20 @@ int joySender(Arguments& args) {
                     return 2;
                 if (getKeyState('2'))
                     return 3;
-                if (getKeyState('3'))
-                    return 4;
             }
             return 1;
         }
-        //# Shift + M  reMaps all inputs
+        // Shift + M  reMaps all inputs
         if (getKeyState('M')) {
-            if (args.mode == 3) {
-                //set_hid_mapping(gamepad, buttons, []);
-            }
-            else if(args.mode == 1) {
+            if(args.mode == 1) {
                 // REMAP STUFF
                 activeGamepad.mapping = SDLButtonMapping();
-                std::vector<SDLButtonMapping::ButtonName> blankList;
-                RemapInputs(activeGamepad, blankList);
+                RemapInputs(activeGamepad);
+                memset((void*)&xbox_report, 0, sizeof(xbox_report));
                 --failed_connections;
             }
         }
-        //# Shift + Q  will Quit
+        // Shift + Q  will Quit
         if (getKeyState('Q') || APP_KILLED) {
             g_outputText += "<< Exiting >>\r\n";
             displayOutputText();
@@ -607,8 +377,8 @@ int joySender(Arguments& args) {
         }
         
 
-        //###################################
-        //# Connection has failed or been aborted
+        //##################################
+        // Connection has failed or been aborted
         ++failed_connections;
         if (failed_connections > 2){
             args.host = "";
@@ -650,15 +420,6 @@ int main(int argc, char **argv)
     swallowInput();
     SDL_Quit();
     showConsoleCursor();
-    Sleep(7);
-    std::cout << "all cleaned up! (:" << std::endl;
-    return 1;
-}
 
-void signalHandler(int signal) {
-    if (signal == SIGINT) {
-        APP_KILLED = 1;
-        Sleep(5);
-        std::cout << "Keyboard interrupt received. Exiting gracefully." << std::endl;
-    }
+    return 1;
 }

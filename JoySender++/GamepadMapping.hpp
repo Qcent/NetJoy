@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2023 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2024 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -29,24 +29,30 @@ THE SOFTWARE.
 #include <sstream>
 #include <unordered_map>
 #include <vector>
-#include <SDL/SDL.h>
+#include <SDL3/SDL.h>
 
-#define AXIS_INPUT_THRESHOLD 16000  // set high to prevent false positives on noisy input during mapping
+#define AXIS_INPUT_THRESHOLD 10000  // set high to prevent false positives on noisy input during mapping
 #define AXIS_INPUT_DEADZONE 3000    // like threshold but used for main loop joystick reading
+
+#define ANALOG_RANGE_NONE       0
+#define ANALOG_RANGE_NEG       -1
+#define ANALOG_RANGE_POS        1
+#define ANALOG_RANGE_NEG_TO_POS 3
+#define ANALOG_RANGE_POS_TO_NEG 4
 
 class SDLButtonMapping {
 public:
-    enum class ButtonType {
+    enum class ButtonType : byte {
         UNSET,
         HAT,
         STICK,
         THUMB,
         TRIGGER,
         SHOULDER,
-        BUTTON 
+        BUTTON
     };
 
-    enum class ButtonName {
+    enum class ButtonName : byte{
         DPAD_UP,
         DPAD_DOWN,
         DPAD_LEFT,
@@ -65,25 +71,27 @@ public:
         LEFT_TRIGGER,
         RIGHT_TRIGGER,
         LEFT_STICK_LEFT,
-        LEFT_STICK_UP,
         LEFT_STICK_RIGHT,
+        LEFT_STICK_UP,
         LEFT_STICK_DOWN,
         RIGHT_STICK_LEFT,
-        RIGHT_STICK_UP,
         RIGHT_STICK_RIGHT,
+        RIGHT_STICK_UP,
         RIGHT_STICK_DOWN,
     };
 
     class ButtonMapInput {
     public:
         ButtonType input_type;
-        int index;
-        int value;
+        byte index;
+        int16_t value;
+        int16_t range;
+        
 
-        ButtonMapInput(ButtonType input_type = ButtonType::UNSET, int index = -1, int value = 0)
-            : input_type(input_type), index(index), value(value) {}
+        ButtonMapInput(ButtonType input_type = ButtonType::UNSET, byte index = -1, int16_t value = 0, int16_t range = ANALOG_RANGE_NONE)
+            : input_type(input_type), index(index), value(value), range(range) {}
 
-        void set(ButtonType input_type, int index, int value) {
+        void set(ButtonType input_type, byte index, int16_t value) {
             this->input_type = input_type;
             this->index = index;
             this->value = value;
@@ -93,12 +101,33 @@ public:
             input_type = ButtonType::UNSET;
             index = -1;
             value = 0;
+            range = ANALOG_RANGE_NONE;
         }
+
+        // Ignores range ... bug or feature? (feature)
+        bool operator==(const ButtonMapInput& other) const {
+            return (this->input_type == other.input_type) &&
+                (this->index == other.index) &&
+                (this->value == other.value);
+        }
+
+        // Custom hash function for ButtonMapInput to be used as a key in unordered_map
+        struct HashFunction {
+            std::size_t operator()(const ButtonMapInput& input) const {
+                return std::hash<byte>()(static_cast<int>(input.input_type)) ^
+                    std::hash<byte>()(input.index) ^
+                    std::hash<int16_t>()(input.value);
+            }
+        };
     };
 
     using ButtonMap = std::unordered_map<ButtonName, ButtonMapInput>;
+    using InverseMap = std::unordered_map<ButtonMapInput, ButtonName, ButtonMapInput::HashFunction>;
 
     ButtonMap buttonMaps;
+    InverseMap inverseMap;
+    std::vector<ButtonName> dpadInputList;
+    std::vector<ButtonName> extRangeInputList;
     std::vector<ButtonName> stickButtonNames;
     std::vector<ButtonName> triggerButtonNames;
     std::vector<ButtonName> thumbButtonNames;
@@ -107,7 +136,7 @@ public:
     std::vector<ButtonName> genericButtonNames;
 
     SDLButtonMapping()
-        : buttonMaps({{ButtonName::DPAD_UP, ButtonMapInput()},
+        : buttonMaps({ {ButtonName::DPAD_UP, ButtonMapInput()},
                       {ButtonName::DPAD_DOWN, ButtonMapInput()},
                       {ButtonName::DPAD_LEFT, ButtonMapInput()},
                       {ButtonName::DPAD_RIGHT, ButtonMapInput()},
@@ -117,7 +146,7 @@ public:
                       {ButtonName::RIGHT_THUMB, ButtonMapInput()},
                       {ButtonName::LEFT_SHOULDER, ButtonMapInput()},
                       {ButtonName::RIGHT_SHOULDER, ButtonMapInput()},
-                      //{ButtonName::GUIDE, ButtonMapInput()}, // useless and annoying button on pc
+                      {ButtonName::GUIDE, ButtonMapInput()},
                       {ButtonName::A, ButtonMapInput()},
                       {ButtonName::B, ButtonMapInput()},
                       {ButtonName::X, ButtonMapInput()},
@@ -131,7 +160,7 @@ public:
                       {ButtonName::RIGHT_STICK_LEFT, ButtonMapInput()},
                       {ButtonName::RIGHT_STICK_UP, ButtonMapInput()},
                       {ButtonName::RIGHT_STICK_RIGHT, ButtonMapInput()},
-                      {ButtonName::RIGHT_STICK_DOWN, ButtonMapInput()}}),
+                      {ButtonName::RIGHT_STICK_DOWN, ButtonMapInput()} }),
         stickButtonNames(generateButtonList(ButtonType::STICK)),
         triggerButtonNames(generateButtonList(ButtonType::TRIGGER)),
         thumbButtonNames(generateButtonList(ButtonType::THUMB)),
@@ -159,17 +188,39 @@ public:
         return unsetButtons;
     }
 
+    void populateExtraMaps() {
+        // Clear all maps/lists
+        extRangeInputList.clear();
+        dpadInputList.clear();
+        inverseMap.clear();  
+        std::vector<ButtonName> setButtons = getSetButtonNames();
+        // Re-populate maps/lists
+        for (const auto& buttonName : setButtons) {
+            const auto& buttonInput = buttonMaps.at(buttonName);
+            inverseMap[buttonInput] = buttonName;
+
+            if (buttonInput.input_type == SDLButtonMapping::ButtonType::HAT) {
+                dpadInputList.push_back(buttonName);
+            }
+
+            if (buttonInput.input_type == SDLButtonMapping::ButtonType::STICK && buttonInput.value >= ANALOG_RANGE_NEG_TO_POS) {
+                extRangeInputList.push_back(buttonName);
+            }
+        }
+    }
+
     int saveMapping(const std::string& filename) {
         std::ofstream file(filename, std::ios::binary);
         if (file.is_open()) {
-            std::vector<std::tuple<ButtonName, ButtonType, int, int>> buttonList;
+            file.write("v2", 2);
+            std::vector<std::tuple<ButtonName, ButtonType, int, int, int>> buttonList;
             for (const auto& buttonMap : buttonMaps) {
                 const auto& buttonName = buttonMap.first;
                 const auto& buttonInput = buttonMap.second;
-                buttonList.emplace_back(buttonName, buttonInput.input_type, buttonInput.index, buttonInput.value);
+                buttonList.emplace_back(buttonName, buttonInput.input_type, buttonInput.index, buttonInput.value, buttonInput.range);
             }
 
-            const std::size_t tupleSize = sizeof(std::tuple<ButtonName, ButtonType, int, int>);
+            const std::size_t tupleSize = sizeof(std::tuple<ButtonName, ButtonType, int, int, int>);
             const std::size_t dataSize = buttonList.size() * tupleSize;
 
             file.write(reinterpret_cast<const char*>(buttonList.data()), static_cast<std::streamsize>(dataSize));
@@ -177,41 +228,68 @@ public:
             return 1; // Successfully saved button maps
         }
         else {
-            return -1; // Error: Failed to open file
+            return 0; // Error: Failed to open file
         }
     }
 
     int loadMapping(const std::string& filename) {
+        bool V1_Flag = false;
         std::ifstream file(filename, std::ios::binary);
         if (file.is_open()) {
             file.seekg(0, std::ios::end);
             std::size_t fileSize = static_cast<std::size_t>(file.tellg());
             file.seekg(0, std::ios::beg);
 
-            if (fileSize % sizeof(std::tuple<ButtonName, ButtonType, int, int>) != 0) {
-                file.close();
-                return -2; // Error: Invalid file size
+            char version[2];
+            file.read(version, 2);
+            if (version[0] != 'v' && version[1] != '2') {
+                V1_Flag = true;
+                g_outputText += OLDMAP_WARNING_MSG;
+                g_outputText += "\r\n";
             }
 
-            std::vector<std::tuple<ButtonName, ButtonType, int, int>> buttonList(fileSize / sizeof(std::tuple<ButtonName, ButtonType, int, int>));
-            file.read(reinterpret_cast<char*>(buttonList.data()), static_cast<std::streamsize>(fileSize));
+            if (V1_Flag) {
+                // Old format
+                file.seekg(0, std::ios::beg);
+                std::vector<std::tuple<ButtonName, ButtonType, int, int>> buttonList(fileSize / sizeof(std::tuple<ButtonName, ButtonType, int, int>));
+                file.read(reinterpret_cast<char*>(buttonList.data()), static_cast<std::streamsize>(fileSize));
 
-            buttonMaps.clear();
-            for (const auto& buttonTuple : buttonList) {
-                const auto& buttonName = std::get<0>(buttonTuple);
-                const auto& buttonInputType = std::get<1>(buttonTuple);
-                const auto& buttonIndex = std::get<2>(buttonTuple);
-                const auto& buttonValue = std::get<3>(buttonTuple);
+                buttonMaps.clear();
+                for (const auto& buttonTuple : buttonList) {
+                    const auto& buttonName = std::get<0>(buttonTuple);
+                    const auto& buttonInputType = std::get<1>(buttonTuple);
+                    const auto& buttonIndex = std::get<2>(buttonTuple);
+                    const auto& buttonValue = std::get<3>(buttonTuple);
 
-                ButtonMapInput buttonInput(buttonInputType, buttonIndex, buttonValue);
-                buttonMaps[buttonName] = buttonInput;
+                    // Add int with a value of -1
+                    ButtonMapInput buttonInput(buttonInputType, buttonIndex, buttonValue, -1);
+                    buttonMaps[buttonName] = buttonInput;
+                }
+            }
+            else {
+                std::vector<std::tuple<ButtonName, ButtonType, int, int, int>> buttonList(fileSize / sizeof(std::tuple<ButtonName, ButtonType, int, int, int>));
+                file.read(reinterpret_cast<char*>(buttonList.data()), static_cast<std::streamsize>(fileSize));
+
+                buttonMaps.clear();
+                for (const auto& buttonTuple : buttonList) {
+                    const auto& buttonName = std::get<0>(buttonTuple);
+                    const auto& buttonInputType = std::get<1>(buttonTuple);
+                    const auto& buttonIndex = std::get<2>(buttonTuple);
+                    const auto& buttonValue = std::get<3>(buttonTuple);
+                    const auto& buttonSpecial = std::get<4>(buttonTuple);
+
+                    ButtonMapInput buttonInput(buttonInputType, buttonIndex, buttonValue, buttonSpecial);
+                    buttonMaps[buttonName] = buttonInput;
+                }
             }
 
             file.close();
+            // update SDL3 maps
+            populateExtraMaps();
             return 1; // Successfully loaded button maps
         }
         else {
-            return -1; // Error: Failed to open file
+            return 0; // Error: Failed to open file
         }
     }
 
@@ -300,12 +378,22 @@ public:
         }
     }
 
+    static std::string displayInput(ButtonMapInput input) {
+        if (input.input_type == SDLButtonMapping::ButtonType::UNSET)
+            return " (UNSET) ";
+        std::string out = getButtonTypeString(input.input_type) + " " +
+            std::to_string(input.index) + ": " +
+            std::to_string(input.value);
+
+        return out;
+    }
+
 private:
-    
+
     std::vector<ButtonName> generateButtonList(ButtonType buttonType) const {
 
-            auto compareByName = [this](ButtonName id1, ButtonName id2) {
-                return getButtonNameString(id1) < getButtonNameString(id2);
+        auto compareByName = [this](ButtonName id1, ButtonName id2) {
+            return getButtonNameString(id1) < getButtonNameString(id2);
             };
 
         std::vector<ButtonName> buttonList;
@@ -331,7 +419,7 @@ private:
             std::string name1 = getButtonNameString(id1);
             std::string name2 = getButtonNameString(id2);
             return name1.length() < name2.length();
-        };
+            };
 
         std::vector<ButtonName> genericButtons;
         for (const auto& buttonMap : buttonMaps) {
@@ -353,6 +441,7 @@ private:
 
 struct SDLJoystickData {
     SDL_Joystick* _ptr = nullptr;
+    int joyID = -1;
     std::string name = "";
     int num_axes = 0;
     int num_buttons = 0;
@@ -360,6 +449,7 @@ struct SDLJoystickData {
     SDLButtonMapping mapping;
     std::vector<int> avgBaseline;
 };
+
 
 // **********************************
 // These should probably be private member functions
@@ -380,6 +470,9 @@ SDLButtonMapping::ButtonType get_input_type(const std::string& s) {
     else if (lowercaseString.find("button") != std::string::npos) {
         return SDLButtonMapping::ButtonType::BUTTON;
     }
+    else if (lowercaseString.find("shoulder") != std::string::npos) {
+        return SDLButtonMapping::ButtonType::BUTTON;
+    }
     else {
         return SDLButtonMapping::ButtonType::UNSET;
     }
@@ -389,16 +482,33 @@ bool haveSameSign(int num1, int num2) {
     return (num1 >= 0 && num2 >= 0) || (num1 < 0 && num2 < 0);
 }
 
-BYTE ShortToByte(SHORT value)
-{
+BYTE ShortToByte(SHORT value){
     // Scale the absolute value to fit within the range of a BYTE (0 to 255)
-    DOUBLE scaleFactor = 255.0 / SHRT_MAX;
+    constexpr DOUBLE scaleFactor = 255.0 / SHRT_MAX;
     DOUBLE scaledValue = scaleFactor * value;
 
     // Round the scaled value to the nearest integer
     BYTE byteValue = static_cast<BYTE>(std::round(scaledValue));
 
     return byteValue;
+}
+
+BYTE SignedShortToUnsignedByte(int16_t signedValue) {
+    // Map signed short range [-32768, 32767] to unsigned byte range [0, 255]
+    BYTE scaledValue = static_cast<BYTE>(
+        ((signedValue - INT16_MIN) * 255) / (INT16_MAX - INT16_MIN)
+        );
+
+    return scaledValue;
+}
+
+BYTE SignedShortToUnsignedByteReversed(int16_t signedValue) {
+    // Map signed short range [-32768, 32767] to unsigned byte range [255, 0]
+    BYTE scaledValue = static_cast<BYTE>(
+        255 - ((signedValue - INT16_MIN) * 255) / (INT16_MAX - INT16_MIN)
+        );
+
+    return scaledValue;
 }
 
 int calculateMode(const std::vector<int>& data) {
@@ -477,9 +587,9 @@ std::pair<bool, std::filesystem::path> check_for_saved_mapping(const std::string
 
 std::pair< std::tuple<int, int, int>, std::tuple<std::vector<int>, std::vector<int>, std::vector<int>, std::vector<int>>>
 get_sdl_joystick_baseline(SDL_Joystick* joystick, int numSamples = 64) {
-    int numAxes = SDL_JoystickNumAxes(joystick);
-    int numButtons = SDL_JoystickNumButtons(joystick);
-    int numHats = SDL_JoystickNumHats(joystick);
+    int numAxes = SDL_GetNumJoystickAxes(joystick);
+    int numButtons = SDL_GetNumJoystickButtons(joystick);
+    int numHats = SDL_GetNumJoystickHats(joystick);
 
     // Setup sample buffer for all inputs
     std::vector<std::vector<int>> sampleBuf(numSamples, std::vector<int>(numHats + numButtons + numAxes));
@@ -491,24 +601,27 @@ get_sdl_joystick_baseline(SDL_Joystick* joystick, int numSamples = 64) {
 
     // Collect data from samples
     for (int i = 0; i < numSamples; i++) {
-        SDL_JoystickUpdate();
+        SDL_UpdateJoysticks();
         for (int j = 0; j < numHats + numButtons + numAxes; j++) {
             int value = 0;
             if (j < numAxes) {
-                value = SDL_JoystickGetAxis(joystick, j);
+                value = SDL_GetJoystickAxis(joystick, j);
             }
             else if (j < numAxes + numButtons) {
-                value = SDL_JoystickGetButton(joystick, j - numAxes);
+                value = SDL_GetJoystickButton(joystick, j - numAxes);
             }
             else {
-                value = SDL_JoystickGetHat(joystick, j - numAxes - numButtons);
+                value = SDL_GetJoystickHat(joystick, j - numAxes - numButtons);
             }
             avgBuffer[j] += value;
             sampleBuf[i][j] = value;
         }
+
         // sleep for more accurate polling
         Sleep(5);
     }
+    // clear all joystick events generated during scan
+    SDL_FlushEvents(SDL_EVENT_JOYSTICK_AXIS_MOTION, SDL_EVENT_JOYSTICK_UPDATE_COMPLETE);
 
     // Calculate median, mode, range, and average for each input
     for (int j = 0; j < numHats + numButtons + numAxes; j++) {
@@ -526,12 +639,79 @@ get_sdl_joystick_baseline(SDL_Joystick* joystick, int numSamples = 64) {
     return std::make_pair(std::make_tuple(numAxes, numButtons, numHats), std::make_tuple(avgReport, medianReport, modeReport, rangeReport));
 }
 
+void get_sdljoystick_mapping_input(const SDLJoystickData& joystick, SDLButtonMapping::ButtonMapInput& input) {
+    SDL_UpdateJoysticks();
+    // Clear all joystick events to prevent memory leaks
+    SDL_FlushEvents(SDL_EVENT_JOYSTICK_AXIS_MOTION, SDL_EVENT_JOYSTICK_UPDATE_COMPLETE);
+    // Iterate over all Axes
+    for (int i = 0; i < joystick.num_axes; i++) {
+        int axis_value = SDL_GetJoystickAxis(joystick._ptr, i); // / 32767.0f;
+        if (std::abs(axis_value - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) {
+
+            // Watch axis to see how far it moves in ~1/5 second
+            constexpr double totaltime_s = 1 / 5.0f;
+            constexpr int numsamples = 12;
+            constexpr int delay_ms = (totaltime_s / numsamples) * 1000;
+            int inital_reading, low_reading, high_reading;
+            inital_reading = low_reading = high_reading = axis_value;
+            for (int watching = 0; watching < numsamples; watching++) {
+                Sleep(delay_ms);
+                SDL_UpdateJoysticks();
+                axis_value = SDL_GetJoystickAxis(joystick._ptr, i);
+                if (std::abs(axis_value - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) {
+                    if (axis_value > high_reading) high_reading = axis_value;
+                    else if (axis_value < low_reading) low_reading = axis_value;
+                }
+            }
+            SDL_FlushEvents(SDL_EVENT_JOYSTICK_AXIS_MOTION, SDL_EVENT_JOYSTICK_UPDATE_COMPLETE);
+
+            if (std::abs(joystick.avgBaseline[i]) > AXIS_INPUT_DEADZONE)
+                inital_reading = joystick.avgBaseline[i];
+
+            // Analyze readings
+            if (inital_reading <= 0 && low_reading <= 0 && high_reading <= 0) {
+                // All readings were negative
+                input.set(SDLButtonMapping::ButtonType::STICK, i, ANALOG_RANGE_NEG);
+            }
+            else if (inital_reading >= 0 && low_reading >= 0 && high_reading >= 0) {
+                // All readings were positive
+                input.set(SDLButtonMapping::ButtonType::STICK, i, ANALOG_RANGE_POS);
+            }
+            else if (inital_reading < 0 && low_reading < 0 && high_reading > 0) {
+                // Values went from - to +
+                input.set(SDLButtonMapping::ButtonType::STICK, i, ANALOG_RANGE_NEG_TO_POS);
+            }
+            else if (inital_reading > 0 && high_reading > 0 && low_reading < 0) {
+                // Values went from + to -
+                input.set(SDLButtonMapping::ButtonType::STICK, i, ANALOG_RANGE_POS_TO_NEG);
+            }
+
+            return;
+        }
+    }
+
+    // Iterate over all Buttons
+    for (int i = 0; i < joystick.num_buttons; i++) {
+        if (SDL_GetJoystickButton(joystick._ptr, i)) {
+            input.set(SDLButtonMapping::ButtonType::BUTTON, i, 1);
+            return;
+        }
+    }
+
+    // Iterate over DPad/hats
+    for (int i = 0; i < joystick.num_hats; i++) {
+        int hat_direction = SDL_GetJoystickHat(joystick._ptr, i);
+        if (hat_direction != 0) {
+            input.set(SDLButtonMapping::ButtonType::HAT, i, hat_direction);
+            return;
+        }
+    }
+
+}
+
 SDLButtonMapping::ButtonMapInput get_sdljoystick_input(const SDLJoystickData& joystick) {
     SDLButtonMapping::ButtonMapInput input;
-
     while (!APP_KILLED) {
-        // Get the joystick state
-        SDL_JoystickUpdate();
 
         if (getKeyState(VK_ESCAPE)) {
             while (getKeyState(VK_ESCAPE)) {
@@ -542,31 +722,12 @@ SDLButtonMapping::ButtonMapInput get_sdljoystick_input(const SDLJoystickData& jo
             return input;
         }
 
-        // Iterate over all joystick axes
-        for (int i = 0; i < joystick.num_axes; i++) {
-            int axis_value = SDL_JoystickGetAxis(joystick._ptr, i); // / 32767.0f;
-            if (std::abs(axis_value - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) {
-                input.set(SDLButtonMapping::ButtonType::STICK, i, axis_value < 0 ? -1 : 1);
-                return input;
-            }
+        get_sdljoystick_mapping_input(joystick, input);
+        if (input.input_type != SDLButtonMapping::ButtonType::UNSET) {
+            return input;
         }
 
-        // Iterate over all joystick buttons
-        for (int i = 0; i < joystick.num_buttons; i++) {
-            if (SDL_JoystickGetButton(joystick._ptr, i)) {
-                input.set(SDLButtonMapping::ButtonType::BUTTON, i, 1);
-                return input;
-            }
-        }
-
-        // Iterate over DPad hats and record their value
-        for (int i = 0; i < joystick.num_hats; i++) {
-            int hat_direction = SDL_JoystickGetHat(joystick._ptr, i);
-            if (hat_direction != 0) {
-                input.set(SDLButtonMapping::ButtonType::HAT, i, hat_direction);
-                return input;
-            }
-        }
+        Sleep(10);
     }
     return input;
 }
@@ -574,29 +735,28 @@ SDLButtonMapping::ButtonMapInput get_sdljoystick_input(const SDLJoystickData& jo
 void wait_for_no_sdljoystick_input(SDLJoystickData& joystick) {
     bool awaiting_silence = true;
     while (awaiting_silence && !APP_KILLED) {
-        SDL_Event event;
-        while (SDL_PollEvent(&event)) {
-            // Handle events if necessary
-        }
+        Sleep(20);
+        SDL_UpdateJoysticks();
+        SDL_FlushEvents(SDL_EVENT_JOYSTICK_AXIS_MOTION, SDL_EVENT_JOYSTICK_UPDATE_COMPLETE);
 
         int axis_value = 0;
         int button_value = 0;
         int hat_value = 0;
-        
+
         // Iterate over all joystick axes and record their value
         for (int i = 0; i < joystick.num_axes; i++) {
-            int read_val = SDL_JoystickGetAxis(joystick._ptr, i); 
-            axis_value += (abs(read_val-joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) ? abs(read_val) : 0;
+            int read_val = SDL_GetJoystickAxis(joystick._ptr, i);
+            axis_value += (abs(read_val - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD) ? abs(read_val) : 0;
         }
 
         // Iterate over all joystick buttons and record their value
         for (int i = 0; i < joystick.num_buttons; i++) {
-            button_value += SDL_JoystickGetButton(joystick._ptr, i);
+            button_value += SDL_GetJoystickButton(joystick._ptr, i);
         }
 
         // Iterate over DPad hats and record their value
         for (int i = 0; i < joystick.num_hats; i++) {
-            hat_value += SDL_JoystickGetHat(joystick._ptr, i);
+            hat_value += SDL_GetJoystickHat(joystick._ptr, i);
         }
 
         // If no values are detected, the function may exit
@@ -607,33 +767,30 @@ void wait_for_no_sdljoystick_input(SDLJoystickData& joystick) {
 }
 
 bool there_is_sdljoystick_input(SDLJoystickData& joystick) {
+    SDL_UpdateJoysticks();
+    SDL_FlushEvents(SDL_EVENT_JOYSTICK_AXIS_MOTION, SDL_EVENT_JOYSTICK_UPDATE_COMPLETE);
 
-        SDL_Event event;
-        while (SDL_PollEvent(&event)) {
-            // Handle events if necessary
-        }
+    // Iterate over all joystick axes
+    for (int i = 0; i < joystick.num_axes; i++) {
+        int read_val = SDL_GetJoystickAxis(joystick._ptr, i);
+        if (abs(read_val - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD)
+            return true;
+    }
 
-        // Iterate over all joystick axes
-        for (int i = 0; i < joystick.num_axes; i++) {
-            int read_val = SDL_JoystickGetAxis(joystick._ptr, i);
-            if (abs(read_val - joystick.avgBaseline[i]) > AXIS_INPUT_THRESHOLD)
-                return true;
-        }
+    // Iterate over all joystick buttons
+    for (int i = 0; i < joystick.num_buttons; i++) {
+        if (SDL_GetJoystickButton(joystick._ptr, i))
+            return true;
+    }
 
-        // Iterate over all joystick buttons
-        for (int i = 0; i < joystick.num_buttons; i++) {
-            if (SDL_JoystickGetButton(joystick._ptr, i))
-                return true;
-        }
+    // Iterate over DPad hats
+    for (int i = 0; i < joystick.num_hats; i++) {
+        if (SDL_GetJoystickHat(joystick._ptr, i))
+            return true;
+    }
 
-        // Iterate over DPad hats
-        for (int i = 0; i < joystick.num_hats; i++) {
-            if (SDL_JoystickGetHat(joystick._ptr, i))
-                return true;
-        }
-
-        // If no values are detected return false       
-        return false;
+    // If no values are detected return false       
+    return false;
 }
 
 void setSDLMapping(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonName>& inputList) {
@@ -659,25 +816,14 @@ void setSDLMapping(SDLJoystickData& joystick, std::vector<SDLButtonMapping::Butt
         std::string inputName = SDLButtonMapping::getButtonNameString(inputID);
         SDLButtonMapping::ButtonType inputType = get_input_type(inputName);
 
-        
-
         // Receive updates from the device and map inputs
         SDLButtonMapping::ButtonMapInput received_input;
         bool settingInput = true;
         while (settingInput && !APP_KILLED) {
-
             // Wait for no input to be detected
-            if (there_is_sdljoystick_input(joystick)) { 
-                std::cout << " <<  Input Detected, Please Release To Continue >> ";
+            if (there_is_sdljoystick_input(joystick)) {
+                std::cout << " <<  Input Detected, Please Release To Continue  >> ";
                 while (there_is_sdljoystick_input(joystick) && !APP_KILLED) {
-                    
-                    received_input = get_sdljoystick_input(joystick);
-                    
-                    std::cout << "Name: " + inputName + ", Input Type: " + SDLButtonMapping::getButtonTypeString(received_input.input_type) +
-                        ", Index: " + std::to_string(received_input.index) +
-                        ", Value: " + std::to_string(received_input.value);
-
-                    repositionConsoleCursor();
                     Sleep(20);
                 }
             }
@@ -691,6 +837,18 @@ void setSDLMapping(SDLJoystickData& joystick, std::vector<SDLButtonMapping::Butt
             if (APP_KILLED) return;
 
             // Create a key from the input
+            if ((inputType == SDLButtonMapping::ButtonType::BUTTON ||
+                inputType == SDLButtonMapping::ButtonType::SHOULDER ||
+                inputType == SDLButtonMapping::ButtonType::HAT ||
+                inputType == SDLButtonMapping::ButtonType::THUMB)
+                && received_input.input_type == SDLButtonMapping::ButtonType::STICK) {
+                if ((received_input.value == ANALOG_RANGE_NEG_TO_POS)
+                    || (received_input.value == ANALOG_RANGE_POS_TO_NEG)) {
+                    received_input.range = received_input.value;
+                    received_input.value = (received_input.range == ANALOG_RANGE_NEG_TO_POS) ? -1 : 1;
+                }
+            }
+
             std::string inputKey = std::to_string(static_cast<int>(received_input.input_type)) + "_" + std::to_string(received_input.index) + "_" + std::to_string(received_input.value);
 
             if (received_input.input_type == SDLButtonMapping::ButtonType::UNSET) {
@@ -719,15 +877,13 @@ void setSDLMapping(SDLJoystickData& joystick, std::vector<SDLButtonMapping::Butt
         if (received_input.input_type == SDLButtonMapping::ButtonType::UNSET) {
             g_outputText = "<< Input " + format_input_name(inputName) + " has been skipped! >>\r\n\r\n";
         }
-        /*else {
-            g_outputText = joystick.mapping.displayInput(inputID) + "\r\n\r\n";
-        }*/
 
     }
+
+    joystick.mapping.populateExtraMaps();
+
     g_outputText += "<< All Done! >>\r\n\r\n";
     displayOutputText();
-
-    return;
 }
 
 
@@ -773,7 +929,7 @@ typedef struct _XUSB_REPORT
 //    SDL VIGEM HELPERS API
 // 
 // Map to translate SDLButtonMapping::ButtonName to _XUSB_BUTTON
-std::map<SDLButtonMapping::ButtonName, _XUSB_BUTTON> toXUSB = {
+const std::map<SDLButtonMapping::ButtonName, _XUSB_BUTTON> toXUSB = {
         {SDLButtonMapping::ButtonName::DPAD_UP, XUSB_GAMEPAD_DPAD_UP},
         {SDLButtonMapping::ButtonName::DPAD_DOWN, XUSB_GAMEPAD_DPAD_DOWN},
         {SDLButtonMapping::ButtonName::DPAD_LEFT, XUSB_GAMEPAD_DPAD_LEFT},
@@ -791,235 +947,336 @@ std::map<SDLButtonMapping::ButtonName, _XUSB_BUTTON> toXUSB = {
         {SDLButtonMapping::ButtonName::Y, XUSB_GAMEPAD_Y}
 };
 
-// Function will populate an XUSB_REPORT with data from an SDLButtonMapping and a list of inputs to read from
-void get_xbox_report_from_SDLmap(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonName>const& inputList, XUSB_REPORT& xboxReport) {
-    // Reset report values
-    xboxReport.wButtons = 0;
-    xboxReport.sThumbLX = 0;
-    xboxReport.sThumbLY = 0;
-    xboxReport.sThumbRX = 0;
-    xboxReport.sThumbRY = 0;
-    xboxReport.bLeftTrigger = 0;
-    xboxReport.bRightTrigger = 0;
+// Used for looping through all Dpad directions
+constexpr BYTE DPAD_DIRECTIONS[] = { XUSB_GAMEPAD_DPAD_UP, XUSB_GAMEPAD_DPAD_DOWN, XUSB_GAMEPAD_DPAD_LEFT, XUSB_GAMEPAD_DPAD_RIGHT };
 
-    // Receive new input events
-    SDL_JoystickUpdate();
+// Clears the value for a specific emulatedInput in an XUSB_REPORT
+void clear_XBOX_REPORT_value(const SDLButtonMapping::ButtonName emulatedInput, XUSB_REPORT& xboxReport) {
+    using inputName = SDLButtonMapping::ButtonName;
+    switch (emulatedInput) {
+    case inputName::LEFT_STICK_LEFT:
+        xboxReport.sThumbLX = 0;
+        break;
+    case inputName::LEFT_STICK_RIGHT:
+        xboxReport.sThumbLX = 0;
+        break;
+    case inputName::LEFT_STICK_UP:
+        xboxReport.sThumbLY = 0;
+        break;
+    case inputName::LEFT_STICK_DOWN:
+        xboxReport.sThumbLY = 0;
+        break;
+    case inputName::RIGHT_STICK_LEFT:
+        xboxReport.sThumbRX = 0;
+        break;
+    case inputName::RIGHT_STICK_RIGHT:
+        xboxReport.sThumbRX = 0;
+        break;
+    case inputName::RIGHT_STICK_UP:
+        xboxReport.sThumbRY = 0;
+        break;
+    case inputName::RIGHT_STICK_DOWN:
+        xboxReport.sThumbRY = 0;
+        break;
+    case inputName::LEFT_TRIGGER:
+        xboxReport.bLeftTrigger = 0;
+        break;
+    case inputName::RIGHT_TRIGGER:
+        xboxReport.bRightTrigger = 0;
+        break;
+    default:
+        xboxReport.wButtons &= ~toXUSB.at(emulatedInput);
+        break;
+    }
+}
 
-    // make names shorter
-    using bName = SDLButtonMapping::ButtonName;
-    using bType = SDLButtonMapping::ButtonType;
-    using inputMap = decltype(joystick.mapping.buttonMaps);
-    inputMap button = joystick.mapping.buttonMaps;
+// For handling full analog range for trigger outputs, must accept BYTE and SHORT as target
+template<typename T>
+void setTriggerValue(T& target, int16_t range, int16_t value, int16_t absVal) {
+    if (range == ANALOG_RANGE_NEG_TO_POS) {
+        target = SignedShortToUnsignedByte(value);
+    }
+    else if (range == ANALOG_RANGE_POS_TO_NEG) {
+        target = SignedShortToUnsignedByteReversed(value);
+    }
+    else {
+        target = ShortToByte(absVal);
+    }
+}
 
-    for (const auto& inputID : inputList) {
-        if (APP_KILLED) return;
+// Function will update an XUSB_REPORT from a SDLButtonMapping::ButtonMapInput targeting emulatedInput
+void input_event_to_xbox_report(const SDLButtonMapping::ButtonMapInput input_event, const SDLButtonMapping::ButtonName emulatedInput, XUSB_REPORT& xboxReport, SDLJoystickData& joystick) {
+    using inputName = SDLButtonMapping::ButtonName;
+    using inputType = SDLButtonMapping::ButtonType;
+    int16_t absVal = 0;
 
-         //button[inputID].input_type;  // the type of SDL input used to represent bName output
-         //button[inputID].index;       // the index of the SDL input
-         //button[inputID].value;       // a set value to compare to current input value
-
-    // Hat Value
-        if (button[inputID].input_type == bType::HAT) {
-            int buttonValue = SDL_JoystickGetHat(joystick._ptr, button[inputID].index);
-            bool isPressed = (button[inputID].value & buttonValue) != 0;  // bitwise AND compare
-            // Assign value to the proper XBOX report field
-            switch (inputID) {
-            case bName::LEFT_STICK_LEFT: {
-                if (isPressed)
-                    xboxReport.sThumbLX = - INT16_MAX;
-            }
-                                          break;
-            case bName::LEFT_STICK_RIGHT: {
-                if (isPressed)
-                    xboxReport.sThumbLX = INT16_MAX;
-            }
-                                        break;
-            case bName::LEFT_STICK_UP: {
-                if (isPressed)
-                    xboxReport.sThumbLY = INT16_MAX;
-            }
-                                     break;
-            case bName::LEFT_STICK_DOWN: {
-                if (isPressed)
-                    xboxReport.sThumbLY = -INT16_MAX;
-            }
-                                       break;
-            case bName::RIGHT_STICK_LEFT: {
-                if (isPressed)
-                    xboxReport.sThumbRX = -INT16_MAX;
-            }
-                                        break;
-            case bName::RIGHT_STICK_RIGHT: {
-                if (isPressed)
-                    xboxReport.sThumbRX = INT16_MAX;
-            }
-                                         break;
-            case bName::RIGHT_STICK_UP: {
-                if (isPressed)
-                    xboxReport.sThumbRY = INT16_MAX;
-            }
-                                      break;
-            case bName::RIGHT_STICK_DOWN: {
-                if (isPressed)
-                    xboxReport.sThumbRY = -INT16_MAX;
-            }
-                                        break;
-            case bName::LEFT_TRIGGER: {
-                xboxReport.bLeftTrigger = UINT8_MAX * isPressed;
-            }
-                                    break;
-            case bName::RIGHT_TRIGGER: {
-                xboxReport.bRightTrigger = UINT8_MAX * isPressed;
-            }
-                                     break;
-            default: {
-                if (isPressed)
-                    //Return corresponding XBOX_BUTTON value based on input ID
-                    xboxReport.wButtons += toXUSB[inputID];
-            }
-            }
-
+    auto setStickValue = [&](SHORT& target, int16_t range, int16_t value) {
+        if (range == ANALOG_RANGE_NEG_TO_POS) {
+            target = value;
         }
-
-    // Axis Value
-        else if (button[inputID].input_type == bType::STICK) {
-            int inputValue = SDL_JoystickGetAxis(joystick._ptr, button[inputID].index);
-            bool sameSign = haveSameSign(inputValue, button[inputID].value);
-            int absVal = max((abs(inputValue) - 1), 0);
-            if (absVal && sameSign) {
-                // Assign value to the proper XBOX report field
-                switch (inputID) {
-                case bName::LEFT_STICK_LEFT: {
-                    // left stick left is negative value
-                    xboxReport.sThumbLX = -absVal;
-                }
-                                           break;
-                case bName::LEFT_STICK_RIGHT: {
-                    // left stick right is positive value
-                    xboxReport.sThumbLX = absVal;
-                }
-                                            break;
-                case bName::LEFT_STICK_UP: {
-                    // left stick up is positive value
-                    xboxReport.sThumbLY = absVal;
-                }
-                                         break;
-                case bName::LEFT_STICK_DOWN: {
-                    // left stick down is negative value
-                    xboxReport.sThumbLY = -absVal;
-                }
-                                           break;
-                case bName::RIGHT_STICK_LEFT: {
-                    // right stick left is negative value
-                    xboxReport.sThumbRX = -absVal;
-                }
-                                            break;
-                case bName::RIGHT_STICK_RIGHT: {
-                    // right stick right is positive value
-                    xboxReport.sThumbRX = absVal;
-                }
-                                             break;
-                case bName::RIGHT_STICK_UP: {
-                    // right stick up is positive value
-                    xboxReport.sThumbRY = absVal;
-                }
-                                          break;
-                case bName::RIGHT_STICK_DOWN: {
-                    // right stick down is negative value
-                    xboxReport.sThumbRY = -absVal;
-                }
-                                            break;
-                case bName::LEFT_TRIGGER: {
-                    // left trigger is positive byte value
-                    xboxReport.bLeftTrigger = ShortToByte(absVal);
-                }
-                                        break;
-                case bName::RIGHT_TRIGGER: {
-                    // right trigger is positive byte value
-                    xboxReport.bRightTrigger = ShortToByte(absVal);
-                }
-                                         break;
-                default: {
-                    if (absVal > AXIS_INPUT_DEADZONE)
-                        //Return corresponding XBOX_BUTTON value based on input ID
-                        xboxReport.wButtons += toXUSB[inputID];
-                }
-                }
-            }
+        else if (range == ANALOG_RANGE_POS_TO_NEG) {
+            target = -value;
         }
+        else {
+            target = absVal;
+        }
+        };
 
-    // Standard Button
-        else if (button[inputID].input_type == bType::BUTTON) {
-            int buttonValue = SDL_JoystickGetButton(joystick._ptr, button[inputID].index);
-            // Assign value to the proper XBOX report field
-            switch (inputID) {
-            case bName::LEFT_STICK_LEFT: {
-                if (buttonValue)
-                    xboxReport.sThumbLX = buttonValue * -INT16_MAX;
-            }
-                                       break;
-            case bName::LEFT_STICK_RIGHT: {
-                if (buttonValue)
-                    xboxReport.sThumbLX = buttonValue * INT16_MAX;
-            }
-                                        break;
-            case bName::LEFT_STICK_UP: {
-                if (buttonValue)
-                    xboxReport.sThumbLY = buttonValue * INT16_MAX;
-            }
-                                     break;
-            case bName::LEFT_STICK_DOWN: {
-                if (buttonValue)
-                    xboxReport.sThumbLY = buttonValue * -INT16_MAX;
-            }
-                                       break;
-            case bName::RIGHT_STICK_LEFT: {
-                if (buttonValue)
-                    xboxReport.sThumbRX = buttonValue * -INT16_MAX;
-            }
-                                        break;
-            case bName::RIGHT_STICK_RIGHT: {
-                if (buttonValue)
-                    xboxReport.sThumbRX = buttonValue * INT16_MAX;
-            }
-                                         break;
-            case bName::RIGHT_STICK_UP: {
-                if (buttonValue)
-                    xboxReport.sThumbRY = buttonValue * INT16_MAX;
-            }
-                                      break;
-            case bName::RIGHT_STICK_DOWN: {
-                if (buttonValue)
-                    xboxReport.sThumbRY = buttonValue * -INT16_MAX;
-            }
-                                          break;
-            case bName::LEFT_TRIGGER: {
-                xboxReport.bLeftTrigger = buttonValue * UINT8_MAX;
-            }
-                                    break;
-            case bName::RIGHT_TRIGGER: {
-                xboxReport.bRightTrigger = buttonValue * UINT8_MAX;
-            }
-                                     break;
-            default: {
-                //Return corresponding XBOX_BUTTON value based on input ID
-                if (buttonValue)
-                    xboxReport.wButtons += toXUSB[inputID];
-            }
+    switch (input_event.input_type) {
+    case inputType::HAT:
+        switch (emulatedInput) {
+        case inputName::LEFT_STICK_LEFT:
+            xboxReport.sThumbLX = INT16_MIN;
+            break;
+        case inputName::LEFT_STICK_RIGHT:
+            xboxReport.sThumbLX = INT16_MAX;
+            break;
+        case inputName::LEFT_STICK_UP:
+            xboxReport.sThumbLY = INT16_MAX;
+            break;
+        case inputName::LEFT_STICK_DOWN:
+            xboxReport.sThumbLY = INT16_MIN;
+            break;
+        case inputName::RIGHT_STICK_LEFT:
+            xboxReport.sThumbRX = INT16_MIN;
+            break;
+        case inputName::RIGHT_STICK_RIGHT:
+            xboxReport.sThumbRX = INT16_MAX;
+            break;
+        case inputName::RIGHT_STICK_UP:
+            xboxReport.sThumbRY = INT16_MAX;
+            break;
+        case inputName::RIGHT_STICK_DOWN:
+            xboxReport.sThumbRY = INT16_MIN;
+            break;
+        case inputName::LEFT_TRIGGER:
+            xboxReport.bLeftTrigger = UINT8_MAX;
+            break;
+        case inputName::RIGHT_TRIGGER:
+            xboxReport.bRightTrigger = UINT8_MAX;
+            break;
+        default:
+            // Return corresponding XBOX_BUTTON value based on emulatedInput
+            xboxReport.wButtons += toXUSB.at(emulatedInput);
+            break;
+        }
+        break;
+
+    case inputType::STICK:
+        absVal = abs(input_event.value);
+        switch (emulatedInput) {
+        case inputName::LEFT_STICK_LEFT:
+            absVal = -absVal;
+        case inputName::LEFT_STICK_RIGHT:
+            setStickValue(xboxReport.sThumbLX, input_event.range, input_event.value);
+            break;
+        case inputName::LEFT_STICK_DOWN:
+            absVal = -absVal;
+        case inputName::LEFT_STICK_UP:
+            setStickValue(xboxReport.sThumbLY, input_event.range, input_event.value);
+            break;
+        case inputName::RIGHT_STICK_LEFT:
+            absVal = -absVal;
+        case inputName::RIGHT_STICK_RIGHT:
+            setStickValue(xboxReport.sThumbRX, input_event.range, input_event.value);
+            break;
+        case inputName::RIGHT_STICK_DOWN:
+            absVal = -absVal;
+        case inputName::RIGHT_STICK_UP:
+            setStickValue(xboxReport.sThumbRY, input_event.range, input_event.value);
+            break;
+        case inputName::LEFT_TRIGGER:
+            setTriggerValue(xboxReport.bLeftTrigger, input_event.range, (std::abs(input_event.value) > AXIS_INPUT_DEADZONE) ? input_event.value : 0, absVal);
+            break;
+        case inputName::RIGHT_TRIGGER:
+            setTriggerValue(xboxReport.bRightTrigger, input_event.range, (std::abs(input_event.value) > AXIS_INPUT_DEADZONE) ? input_event.value : 0, absVal);
+            break;
+        default:
+            // remove value from buttons
+            xboxReport.wButtons &= ~toXUSB.at(emulatedInput);
+
+            // for sticks that use *range* full range (INT16_MIN - INT16_MAX)
+            if ((input_event.range == ANALOG_RANGE_NEG_TO_POS
+                && input_event.value < (INT16_MIN + AXIS_INPUT_DEADZONE))
+                || (input_event.range == ANALOG_RANGE_POS_TO_NEG
+                    && input_event.value > (INT16_MAX - AXIS_INPUT_DEADZONE)))
+                break;
+            // for sticks that use signed axis            
+            else if (input_event.range == ANALOG_RANGE_NONE && (std::abs(input_event.value - joystick.avgBaseline[input_event.index]) < AXIS_INPUT_DEADZONE))
+                break;
+
+            // Return corresponding XUSB_BUTTON value based on emulatedInput
+            xboxReport.wButtons += toXUSB.at(emulatedInput);
+
+            break;
+        }
+        break;
+
+    case inputType::BUTTON:
+        switch (emulatedInput) {
+        case inputName::LEFT_STICK_LEFT:
+            xboxReport.sThumbLX = input_event.value * INT16_MIN;
+            break;
+        case inputName::LEFT_STICK_RIGHT:
+            xboxReport.sThumbLX = input_event.value * INT16_MAX;
+            break;
+        case inputName::LEFT_STICK_UP:
+            xboxReport.sThumbLY = input_event.value * INT16_MAX;
+            break;
+        case inputName::LEFT_STICK_DOWN:
+            xboxReport.sThumbLY = input_event.value * INT16_MIN;
+            break;
+        case inputName::RIGHT_STICK_LEFT:
+            xboxReport.sThumbRX = input_event.value * INT16_MIN;
+            break;
+        case inputName::RIGHT_STICK_RIGHT:
+            xboxReport.sThumbRX = input_event.value * INT16_MAX;
+            break;
+        case inputName::RIGHT_STICK_UP:
+            xboxReport.sThumbRY = input_event.value * INT16_MAX;
+            break;
+        case inputName::RIGHT_STICK_DOWN:
+            xboxReport.sThumbRY = input_event.value * INT16_MIN;
+            break;
+        case inputName::LEFT_TRIGGER:
+            xboxReport.bLeftTrigger = input_event.value * UINT8_MAX;
+            break;
+        case inputName::RIGHT_TRIGGER:
+            xboxReport.bRightTrigger = input_event.value * UINT8_MAX;
+            break;
+        default:
+            xboxReport.wButtons += (input_event.value ? 1 : -1) * toXUSB.at(emulatedInput);
+            break;
+        }
+        break;
+
+    default:
+        break;
+    }
+}
+
+// Turns button presses into input_events and eventual XUSB_REPORT values 
+void processButtonTypeButton(SDLJoystickData& joystick, SDLButtonMapping::ButtonMapInput& inputMap, int16_t inputValue, XUSB_REPORT& xbox_report) {
+    if (joystick.mapping.inverseMap.find(inputMap) != joystick.mapping.inverseMap.end()) {
+        auto emulatedInput = joystick.mapping.inverseMap[inputMap];
+        inputMap.value = inputValue;
+        input_event_to_xbox_report(inputMap, emulatedInput, xbox_report, joystick);
+    }
+}
+
+// Turns DPAD presses into input_events and eventual XUSB_REPORT values
+void processButtonTypeHat(SDLJoystickData& joystick, SDLButtonMapping::ButtonMapInput& inputMap, int16_t inputValue, XUSB_REPORT& xbox_report) {
+    for (int dpad_dir : DPAD_DIRECTIONS) {
+        if (inputValue & dpad_dir) {
+            inputMap.value = dpad_dir;
+            if (joystick.mapping.inverseMap.find(inputMap) != joystick.mapping.inverseMap.end()) {
+                input_event_to_xbox_report(inputMap, joystick.mapping.inverseMap[inputMap], xbox_report, joystick);
             }
         }
     }
 }
 
+// Turns analog movement into input_events and eventual XUSB_REPORT values
+void processButtonTypeStick(SDLJoystickData& joystick, SDLButtonMapping::ButtonMapInput& inputMap, int16_t axisValue, XUSB_REPORT& xbox_report) {
+    axisValue = std::max(INT16_MIN+1, (int)axisValue);
+    // Ensure extended range mode by inserting mapped axis range-value into the input signature for known extended range inputs
+    SDLButtonMapping::ButtonMapInput dummyInput;
+    for (auto extRangeInput : joystick.mapping.extRangeInputList) {
+        dummyInput.set(inputMap.input_type, inputMap.index, joystick.mapping.buttonMaps[extRangeInput].value); // insert axis range-value
+
+        // Check if dummyInput == stored button mapping
+        if (joystick.mapping.buttonMaps[extRangeInput] == dummyInput) {
+            // set range to mapped range-value / and value to axis value (in range)
+            dummyInput.range = dummyInput.value;
+            dummyInput.value = axisValue;
+            input_event_to_xbox_report(dummyInput, extRangeInput, xbox_report, joystick);
+            return;
+        }
+    }
+
+    // Check if the inputMap exists in the inverseMap
+    if (joystick.mapping.inverseMap.find(inputMap) != joystick.mapping.inverseMap.end()) {
+        auto emulatedInput = joystick.mapping.inverseMap[inputMap];
+        // set value from stick input
+        inputMap.value = axisValue;
+        input_event_to_xbox_report(inputMap, emulatedInput, xbox_report, joystick);
+    }
+    return;
+}
+
+// Processes SDLButtonMapping::ButtonMapInput into XUSB_REPORT values through helper functions
+void get_xbox_report_common(SDLJoystickData& joystick, SDLButtonMapping::ButtonMapInput inputMap, int16_t inputRange, XUSB_REPORT& xbox_report) {
+    switch (inputMap.input_type) {
+    case SDLButtonMapping::ButtonType::BUTTON:
+        processButtonTypeButton(joystick, inputMap, inputRange, xbox_report);
+        break;
+
+    case SDLButtonMapping::ButtonType::HAT:
+        processButtonTypeHat(joystick, inputMap, inputRange, xbox_report);
+        break;
+
+    case SDLButtonMapping::ButtonType::STICK:
+        processButtonTypeStick(joystick, inputMap, inputRange, xbox_report);
+        break;
+
+    default:
+        break;
+    }
+}
+
+// Updates a XUSB_REPORT from current SDL_Events returns false if joystick is removed, else true
+bool get_xbox_report_from_SDL_events(SDLJoystickData& joystick, XUSB_REPORT& xbox_report) {
+    SDL_Event event;
+    while (SDL_PollEvent(&event) != 0) {
+        if (event.jdevice.which != joystick.joyID) {
+            continue;
+        }
+        SDLButtonMapping::ButtonMapInput eventMap;
+        switch (event.type) {
+        case SDL_EVENT_JOYSTICK_REMOVED:
+            return false;
+            break;
+
+        case SDL_EVENT_JOYSTICK_BUTTON_DOWN:
+            eventMap.set(SDLButtonMapping::ButtonType::BUTTON, event.jbutton.button, true);
+            get_xbox_report_common(joystick, eventMap, true, xbox_report);
+            break;
+
+        case SDL_EVENT_JOYSTICK_BUTTON_UP:
+            eventMap.set(SDLButtonMapping::ButtonType::BUTTON, event.jbutton.button, true);
+            get_xbox_report_common(joystick, eventMap, false, xbox_report);
+            break;
+
+        case SDL_EVENT_JOYSTICK_HAT_MOTION:
+            // All values set by DPAD must be reset on DPAD value change
+            for (auto const& input : joystick.mapping.dpadInputList) {
+                clear_XBOX_REPORT_value(input, xbox_report);
+            }
+            eventMap.set(SDLButtonMapping::ButtonType::HAT, event.jhat.hat, false);
+            processButtonTypeHat(joystick, eventMap, event.jhat.value, xbox_report);
+            break;
+
+        case SDL_EVENT_JOYSTICK_AXIS_MOTION:
+            eventMap.set(SDLButtonMapping::ButtonType::STICK, event.jaxis.axis, event.jaxis.value > 0 ? 1 : -1);
+            processButtonTypeStick(joystick, eventMap, event.jaxis.value, xbox_report);
+            break;
+
+        default:
+            break;
+        }
+    }
+    return true;
+}
+
 // Will output XUSB_REPORT values to g_outputText
 void printXusbReport(const XUSB_REPORT& report) {
-    g_outputText += "wButtons: " + std::to_string(report.wButtons) + "\r\n";
-    g_outputText += "bLeftTrigger: " + std::to_string(static_cast<int>(report.bLeftTrigger)) + "\r\n";
-    g_outputText += "bRightTrigger: " + std::to_string(static_cast<int>(report.bRightTrigger)) + "\r\n";
-    g_outputText += "sThumbLX: " + std::to_string(report.sThumbLX) + "\r\n";
-    g_outputText += "sThumbLY: " + std::to_string(report.sThumbLY) + "\r\n";
-    g_outputText += "sThumbRX: " + std::to_string(report.sThumbRX) + "\r\n";
-    g_outputText += "sThumbRY: " + std::to_string(report.sThumbRY) + "\r\n";
+    g_outputText += "wButtons: " + std::to_string(report.wButtons) + "      \r\n";
+    g_outputText += "bLeftTrigger: " + std::to_string(static_cast<int>(report.bLeftTrigger)) + "      \r\n";
+    g_outputText += "bRightTrigger: " + std::to_string(static_cast<int>(report.bRightTrigger)) + "      \r\n";
+    g_outputText += "sThumbLX: " + std::to_string(report.sThumbLX) + "      \r\n";
+    g_outputText += "sThumbLY: " + std::to_string(report.sThumbLY) + "      \r\n";
+    g_outputText += "sThumbRX: " + std::to_string(report.sThumbRX) + "      \r\n";
+    g_outputText += "sThumbRY: " + std::to_string(report.sThumbRY) + "      \r\n";
 }
 
 
@@ -1030,6 +1287,8 @@ int InitJoystickInput()
 {
     // Enable Xinput devices with this hint
     SDL_SetHint(SDL_HINT_JOYSTICK_THREAD, "1");
+    // Disable SDL handling SIGINT
+    SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, "1");
     // Initialize SDL
     if (SDL_Init(SDL_INIT_JOYSTICK) < 0)
     {
@@ -1039,108 +1298,110 @@ int InitJoystickInput()
     return 0;
 }
 
-std::unordered_map<std::string, int> getJoystickList() {
-    // Check for available joysticks
-    int numJoysticks = SDL_NumJoysticks();
-     if (numJoysticks <= 0)
-    {
-        std::cout << "No joysticks connected." << std::endl;
-        //return -2;
-    }
-    // Create and Populate list
-    std::unordered_map<std::string, int> joystickList;
-    for (int i = 0; i < numJoysticks; ++i)
-    {
-        std::string joystickName = SDL_JoystickNameForIndex(i);
-        joystickList[joystickName] = i;
-    }
-    return joystickList;
-}
-
-int ConsoleSelectJoystickDialog(int numJoysticks, SDLJoystickData& joystick) {
-    // Print the available joysticks
-       std::cout << "Connected Joysticks:" << std::endl;
-       for (int i = 0; i < numJoysticks; ++i)
-       {
-           std::cout << 1+i << ": " << SDL_JoystickNameForIndex(i) << std::endl;
-       }
-
-       // Prompt the user to select a joystick
-       int selectedJoystickIndex;
-       std::cout << "Select a joystick (1";
-       if (numJoysticks > 1) std::cout << "-" << numJoysticks;
-       std::cout << "): ";
-       std::cin >> selectedJoystickIndex;
-       --selectedJoystickIndex;
-       while ((getchar()) != '\n');    // Clear keyboard buffer of enter press
-
-       // Check if the selected index is valid
-       if (selectedJoystickIndex < 0 || selectedJoystickIndex >= numJoysticks)
-       {
-           std::cout << "Invalid joystick index." << std::endl;
-           SDL_Quit();
-           return 0;
-       }
-
-       // Open the selected joystick
-       joystick._ptr = SDL_JoystickOpen(selectedJoystickIndex);
-       if (joystick._ptr == nullptr)
-       {
-           std::cout << "Failed to open joystick: " << SDL_GetError() << std::endl;
-           SDL_Quit();
-           return 0;
-       } 
-       return 1;
-}
-
-void OpenSelectJoystickDialog(std::unordered_map<std::string, int>& joystickList) {
-    //
-    // Prompt the user to select a joystick
-    //
-        // Reset global selected index
-    g_joystickSelected = -1;
-    // Create the "Select Joystick" dialog
-    //DialogBoxParam(g_hInstance, MAKEINTRESOURCE(IDD_SELECT_JOYSTICK_DIALOG), g_hWnd, SelectJoystickDialogProc, reinterpret_cast<LPARAM>(&joystickList));
-    // Show the dialog
-    //ShowWindow(g_hSelectJoystickDialog, SW_SHOW);
-    // Await the selection
-    while (g_joystickSelected < 0) {
-        Sleep(10);
-    }
-
-}
-
 int ConnectToJoystick(int joyIndex, SDLJoystickData& joystick) {
+    int numJoysticks = 0;
+    SDL_JoystickID* joystick_list = nullptr;
+    joystick_list = SDL_GetJoysticks(&numJoysticks);
+
     // Open the specified joystick
-    joystick._ptr = SDL_JoystickOpen(joyIndex);
+    joystick._ptr = SDL_OpenJoystick(joystick_list[joyIndex]);
     if (joystick._ptr == nullptr)
     {
-        std::cout << "Failed to open joystick: " << SDL_GetError() << std::endl;
+        //std::cout << "Failed to open joystick: " << SDL_GetError() << std::endl;
+        SDL_free(joystick_list);
         return 0;
     }
+    joystick.joyID = joystick_list[joyIndex];
+
+    SDL_free(joystick_list);
     return 1;
+}
+
+int ConsoleSelectJoystickDialog(SDLJoystickData& joystick) {
+    int numJoysticks = 0;
+    SDL_JoystickID* joystick_list = nullptr;
+    joystick_list = SDL_GetJoysticks(&numJoysticks);
+    // Print the available joysticks
+    std::cout << "Connected Joysticks:" << std::endl;
+
+    if (numJoysticks < 1) {
+        SDL_free(joystick_list);
+        std::cout << "\t (None) \n  Connect a joystick to continue...";
+
+        bool needJoystick = true;
+        SDL_Event event;
+        while (!APP_KILLED && needJoystick) {
+            while (SDL_PollEvent(&event) != 0) {
+                switch (event.type) {
+                case SDL_EVENT_JOYSTICK_ADDED:
+                    needJoystick = false;
+                    break;
+                }
+            }
+            Sleep(100);
+        }
+
+        clearConsoleScreen();
+        joystick_list = SDL_GetJoysticks(&numJoysticks);
+        std::cout << "Connected Joysticks:" << std::endl;
+    }
+
+    for (int i = 0; i < numJoysticks; ++i)
+    {
+        std::cout << 1 + i << ": " << SDL_GetJoystickNameForID(joystick_list[i]) << std::endl;
+    }
+    SDL_free(joystick_list);
+
+    // Prompt the user to select a joystick
+    int selectedJoystickIndex;
+    std::cout << "Select a joystick (1";
+    if (numJoysticks > 1) std::cout << "-" << numJoysticks;
+    std::cout << "): ";
+    std::cin >> selectedJoystickIndex;
+    --selectedJoystickIndex;
+    while ((getchar()) != '\n');
+
+    // Check if the selected index is valid
+    if (selectedJoystickIndex < 0 || selectedJoystickIndex >= numJoysticks)
+    {
+        clearConsoleScreen();
+        std::cout << "Invalid joystick index." << std::endl;
+        
+        // allows for rescan of devices
+        return ConsoleSelectJoystickDialog(joystick);
+    }
+
+    // Open the selected joystick
+    return ConnectToJoystick(selectedJoystickIndex, joystick);
 }
 
 void BuildJoystickInputData(SDLJoystickData& joystick) {
     // Get Baseline Reading for inputs
-    std::tuple<int,int,int> joyInputInfo;
+    std::tuple<int, int, int> joyInputInfo;
     std::tuple<std::vector<int>, std::vector<int>, std::vector<int>, std::vector<int>> baselineReports;
     std::tie(joyInputInfo, baselineReports) = get_sdl_joystick_baseline(joystick._ptr);
 
     joystick.num_axes = std::get<0>(joyInputInfo);
     joystick.num_buttons = std::get<1>(joyInputInfo);
     joystick.num_hats = std::get<2>(joyInputInfo);
-    joystick.name = std::string(SDL_JoystickName(joystick._ptr));
+    joystick.name = std::string(SDL_GetJoystickNameForID(joystick.joyID));
     joystick.avgBaseline = std::get<0>(baselineReports);
 }
 
-void OpenOrCreateMapping(SDLJoystickData& joystick, std::string& mapName) {
+void OpenOrCreateMapping(SDLJoystickData& joystick) {
+    // Convert joystick name to hex  
+    std::string mapName = encodeStringToHex(joystick.name);
     // Check for a saved Map for selected joystick
     auto result = check_for_saved_mapping(mapName);
     std::filesystem::path filePath = result.second;
     if (result.first) {
         // File exists, try and load data
-        joystick.mapping.loadMapping(filePath.string());
+        int allGood = joystick.mapping.loadMapping(filePath.string());
+        if (!allGood) {
+            // invald data, delete file and try to remap controller
+            std::filesystem::remove(result.second);
+            return OpenOrCreateMapping(joystick);
+        }
     }
     else {
         // File does not exist
@@ -1155,12 +1416,13 @@ void OpenOrCreateMapping(SDLJoystickData& joystick, std::string& mapName) {
         std::vector<SDLButtonMapping::ButtonName> inputList;
         // Set a Button Map for joystick
         setSDLMapping(joystick, inputList);
+
         //Save new mapping
         int didSave = joystick.mapping.saveMapping(filePath.string());
     }
 }
 
-int RemapInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonName> inputList = std::vector<SDLButtonMapping::ButtonName>()){
+int RemapInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonName> inputList = std::vector<SDLButtonMapping::ButtonName>()) {
     // Convert joystick name to hex mapfile name   
     std::string mapName = encodeStringToHex(joystick.name);
     // Get file path for a mapfile
@@ -1168,7 +1430,6 @@ int RemapInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonN
     std::filesystem::path filePath = result.second;
 
     // Visual notification to user
-   // appendWindowTitle(g_hWnd, "Remap Buttons!"));
     g_outputText = "Remapping Inputs For:  " + joystick.name + "\r\n\r\n\t Press Any Button To Continue\r\n\r\n";
     displayOutputText();
 
@@ -1184,7 +1445,8 @@ int RemapInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonN
     return didSave;
 }
 
-int SDLRumble(SDLJoystickData& joystick, Uint8 leftMotor, Uint8 rightMotor, Uint32 duration_ms = 200) {
-    return SDL_JoystickRumble(joystick._ptr, leftMotor*128 + 127*(leftMotor > 0), rightMotor*128 + 127*(rightMotor > 0), duration_ms);
+__declspec(noinline) 
+int SDLRumble(SDLJoystickData& joystick, Uint8 leftMotor, Uint8 rightMotor, Uint32 duration_ms = 5000) {
+    return SDL_RumbleJoystick(joystick._ptr, leftMotor * 257, rightMotor * 257, duration_ms);
 }
 //***************************************

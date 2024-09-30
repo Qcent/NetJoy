@@ -1,6 +1,6 @@
 // TCP_Connection_Class.h : This file contains a simple server/client tcp networking api
 /*
-Copyright (c) 2023 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2024 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -37,7 +37,7 @@ THE SOFTWARE.
 
 #pragma comment(lib, "ws2_32.lib")
 
-constexpr int UINT32_SIZE = sizeof(uint32_t);
+#define NETWORK_TIMEOUT_MILLISECONDS 800
 
 class TCPConnection {
 private:
@@ -51,6 +51,7 @@ private:
     // Header packing and unpacking methods...
     std::vector<char> pack_header(const std::unordered_map<std::string, std::string>& header);
     std::unordered_map<std::string, std::string> unpack_header(const char* headerData, int dataSize);
+    void setSocketTimeout(int socket, int timeoutMillisec);
 
 public:
     // Constructor and destructor...
@@ -64,6 +65,8 @@ public:
     void set_silence(bool setting);
     int set_server_blocking(bool block=true);
     int set_client_blocking(bool block=true);
+    void set_server_timeout(int timeoutMillisec);
+    void set_client_timeout(int timeoutMillisec);
 
     // Server-related methods...
     int start_server();
@@ -116,7 +119,8 @@ TCPConnection::TCPConnection(int port, const std::string& listenAddress)
 int TCPConnection::start_server() {
     serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSocket == INVALID_SOCKET) {
-        std::cerr << "Failed to create server socket" << std::endl;
+        if (!silent)
+            std::cerr << "Failed to create server socket" << std::endl;
         return -1;
     }
 
@@ -125,17 +129,20 @@ int TCPConnection::start_server() {
     serverAddress.sin_port = htons(port);
     //Convert listen address
     if (inet_pton(AF_INET, listenAddress, &(serverAddress.sin_addr)) <= 0) {
-        std::cerr << "Failed to convert listen address" << std::endl;
+        if (!silent)
+            std::cerr << "Failed to convert listen address" << std::endl;
         return -1;
     }
 
     if (bind(serverSocket, reinterpret_cast<sockaddr*>(&serverAddress), sizeof(serverAddress)) == SOCKET_ERROR) {
-        std::cerr << "Failed to bind server socket" << std::endl;
+        if (!silent)
+            std::cerr << "Failed to bind server socket" << std::endl;
         return -1;
     }
 
     if (listen(serverSocket, 1) == SOCKET_ERROR) {
-        std::cerr << "Failed to start listening on server socket" << std::endl;
+        if (!silent)
+            std::cerr << "Failed to start listening on server socket" << std::endl;
         return -1;
     }
     if (!silent)
@@ -152,7 +159,7 @@ std::pair<SOCKET, sockaddr_in> TCPConnection::await_connection() {
 
     if (clientSocket == INVALID_SOCKET) {
         int err = WSAGetLastError();
-        if (err != WSAEWOULDBLOCK)  std::cerr << "Failed to accept client connection : " << err << std::endl;
+        if (err != WSAEWOULDBLOCK && !silent)  std::cerr << "Failed to accept client connection : " << err << std::endl;
         return { INVALID_SOCKET, {} };
     }
     if (!silent)
@@ -164,7 +171,8 @@ std::pair<SOCKET, sockaddr_in> TCPConnection::await_connection() {
 int TCPConnection::establish_connection() {
     clientSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (clientSocket == INVALID_SOCKET) {
-        std::cerr << "Failed to create socket" << std::endl;
+        if (!silent)
+            std::cerr << "Failed to create socket" << std::endl;
         return -1;
     }
 
@@ -174,7 +182,8 @@ int TCPConnection::establish_connection() {
     hints.ai_protocol = IPPROTO_TCP;
 
     if (getaddrinfo(hostAddress, std::to_string(port).c_str(), &hints, &result) != 0) {
-        std::cerr << "Failed to resolve server address" << std::endl;
+        if (!silent)
+            std::cerr << "Failed to resolve server address" << std::endl;
         return -1;
     }
 
@@ -182,7 +191,8 @@ int TCPConnection::establish_connection() {
         freeaddrinfo(result);
         int err = WSAGetLastError();
         if (err != WSAEWOULDBLOCK) {
-            std::cerr << "Connection failed : " << err << std::endl;
+            if (!silent)
+                std::cerr << "Connection failed : " << err << std::endl;
             return -1;
         }
         return err;
@@ -198,7 +208,8 @@ int TCPConnection::send_data(const char* data, int size) {
     if (bytesSent == SOCKET_ERROR) {
         int err = WSAGetLastError();
         if (err != WSAEWOULDBLOCK) {
-            std::cerr << "Failed to send data : " << err << std::endl;
+            if (!silent)
+                std::cerr << "Failed to send data : " << err << std::endl;
             return -1;
         }
         return err;
@@ -210,10 +221,11 @@ int TCPConnection::receive_data(char* buffer, int bufferSize) {
     if (bytesReceived == SOCKET_ERROR) {
         int err = WSAGetLastError();
         if (err != WSAEWOULDBLOCK) {
-            std::cerr << "Failed to receive data : " << err << std::endl;
+            if (!silent)
+                std::cerr << "Failed to receive data : " << err << std::endl;
             return -1;
         }
-        return err;
+        return -err; //lets keep errors negative
     }
     return bytesReceived;
 }
@@ -227,17 +239,17 @@ std::vector<char> TCPConnection::pack_header(const std::unordered_map<std::strin
         uint32_t valueLength = static_cast<uint32_t>(value.length());
 
         // Pack name length
-        char nameLengthBuffer[UINT32_SIZE];
-        memcpy(nameLengthBuffer, &nameLength, UINT32_SIZE);
-        headerData.insert(headerData.end(), nameLengthBuffer, nameLengthBuffer + UINT32_SIZE);
+        char nameLengthBuffer[sizeof(uint32_t)];
+        memcpy(nameLengthBuffer, &nameLength, sizeof(uint32_t));
+        headerData.insert(headerData.end(), nameLengthBuffer, nameLengthBuffer + sizeof(uint32_t));
 
         // Pack name
         headerData.insert(headerData.end(), name.begin(), name.end());
 
         // Pack value length
-        char valueLengthBuffer[UINT32_SIZE];
-        memcpy(valueLengthBuffer, &valueLength, UINT32_SIZE);
-        headerData.insert(headerData.end(), valueLengthBuffer, valueLengthBuffer + UINT32_SIZE);
+        char valueLengthBuffer[sizeof(uint32_t)];
+        memcpy(valueLengthBuffer, &valueLength, sizeof(uint32_t));
+        headerData.insert(headerData.end(), valueLengthBuffer, valueLengthBuffer + sizeof(uint32_t));
 
         // Pack value
         headerData.insert(headerData.end(), value.begin(), value.end());
@@ -252,8 +264,8 @@ std::unordered_map<std::string, std::string> TCPConnection::unpack_header(const 
     while (offset < dataSize) {
         // Unpack name length
         uint32_t nameLength;
-        memcpy(&nameLength, headerData + offset, UINT32_SIZE);
-        offset += UINT32_SIZE;
+        memcpy(&nameLength, headerData + offset, sizeof(uint32_t));
+        offset += sizeof(uint32_t);
 
         // Unpack name
         std::string name(headerData + offset, headerData + offset + nameLength);
@@ -261,8 +273,8 @@ std::unordered_map<std::string, std::string> TCPConnection::unpack_header(const 
 
         // Unpack value length
         uint32_t valueLength;
-        memcpy(&valueLength, headerData + offset, UINT32_SIZE);
-        offset += UINT32_SIZE;
+        memcpy(&valueLength, headerData + offset, sizeof(uint32_t));
+        offset += sizeof(uint32_t);
 
         // Unpack value
         std::string value(headerData + offset, headerData + offset + valueLength);
@@ -282,7 +294,7 @@ int TCPConnection::send_data(const char* data, int size, const std::unordered_ma
     // Prepare the combined data to be sent
     std::vector<char> combinedData;
     uint32_t headerSize = static_cast<uint32_t>(headerData.size());
-    combinedData.insert(combinedData.end(), reinterpret_cast<const char*>(&headerSize), reinterpret_cast<const char*>(&headerSize) + UINT32_SIZE);
+    combinedData.insert(combinedData.end(), reinterpret_cast<const char*>(&headerSize), reinterpret_cast<const char*>(&headerSize) + sizeof(uint32_t));
     combinedData.insert(combinedData.end(), headerData.begin(), headerData.end());
     combinedData.insert(combinedData.end(), data, data + size);
 
@@ -291,7 +303,8 @@ int TCPConnection::send_data(const char* data, int size, const std::unordered_ma
     if (bytesSent == SOCKET_ERROR) {
         int err = WSAGetLastError();
         if (err != WSAEWOULDBLOCK) {
-            std::cerr << "Failed to send data : " << err << std::endl;
+            if (!silent)
+                std::cerr << "Failed to send data : " << err << std::endl;
             return -1;
         }
         return err;
@@ -305,32 +318,35 @@ int TCPConnection::receive_data(char* buffer, int bufferSize, std::unordered_map
     if (bytesReceived == SOCKET_ERROR) {
         int err = WSAGetLastError();
         if (err != WSAEWOULDBLOCK) {
-            std::cerr << "Failed to receive data : " << err << std::endl;
+            if (!silent)
+                std::cerr << "Failed to receive data : " << err << std::endl;
             return -1;
         }
         return err;
     }
 
     // Extract header size
-    if (bytesReceived < UINT32_SIZE) {
-        std::cerr << "Received data is incomplete." << std::endl;
+    if (bytesReceived < sizeof(uint32_t)) {
+        if (!silent)
+            std::cerr << "Received data is incomplete." << std::endl;
         return -1;
     }
     uint32_t headerSize;
-    std::memcpy(&headerSize, buffer, UINT32_SIZE);
+    std::memcpy(&headerSize, buffer, sizeof(uint32_t));
 
     // Extract header data
-    if (bytesReceived < UINT32_SIZE + headerSize) {
-        std::cerr << "Received data is incomplete." << std::endl;
+    if (bytesReceived < sizeof(uint32_t) + headerSize) {
+        if (!silent)
+            std::cerr << "Received data is incomplete." << std::endl;
         return -1;
     }
-    const char* headerData = buffer + UINT32_SIZE;
+    const char* headerData = buffer + sizeof(uint32_t);
     header = unpack_header(headerData, headerSize);
 
     // Extract payload data
-    int payloadSize = bytesReceived - UINT32_SIZE - headerSize;
+    int payloadSize = bytesReceived - sizeof(uint32_t) - headerSize;
     if (payloadSize > 0) {
-        std::memcpy(buffer, buffer + UINT32_SIZE + headerSize, payloadSize);
+        std::memcpy(buffer, buffer + sizeof(uint32_t) + headerSize, payloadSize);
     }
 
     return payloadSize;
@@ -349,10 +365,32 @@ int TCPConnection::set_client_blocking(bool block) {
     return ioctlsocket(clientSocket, FIONBIO, &mode);
 }
 
+void TCPConnection::setSocketTimeout(int socket, int timeoutMillisec) {
+    // Set receive timeout
+    if (setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeoutMillisec, sizeof(timeoutMillisec)) < 0) {
+        if (!silent)
+            std::cerr << "Error setting receive timeout" << std::endl;
+    }
+
+    // Set send timeout
+    if (setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, (const char*)&timeoutMillisec, sizeof(timeoutMillisec)) < 0) {
+        if (!silent)
+            std::cerr << "Error setting send timeout" << std::endl;
+    }
+}
+
+void TCPConnection::set_server_timeout(int timeoutMillisec) {
+    setSocketTimeout(serverSocket, timeoutMillisec);
+}
+void TCPConnection::set_client_timeout(int timeoutMillisec) {
+    setSocketTimeout(clientSocket, timeoutMillisec);
+}
+
 std::string TCPConnection::get_local_ip() {
     char hostName[256];
     if (gethostname(hostName, sizeof(hostName)) == SOCKET_ERROR) {
-        std::cerr << "Failed to get local IP address" << std::endl;
+        if (!silent)
+            std::cerr << "Failed to get local IP address" << std::endl;
         return "";
     }
 
@@ -362,13 +400,15 @@ std::string TCPConnection::get_local_ip() {
     hints.ai_protocol = IPPROTO_TCP;
 
     if (getaddrinfo(hostName, nullptr, &hints, &result) != 0) {
-        std::cerr << "Failed to resolve local IP address" << std::endl;
+        if (!silent)
+            std::cerr << "Failed to resolve local IP address" << std::endl;
         return "";
     }
 
     char ipAddress[INET_ADDRSTRLEN];
     if (inet_ntop(AF_INET, &reinterpret_cast<sockaddr_in*>(result->ai_addr)->sin_addr, ipAddress, sizeof(ipAddress)) == nullptr) {
-        std::cerr << "Failed to convert local IP address to string" << std::endl;
+        if (!silent)
+            std::cerr << "Failed to convert local IP address to string" << std::endl;
         return "";
     }
 
