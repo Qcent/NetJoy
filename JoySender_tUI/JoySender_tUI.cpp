@@ -172,7 +172,7 @@ int joySendertUI(Arguments& args) {
             // Do remapping if triggered
             if (MAPPING_FLAG) {
                 // REMAP STUFF ** pauses communication till finished
-                tUI_SET_SUIT_POSITIONS(SUIT_POSITIONS_MAP_STACKED());
+                tUI_SET_SUIT_POSITIONS(SUIT_POSITIONS_MAP_SCREEN());
                 tUIRemapInputsScreen(activeGamepad);
                 if (APP_KILLED) {
                     inConnection = false;

@@ -1544,14 +1544,14 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick) {
     constexpr int MAX_INPUTS_SHOWN = 12;
 
     // move common buttons
-    {
+    auto move_theme_buttons = [&]() {
         mouseButton* btn = g_screen.GetButtonById(46);
         if (btn != nullptr) {
             btn->SetPosition(4, 1);
             btn = g_screen.GetButtonById(47);
             btn->SetPosition(consoleWidth - 4, 1);
         }
-    }
+        };
 
     // for drawing back covered up bg patterns
     bool loadedBgFill = false;
@@ -1583,7 +1583,7 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick) {
             btn = g_screen.GetButtonById(47);
             if (btn != nullptr)
                 screen.AddButton(btn);
-            tUI_SET_SUIT_POSITIONS(SUIT_POSITIONS_MAP_STACKED());
+            tUI_SET_SUIT_POSITIONS(SUIT_POSITIONS_MAP_SCREEN());
         };
     //custom egg
     mouseButton uiEgg(34, 4, 6, L"(-Q-)"); 
@@ -1789,17 +1789,9 @@ int tUIRemapInputsScreen(SDLJoystickData& joystick) {
         }
 
         tUI_DRAW_CONTROLLER_FACE();
-        /*
-        if (g_status & PTRN_EGG_b) {
-            ReDrawControllerFace(screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].menuBg, 1, (g_status & PTRN_EGG_b));
-        }
-        else if (g_status & BORDER_EGG_a) {
-            ReDrawControllerFace(screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, 1, (g_status & BORDER_EGG_a));
-        }
-        else {
-            ReDrawControllerFace(screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, 1 );
-        }
-        */
+
+        tUI_SET_SUIT_POSITIONS(SUIT_POSITIONS_MAP_SCREEN());
+
         otherButtons.DrawButtons();
         screenTitle.Draw();
         gamepadName.Draw();
@@ -2712,5 +2704,5 @@ void JOYSENDER_tUI_BUILD_MAP_SCREEN() {
     SetControllerFace(g_screen, g_simpleScheme, fullColorSchemes[g_currentColorScheme].controllerBg, g_mode);
 
     controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
-    tUI_SET_SUIT_POSITIONS(SUIT_POSITIONS_MAP_STACKED());
+    tUI_SET_SUIT_POSITIONS(SUIT_POSITIONS_MAP_SCREEN());
 }
