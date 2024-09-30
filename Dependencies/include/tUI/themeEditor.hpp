@@ -29,6 +29,7 @@ THE SOFTWARE.
 
 extern const char* THEME_FILE;
 extern int screenLoop(textUI& screen);
+extern void JOYSENDER_tUI_BUILD_MAP_SCREEN();
 void* g_extraData2 = nullptr;
 int g_indexSelected = -1;
 
@@ -109,11 +110,21 @@ WORD colorFromElementIndex(FullColorScheme& colors, int index) {
 }
 
 void updateColorByElementIndex(FullColorScheme& colors, int index, WORD newColor) {
+    auto keep_ctrl_colors_const = [&]() {
+        WORD newBG = newColor BG_ONLY;
+        if ((colors.controllerColors.col1 BG_ONLY) != newBG) {
+            colors.controllerColors.col1 = (colors.controllerColors.col1 FG_ONLY) | newBG;
+            colors.controllerColors.col2 = (colors.controllerColors.col2 FG_ONLY) | newBG;
+            colors.controllerColors.col3 = (colors.controllerColors.col3 FG_ONLY) | newBG;
+        }
+        };
     switch (index) {
     case 0:
+        keep_ctrl_colors_const();
         colors.controllerColors.col1 = newColor;
         break;
     case 1:
+        keep_ctrl_colors_const();
         colors.controllerColors.col2 = newColor;
         break;
     case 2:
@@ -1395,6 +1406,12 @@ void tUI_THEME_SELECTOR_SCREEN() {
     screen.ClearButtons();
     g_indexSelected = -1;
     g_extraData2 = nullptr;
+
+#ifdef JOYSENDER_TUI
+    if (MAPPING_FLAG) {
+        JOYSENDER_tUI_BUILD_MAP_SCREEN();
+    }else
+#endif
     if (g_status & CTRLR_SCREEN_f)
     {
         output1.SetPosition(6, 1, 45, 1, ALIGN_LEFT);
@@ -1406,7 +1423,12 @@ void tUI_THEME_SELECTOR_SCREEN() {
         cxMsg.SetPosition(25, 1, 38, 1, ALIGN_LEFT);
 #endif
     }
-    tUI_AUTO_SET_SUIT_POSITIONS();
+
+#ifdef JOYSENDER_TUI
+    if (!MAPPING_FLAG)
+#endif
+        tUI_AUTO_SET_SUIT_POSITIONS();  
+
     tUI_CLEAR_SCREEN(DIAMOND_COLOR());
     g_status |= RECOL_tUI_f | REDRAW_tUI_f;
     g_status &= ~EDIT_THEME_f;
