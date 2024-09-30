@@ -247,14 +247,26 @@ bool getCharsAtPosition(int x, int y, int len, TCHAR* buffer) {
     return true;
 }
 
-void displayBytes(const byte* buffer, int bufferSize) {
+void displayBytes(const byte* buffer, int bufferSize, int width = 72) {
+    const int endl = (width / 3);
     for (int i = 0; i < bufferSize; i++) {
 #ifdef NetJoyTUI
         wprintf(L"%02X ", buffer[i]);
 #else
         printf("%02X ", buffer[i]);
 #endif
+
+        if ((i + 1) % endl == 0) {
+
+#ifdef NetJoyTUI
+            wprintf(L"\r\n");
+#else
+            printf("\r\n");
+#endif    
+        }
+
     }
+
 #ifdef NetJoyTUI
     wprintf(L"\r\n");
 #else
