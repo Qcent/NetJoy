@@ -281,15 +281,15 @@ const std::vector<COORD> SUIT_POSITIONS_COLLECTED() {
     };
     return pos;
 }
-const std::vector<COORD> SUIT_POSITIONS_MAP_STACKED() {
-    constexpr short y = 5;
-    constexpr short x = 2;
+const std::vector<COORD> SUIT_POSITIONS_MAP_SCREEN() {
+    constexpr short y = 1;
+    constexpr short x = consoleWidth - 12;
     const std::vector<COORD> pos = {
-        { x, y+1 }, // 41 - clubs
-        { x, y+2 }, // 42 - hearts
-        { x, y+3 },  // 45 - spades
-        { x, y },  // 46 - apply
-        { x, y+4 }  // 47 - save
+        { x + 2, y },   // 41 - clubs
+        { x + 4, y },   // 42 - hearts
+        { x + 6, y },   // 45 - spades
+        { x, y },       // 46 - apply
+        { x + 8, y }    // 47 - save
     };
     return pos;
 }
@@ -444,6 +444,7 @@ int THE_CLUBENING() {
     }
     else {
         clubPos = replaceXEveryNth(&JoySendMain_Backdrop[startPoint], sizeof(JoySendMain_Backdrop), (row ? L"|" : (side ? L"|" : L"|")), L"|", 1);
+        clubPos += startPoint;
     }
 #else   
     int side, row, col, startPoint;
