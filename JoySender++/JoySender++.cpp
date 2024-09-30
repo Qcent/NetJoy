@@ -191,7 +191,7 @@ int joySender(Arguments& args) {
         }
     }
     else {
-        g_outputText = "SDL Mode Activated\r\n";
+        g_outputText = "XBOX Mode Activated\r\n";
         BuildJoystickInputData(activeGamepad);
     }
 
