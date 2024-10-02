@@ -950,15 +950,23 @@ void tUI_DRAW_BORDER() {
 
     // draw top
     printSubsetOfBuffer({ 0,0 }, { 0,0,74,2 }, { 0,0,73,2 }, backdrop, true);
-
     //draw left 
     printSubsetOfBuffer({ 0,2 }, { 0,0,74,21 }, { 0,2,5,18 }, backdrop, true);
-
     //draw right 
     printSubsetOfBuffer({ 68,2 }, { 0,0,74,21 }, { 68,2,73,18 }, backdrop, true);
-
     //draw bottom
     printSubsetOfBuffer({ 0,18 }, { 0,18,74,20 }, { 0,18,73,21 }, backdrop, true);
+}
+
+void tUI_DRAW_NO_BORDER() {
+    // draw top
+    printSubsetOfBuffer({ 0,0 }, { 0,0,74,2 }, { 0,0,73,2 }, XBOX_Backdrop, true);
+    //draw left 
+    printSubsetOfBuffer({ 0,2 }, { 0,0,74,21 }, { 0,2,5,18 }, XBOX_Backdrop, true);
+    //draw right 
+    printSubsetOfBuffer({ 68,2 }, { 0,0,74,21 }, { 68,2,73,18 }, XBOX_Backdrop, true);
+    //draw bottom
+    printSubsetOfBuffer({ 0,18 }, { 0,18,74,20 }, { 0,18,73,21 }, XBOX_Backdrop, true);
 }
 
 void tUI_DRAW_CONTROLLER_FACE() {
@@ -992,8 +1000,11 @@ void tUI_REDRAW_MAIN_LOOP() {
         tUI_FLAGS() == (DIAMONDS_a | HEART_EGG_a)) {
         tUI_DRAW_BORDER();
     }
-    else if (tUI_FLAGS() == (PTRN_EGG_b | HEART_EGG_a)) {
-        tUI_HEART_BORDER();
+    else{
+        tUI_DRAW_NO_BORDER();
+        if (tUI_FLAGS() == (PTRN_EGG_b | HEART_EGG_a)) {
+            tUI_HEART_BORDER();
+        }
     }
 
     tUI_SET_BG_AND_SHOULDER_BUTTONS();
