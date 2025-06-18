@@ -1113,7 +1113,7 @@ public:
     }
 
     void AddInput(textInput* ptr) {
-        if (_inputsCount == MAX_SCREEN_BUTTONS) return;
+        if (_inputsCount == MAX_SCREEN_INPUTS) return;
         _textInputs[_inputsCount] = ptr;
         _inputsCount++;
     }
