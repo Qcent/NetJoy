@@ -80,7 +80,7 @@ int joySendertUI(Arguments& args) {
         return 0;
     }
     // Initial Settings for Operating Mode:  DS4 / XBOX
-    JOYSENDER_tUI_OPMODE_INIT(activeGamepad, args, allGood);
+    JOYSENDER_OPMODE_INIT(activeGamepad, args, allGood);
     
     // UI resets
     g_screen.SetBackdrop(JoySendMain_Backdrop); // i think this is only need if a mapping occurred

@@ -202,7 +202,7 @@ int main(int argc, char* argv[]) {
             g_status &= ~CTRLR_SCREEN_f;
         }
 
-        // Unregister rumble notifications // unplug virtual deveice
+        // Unregister rumble notifications // unplug virtual device
         JOYRECEIVER_UNPLUG_VIGEM_CONTROLLER();
     }
 

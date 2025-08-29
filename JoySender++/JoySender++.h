@@ -38,12 +38,17 @@ THE SOFTWARE.
 volatile sig_atomic_t APP_KILLED = 0;
 constexpr auto APP_NAME = "NetJoy";
 constexpr auto OLDMAP_WARNING_MSG = "! WARNING OLD MAP FILE DETECTED, RE-MAPPING INPUTS RECOMMENDED !";
+bool OLDMAP_FLAG = 0;
 std::string g_outputText;
 void displayOutputText();
 
 #include "utilities.hpp"
 #include "GamepadMapping.hpp"
 #include "DS4Manager.hpp"
+
+#ifdef NetJoyTUI
+extern void uiOpenOrCreateMapping(SDLJoystickData&);
+#endif
 
 // Function to display g_outputText to console
 void displayOutputText() {
@@ -134,6 +139,104 @@ void processFeedbackBuffer(const byte* buffer, SDLJoystickData& activeGamepad, i
     }
     if (update) {
         SDLRumble(activeGamepad, buffer[0], buffer[1]);
+    }
+
+}
+
+// universal (++/tUI) opmode(xbox/ds4) init function
+void JOYSENDER_OPMODE_INIT(SDLJoystickData& activeGamepad, Arguments& args, int& allGood) {
+    
+    if (args.mode == 2) {
+
+        // Get a report from the device to determine what type of connection it has
+        Sleep(5); // a fresh report should be generated every 4ms from the ds4 device
+        allGood = GetDS4Report();
+        if (allGood < 1) {
+            Sleep(5);
+            allGood = GetDS4Report();
+        }
+        if (allGood < 1) {
+            std::cout << "No good reports \r\n";
+        }
+        /* ^^^^^^^^^^^^^^^^^^^^^*/
+        /* GetDS4Report can return 0 if the report does not contain controller data.
+        this is not checked for here and is most likely the cause of the issue below.
+        TODO: investigate and fix in next release                                 */
+        /*^^^^^^^^^^^^^^^^^^^^^^*/
+
+        // first byte is used to determine where stick input starts
+        ds4DataOffset = ds4_InReportBuf[0] == 0x11 ? DS4_VIA_BT : DS4_VIA_USB;
+
+        int attempts = 0;   // DS4 fails to properly initialize when connecting to pc (after power up) via BT so lets hack in multiple attempts
+        while (attempts < 2) {
+            attempts++;
+
+            Sleep(5); // lets slow things down
+            bool extReport = ActivateDS4ExtendedReports();
+
+            // Set up feedback buffer with correct headers for connection mode
+            InitDS4FeedbackBuffer();
+
+            // Set new LightBar color with update to confirm rumble/lightbar support
+            switch (ds4DataOffset) {
+            case(DS4_VIA_BT):
+                SetDS4LightBar(105, 4, 32); // hot pink
+                break;
+            case(DS4_VIA_USB):
+                SetDS4LightBar(180, 188, 5); // citrus yellow-green
+            }
+
+            Sleep(5); // update fails if controller is bombarded with read/writes, so take a rest bud
+            allGood = SendDS4Update();
+
+#ifndef NetJoyTUI
+            g_outputText = "DS4 ";
+            if (extReport) g_outputText += "Full Motion ";
+            g_outputText += "Mode Activated : ";
+            if (ds4DataOffset == DS4_VIA_BT) { g_outputText += "| Wireless |"; }
+            else if (ds4DataOffset == DS4_VIA_USB) { g_outputText += "| USB |"; }
+            if (allGood) g_outputText += " Rumble On | ";
+            g_outputText += "\r\n";
+#endif
+
+            // Rumble the Controller
+            if (allGood) {
+                // jiggle it
+                SetDS4RumbleValue(12, 200);
+                SendDS4Update();
+                Sleep(110);
+                SetDS4RumbleValue(165, 12);
+                SendDS4Update();
+                // stop the rumble
+                SetDS4RumbleValue(0, 0);
+                Sleep(130);
+                SendDS4Update();
+                break; // break out of attempt loop
+            }
+            // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+        // Problem is probably related to not getting the correct report and assigning ds4DataOffset = DS4_VIA_USB
+        // taking the lazy route and just set ds4DataOffset = DS4_VIA_BT this works for me 100% of the time and hasn't led to problems yet ...
+            Sleep(10);
+            if (ds4DataOffset == DS4_VIA_USB)
+                ds4DataOffset = DS4_VIA_BT;
+            else
+                ds4DataOffset = DS4_VIA_USB;
+        }
+    }
+    else {
+
+        BuildJoystickInputData(activeGamepad);
+        // Look for an existing map for selected device
+#ifdef NetJoyTUI
+        uiOpenOrCreateMapping(activeGamepad);
+#else
+        g_outputText = "XBOX Mode Activated\r\n";
+        OpenOrCreateMapping(activeGamepad);
+#endif
+
+        if (g_outputText.find(OLDMAP_WARNING_MSG) != std::string::npos) {
+            OLDMAP_FLAG = true;
+        }
     }
 
 }

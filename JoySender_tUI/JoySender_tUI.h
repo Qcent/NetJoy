@@ -47,7 +47,6 @@ THE SOFTWARE.
 
 byte RESTART_FLAG = 0;
 byte MAPPING_FLAG = 0;
-bool OLDMAP_FLAG = 0;
 
 void signalHandler(int signal);
 
@@ -596,7 +595,7 @@ char IpInputLoop() {
 }
 
 // will look for a saved controller mapping and open it or initiate the mapping process
-void uiOpenOrCreateMapping(SDLJoystickData& joystick, textUI& screen) {
+void uiOpenOrCreateMapping(SDLJoystickData& joystick) {
     // Convert joystick name to hex  
     std::string mapName = encodeStringToHex(joystick.name);
     // Check for a saved Map for selected joystick
@@ -608,12 +607,11 @@ void uiOpenOrCreateMapping(SDLJoystickData& joystick, textUI& screen) {
         if (!allGood) {
             // invald data, delete file and try to remap controller
             std::filesystem::remove(result.second);
-            return uiOpenOrCreateMapping(joystick, screen);
+            return uiOpenOrCreateMapping(joystick);
         }
     }
     else {
         // File does not exist
-        
         // set up UI for xbox controller face
         BuildXboxFace();
         SetControllerButtonPositions(1);
@@ -2429,74 +2427,6 @@ int JOYSENDER_tUI_SELECT_JOYSTICK(SDLJoystickData& activeGamepad, Arguments& arg
         return 0;
     }
     return 1;
-}
-
-void JOYSENDER_tUI_OPMODE_INIT(SDLJoystickData& activeGamepad, Arguments& args, int& allGood) {
-    if (args.mode == 2) {
-
-        // Get a report from the device to determine what type of connection it has
-        Sleep(5); // a fresh report should be generated every 4ms from the ds4 device
-        GetDS4Report();
-
-        // first byte is used to determine where stick input starts
-        ds4DataOffset = ds4_InReportBuf[0] == 0x11 ? DS4_VIA_BT : DS4_VIA_USB;
-
-        int attempts = 0;   // DS4 fails to properly initialize when connecting to pc (after power up) via BT so lets hack in multiple attempts
-        while (attempts < 2) {
-            attempts++;
-
-            Sleep(5); // lets slow things down
-            bool extReport = ActivateDS4ExtendedReports();
-
-            // Set up feedback buffer with correct headers for connection mode
-            InitDS4FeedbackBuffer();
-
-            // Set new LightBar color with update to confirm rumble/lightbar support
-            switch (ds4DataOffset) {
-            case(DS4_VIA_BT):
-                SetDS4LightBar(105, 4, 32); // hot pink
-                break;
-            case(DS4_VIA_USB):
-                SetDS4LightBar(180, 188, 5); // citrus yellow-green
-            }
-
-            Sleep(5); // update fails if controller is bombarded with read/writes, so take a rest bud
-            allGood = SendDS4Update();
-
-            // Rumble the Controller
-            if (allGood) {
-                // jiggle it
-                SetDS4RumbleValue(12, 200);
-                SendDS4Update();
-                Sleep(110);
-                SetDS4RumbleValue(165, 12);
-                SendDS4Update();
-                // stop the rumble
-                SetDS4RumbleValue(0, 0);
-                Sleep(130);
-                SendDS4Update();
-                break; // break out of attempt loop
-            }
-            // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-        // Problem is probably related to not getting the correct report and assigning ds4DataOffset = DS4_VIA_USB
-        // taking the lazy route and just set ds4DataOffset = DS4_VIA_BT this works for me 100% of the time and hasn't led to problems yet ...
-            Sleep(10);
-            if (ds4DataOffset == DS4_VIA_USB)
-                ds4DataOffset = DS4_VIA_BT;
-            else
-                ds4DataOffset = DS4_VIA_USB;
-        }
-    }
-    else {
-        BuildJoystickInputData(activeGamepad);
-        // Look for an existing map for selected device
-        uiOpenOrCreateMapping(activeGamepad, g_screen);
-
-        if (g_outputText.find(OLDMAP_WARNING_MSG) != std::string::npos) {
-            OLDMAP_FLAG = true;
-        }
-    }
-
 }
 
 void JOYSENDER_tUI_ANIMATED_CX(SDLJoystickData& activeGamepad,TCPConnection& client, Arguments& args, int& allGood) {

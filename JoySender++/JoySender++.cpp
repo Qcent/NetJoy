@@ -128,79 +128,8 @@ int joySender(Arguments& args) {
     }
 
     //##########################################################################
-    // Init Settings for Operating Mode
-    if (args.mode == 2) {      
-        // Get a report from the device to determine what type of connection it has
-        GetDS4Report();
-
-        // first byte is used to determine where stick input starts
-        ds4DataOffset = ds4_report[0] == 0x11 ? DS4_VIA_BT : DS4_VIA_USB;
-
-        int attempts = 0;   // DS4 fails to properly initialize when connecting to pc (after power up) via BT so lets hack in multiple attempts
-        while (attempts < 2) {
-            attempts++;
-
-            Sleep(5); // lets slow things down
-            bool extReport = ActivateDS4ExtendedReports();
-
-            // Set up feedback buffer with correct headers for connection mode
-            InitDS4FeedbackBuffer();
-
-            // Set new LightBar color with update to confirm rumble/lightbar support
-            switch (ds4DataOffset) {
-            case(DS4_VIA_BT):
-                SetDS4LightBar(105, 4, 32); // hot pink
-                break;
-            case(DS4_VIA_USB):
-                SetDS4LightBar(180, 188, 5); // citrus yellow-green
-            }
-
-            Sleep(5); // update fails if controller is bombarded with read/writes, so take a rest bud
-            allGood = SendDS4Update();
-
-            g_outputText = "DS4 ";
-            if (extReport) g_outputText += "Full Motion ";
-            g_outputText += "Mode Activated : ";
-            if (ds4DataOffset == DS4_VIA_BT) { g_outputText += "| Wireless |"; }
-            else if (ds4DataOffset == DS4_VIA_USB) { g_outputText += "| USB |"; }
-            if (allGood) g_outputText += " Rumble On | ";
-            g_outputText += "\r\n";
-
-            // Rumble the Controller
-            if (allGood) {
-                // jiggle it
-                SetDS4RumbleValue(12, 200);
-                SendDS4Update();
-                Sleep(110);
-                SetDS4RumbleValue(165, 12);
-                SendDS4Update();
-                // stop the rumble
-                SetDS4RumbleValue(0, 0);
-                Sleep(130);
-                SendDS4Update();
-                break; // break out of attempt loop
-            }
-            // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-            // Problem is probably related to not getting the correct report and assigning ds4DataOffset = DS4_VIA_USB
-            // taking the lazy route and just set ds4DataOffset = DS4_VIA_BT this works for me 100% of the time and hasn't led to problems yet ...
-            Sleep(10);
-            if (ds4DataOffset == DS4_VIA_USB)
-                ds4DataOffset = DS4_VIA_BT;
-            else
-                ds4DataOffset = DS4_VIA_USB;
-        }
-    }
-    else {
-        g_outputText = "XBOX Mode Activated\r\n";
-        BuildJoystickInputData(activeGamepad);
-    }
-
-    //##########################################################################
-    // If not in DS4 Passthrough mode look for Saved Mapping or create one
-    if (args.mode != 2) {
-        // Look for an existing map for selected device
-        OpenOrCreateMapping(activeGamepad);
-    }
+    // Initial Settings for Operating Mode:  DS4 / XBOX
+    JOYSENDER_OPMODE_INIT(activeGamepad, args, allGood);
     displayOutputText();
     //##########################################################################
     // Main Loop keeps client running
