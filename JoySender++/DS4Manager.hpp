@@ -23,6 +23,11 @@ THE SOFTWARE.
 #pragma once
 
 #include "HidManager.h"
+#include "NxProManager.hpp"
+
+WORD HID_CONTROLLER_TYPE = 0x00;
+constexpr WORD DS4Controller_TYPE = 0x0000;
+constexpr WORD NxProController_TYPE = 0x0001;
 
 #define DS4_REPORT_NETWORK_DATA_SIZE 61
 #define DS4_BT_OUTPUT_REPORT_SIZE 78
@@ -462,14 +467,25 @@ bool SendDS4Update() {
 }
 
 bool GetDS4Report() {
-    if (DS4manager.ReadFileInputReport(0x11, ds4_InReportBuf, ds4_InBuffSize)) {
-        //uint8_t enableHID = (ds4_InReportBuf[1] >> 7) & 0x01; // report contains controller data
-        if ((ds4_InReportBuf[1] >> 7) & 0x01)
-        {
+    switch (HID_CONTROLLER_TYPE) {
+    case(DS4Controller_TYPE):
+        if (DS4manager.ReadFileInputReport(0x11, ds4_InReportBuf, ds4_InBuffSize)) {
+            //uint8_t enableHID = (ds4_InReportBuf[1] >> 7) & 0x01; // report contains controller data
+            if ((ds4_InReportBuf[1] >> 7) & 0x01)
+            {
+                return 1;
+            }
+            if (ds4DataOffset == DS4_VIA_USB)
+                return 1;
+        }
+        break;
+
+    case(NxProController_TYPE):
+        if (NxProController::convertToDS4Report(&DS4manager, ds4_InReportBuf)) {
             return 1;
         }
-        if (ds4DataOffset == DS4_VIA_USB)
-            return 1;
+        break;
+
     }
     return 0;
 }

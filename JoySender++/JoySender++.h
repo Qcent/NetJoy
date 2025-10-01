@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2024 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2025 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -45,6 +45,7 @@ void displayOutputText();
 #include "utilities.hpp"
 #include "GamepadMapping.hpp"
 #include "DS4Manager.hpp"
+#include "NxProManager.hpp"
 
 #ifdef NetJoyTUI
 extern void uiOpenOrCreateMapping(SDLJoystickData&);
@@ -82,6 +83,47 @@ std::string getHostAddress() {
     }
     hideConsoleCursor();
     return host_address;
+}
+
+// returns a list of DS4 controllers by HidDeviceInfo info
+std::vector<HidDeviceInfo> getDS4ControllersList() {
+    std::vector<HidDeviceInfo> devList, devListTwo;
+
+    // Search for all compatable devices 1 at a time
+      // DS4 controllers
+    devList = DS4manager.scanDevices(
+        ANY,                // vendor id  // Sony:: 1356
+        ANY,                // product id // DS4 v1:: 2508
+        ANY,                // serial
+        ANY,                // manufacturer ## L"Nintendo"
+        L"Wireless Controller",                // product string // L"Wireless Controller" ## L"Wireless Gamepad"
+        ANY,                // release
+        ANY,                // usage page
+        ANY                 // usage
+    );
+    // Nx Pro controllers
+    devListTwo = DS4manager.scanDevices(
+        ANY,                // vendor id  // Sony:: 1356
+        ANY,                // product id // DS4 v1:: 2508
+        ANY,                // serial
+        ANY,                // manufacturer ## L"Nintendo"
+        L"Wireless Gamepad",                // product string // L"Wireless Controller" ## L"Wireless Gamepad"
+        ANY,                // release
+        ANY,                // usage page
+        ANY                 // usage
+    );
+
+    // Consolidate
+    if (!devListTwo.empty()) devList.insert(devList.end(), devListTwo.begin(), devListTwo.end());
+
+#ifdef NetJoyTUI
+    extern void setErrorMsg(const wchar_t* text, size_t length);
+    if (!devList.size()) {
+        setErrorMsg(L" No DS4 Devices Connected! ", 28);
+    }
+#endif
+    
+    return devList;
 }
 
 // Function determines if rumble values need to be updated
@@ -128,12 +170,23 @@ void processFeedbackBuffer(const byte* buffer, SDLJoystickData& activeGamepad, i
         ++update;
     }
     if (mode == 2) {
-        if (update) {
-            SetDS4RumbleValue(byte(buffer[0]), byte(buffer[1]));
-        }
-        update += updateDS4Lightbar(&buffer[2]);
-        if (update) {
-            SendDS4Update();
+        switch (HID_CONTROLLER_TYPE) {
+        case(DS4Controller_TYPE):
+            if (update) {
+                SetDS4RumbleValue(byte(buffer[0]), byte(buffer[1]));
+            }
+            update += updateDS4Lightbar(&buffer[2]);
+            if (update) {
+                SendDS4Update();
+            }
+            break;
+
+        case(NxProController_TYPE):
+            if (update) {
+                NxRumble::instance().setFrame({ 100.0f, (static_cast<float>(buffer[0]) / 255.0f), 
+                                                     75.0f, (static_cast<float>(buffer[1]) / 255.0f), 55 });
+            }
+            break;
         }
         return;
     }
@@ -147,80 +200,135 @@ void processFeedbackBuffer(const byte* buffer, SDLJoystickData& activeGamepad, i
 void JOYSENDER_OPMODE_INIT(SDLJoystickData& activeGamepad, Arguments& args, int& allGood) {
     
     if (args.mode == 2) {
+        if (HID_CONTROLLER_TYPE == NxProController_TYPE) {
 
-        // Get a report from the device to determine what type of connection it has
-        Sleep(5); // a fresh report should be generated every 4ms from the ds4 device
-        allGood = GetDS4Report();
-        if (allGood < 1) {
-            Sleep(5);
-            allGood = GetDS4Report();
-        }
-        if (allGood < 1) {
-            std::cout << "No good reports \r\n";
-        }
-        /* ^^^^^^^^^^^^^^^^^^^^^*/
-        /* GetDS4Report can return 0 if the report does not contain controller data.
-        this is not checked for here and is most likely the cause of the issue below.
-        TODO: investigate and fix in next release                                 */
-        /*^^^^^^^^^^^^^^^^^^^^^^*/
+            NxProController NxPro(&DS4manager);
+            // auto reportOpt = NxPro.GetReport(); // for checking report values before subcommands
 
-        // first byte is used to determine where stick input starts
-        ds4DataOffset = ds4_InReportBuf[0] == 0x11 ? DS4_VIA_BT : DS4_VIA_USB;
+            NxPro.sendSubcommand(0x1, rumbleCommand, enable);
+            NxPro.sendSubcommand(0x1, imuDataCommand, enable);
+            NxPro.sendSubcommand(0x1, ledCommand, led);
 
-        int attempts = 0;   // DS4 fails to properly initialize when connecting to pc (after power up) via BT so lets hack in multiple attempts
-        while (attempts < 2) {
-            attempts++;
+            NxPro.loadCalibration();
 
-            Sleep(5); // lets slow things down
-            bool extReport = ActivateDS4ExtendedReports();
+            //ImuCal = NxPro.info.calibCoeff;
 
-            // Set up feedback buffer with correct headers for connection mode
-            InitDS4FeedbackBuffer();
+            auto NxReport = NxPro.GetReport();
 
-            // Set new LightBar color with update to confirm rumble/lightbar support
-            switch (ds4DataOffset) {
-            case(DS4_VIA_BT):
-                SetDS4LightBar(105, 4, 32); // hot pink
-                break;
-            case(DS4_VIA_USB):
-                SetDS4LightBar(180, 188, 5); // citrus yellow-green
+            bool extReport = NxReport.value()[0] != 63; // report id when BT and no IMU: 63 (flawed, but successful)
+            NxPro.parseConnection(NxReport); // cannot parse correctly until extended reports are enabled ie. IMU data
+
+         
+#if 0
+            for (int i = 0; i < 6; i++) {
+                NxPro.sendSimpleRumble(60, 00);
+                Sleep(18);
+                NxPro.sendSimpleRumble(00, 30);
+                Sleep(20);
+                NxPro.sendSimpleRumble(70, 00);
+                Sleep(24);
+                NxPro.sendSimpleRumble(0, 60);
+                Sleep(26);
             }
+            NxPro.sendSimpleRumble(0, 0);
+#endif
 
-            Sleep(5); // update fails if controller is bombarded with read/writes, so take a rest bud
-            allGood = SendDS4Update();
-
+            auto& rumbler = NxRumble::instance(&DS4manager, !NxPro.info.usbPowered, true);
+            rumbler.start();
+            
+            rumbler.setFrame({ 160.0f, 1.0f, 0.0f, 0.5f, 120 });
+            Sleep(110);
+            Sleep(20);
+            rumbler.setFrame({ 0.0f, 1.0f, 250.0f, 0.8f, 80 });
+            Sleep(130);
+            
 #ifndef NetJoyTUI
-            g_outputText = "DS4 ";
+            g_outputText = "Nintendo Pro -> DS4 ";
             if (extReport) g_outputText += "Full Motion ";
             g_outputText += "Mode Activated : ";
-            if (ds4DataOffset == DS4_VIA_BT) { g_outputText += "| Wireless |"; }
-            else if (ds4DataOffset == DS4_VIA_USB) { g_outputText += "| USB |"; }
-            if (allGood) g_outputText += " Rumble On | ";
+            g_outputText += (NxPro.info.usbPowered ? "| USB |" : "| Wireless |");
+            if (extReport) g_outputText += " Rumble On | "; // no good check for rumble implemented, but never fails
             g_outputText += "\r\n";
 #endif
 
-            // Rumble the Controller
-            if (allGood) {
-                // jiggle it
-                SetDS4RumbleValue(12, 200);
-                SendDS4Update();
-                Sleep(110);
-                SetDS4RumbleValue(165, 12);
-                SendDS4Update();
-                // stop the rumble
-                SetDS4RumbleValue(0, 0);
-                Sleep(130);
-                SendDS4Update();
-                break; // break out of attempt loop
+
+        }
+        else {
+
+            // Get a report from the device to determine what type of connection it has
+            Sleep(5); // a fresh report should be generated every 4ms from the ds4 device
+            allGood = GetDS4Report();
+            if (allGood < 1) {
+                Sleep(5);
+                allGood = GetDS4Report();
             }
-            // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-        // Problem is probably related to not getting the correct report and assigning ds4DataOffset = DS4_VIA_USB
-        // taking the lazy route and just set ds4DataOffset = DS4_VIA_BT this works for me 100% of the time and hasn't led to problems yet ...
-            Sleep(10);
-            if (ds4DataOffset == DS4_VIA_USB)
-                ds4DataOffset = DS4_VIA_BT;
-            else
-                ds4DataOffset = DS4_VIA_USB;
+            if (allGood < 1) {
+                std::wcout << L"No good reports \r\n";
+            }
+            /* ^^^^^^^^^^^^^^^^^^^^^*/
+            /* GetDS4Report can return 0 if the report does not contain controller data.
+            this is not checked for here and is most likely the cause of the issue below.
+            TODO: investigate and fix in next release                                 */
+            /*^^^^^^^^^^^^^^^^^^^^^^*/
+
+            // first byte is used to determine where stick input starts
+            ds4DataOffset = ds4_InReportBuf[0] == 0x11 ? DS4_VIA_BT : DS4_VIA_USB;
+
+            int attempts = 0;   // DS4 fails to properly initialize when connecting to pc (after power up) via BT so lets hack in multiple attempts
+            while (attempts < 2) {
+                attempts++;
+
+                Sleep(5); // lets slow things down
+                bool extReport = ActivateDS4ExtendedReports();
+
+                // Set up feedback buffer with correct headers for connection mode
+                InitDS4FeedbackBuffer();
+
+                // Set new LightBar color with update to confirm rumble/lightbar support
+                switch (ds4DataOffset) {
+                case(DS4_VIA_BT):
+                    SetDS4LightBar(105, 4, 32); // hot pink
+                    break;
+                case(DS4_VIA_USB):
+                    SetDS4LightBar(180, 188, 5); // citrus yellow-green
+                }
+
+                Sleep(5); // update fails if controller is bombarded with read/writes, so take a rest bud
+                allGood = SendDS4Update();
+
+#ifndef NetJoyTUI
+                g_outputText = "DS4 ";
+                if (extReport) g_outputText += "Full Motion ";
+                g_outputText += "Mode Activated : ";
+                if (ds4DataOffset == DS4_VIA_BT) { g_outputText += "| Wireless |"; }
+                else if (ds4DataOffset == DS4_VIA_USB) { g_outputText += "| USB |"; }
+                if (allGood) g_outputText += " Rumble On | ";
+                g_outputText += "\r\n";
+#endif
+
+                // Rumble the Controller
+                if (allGood) {
+                    // jiggle it
+                    SetDS4RumbleValue(12, 200);
+                    SendDS4Update();
+                    Sleep(110);
+                    SetDS4RumbleValue(165, 12);
+                    SendDS4Update();
+                    // stop the rumble
+                    SetDS4RumbleValue(0, 0);
+                    Sleep(130);
+                    SendDS4Update();
+                    break; // break out of attempt loop
+                }
+                // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+            // Problem is probably related to not getting the correct report and assigning ds4DataOffset = DS4_VIA_USB
+            // taking the lazy route and just set ds4DataOffset = DS4_VIA_BT this works for me 100% of the time and hasn't led to problems yet ...
+                Sleep(10);
+                if (ds4DataOffset == DS4_VIA_USB)
+                    ds4DataOffset = DS4_VIA_BT;
+                else
+                    ds4DataOffset = DS4_VIA_USB;
+            }
         }
     }
     else {
@@ -239,4 +347,48 @@ void JOYSENDER_OPMODE_INIT(SDLJoystickData& activeGamepad, Arguments& args, int&
         }
     }
 
+}
+
+void JOYSENDER_SET_DS4_CONTROLLER_FLAG(HidDeviceInfo& dev) {
+// Check and set flag if contoller is nintendo gamepad ** or others
+    if (dev.manufacturer == L"Nintendo") {
+        HID_CONTROLLER_TYPE = NxProController_TYPE;
+    }
+    else { HID_CONTROLLER_TYPE = DS4Controller_TYPE;; }
+}
+
+bool JOYSENDER_ConsoleSelectDS4Dialog() {
+    std::vector<HidDeviceInfo> devList = getDS4ControllersList();
+    HidDeviceInfo* selectedDev = nullptr;
+
+    if (devList.size() == 0) {
+        std::cout << "\t No Connected DS4 Controllers \n Connect a controller and press a key..." << std::endl;
+        _getch();
+        return ConnectToDS4Controller();
+    }
+    if (devList.size() > 1) {
+        // User selects from connected DS4 devices
+        int idx = ConsoleSelectDS4Dialog(devList);
+        if (idx == -1) {
+            clearConsoleScreen();
+            std::cout << "Invalid index." << std::endl;
+            return ConnectToDS4Controller();
+        }
+        selectedDev = &devList[idx];
+    }
+    else {
+        selectedDev = &devList[0];
+    }
+
+    if (selectedDev != nullptr) {
+        if (DS4manager.OpenHidDevice(selectedDev)) {
+            // Set controller type flag
+            JOYSENDER_SET_DS4_CONTROLLER_FLAG(*selectedDev);
+
+            std::wcout << "Connected to : " << selectedDev->manufacturer << " " << selectedDev->product << std::endl;
+            return true;
+        }
+    }
+
+    return false;
 }

@@ -114,7 +114,7 @@ int joySender(Arguments& args) {
           break;
     case 2: {   // DS4 MODE
         showConsoleCursor();
-        allGood = ConnectToDS4Controller();
+        allGood = JOYSENDER_ConsoleSelectDS4Dialog();
         if (!allGood) {
             std::cout << " Unable to connect to a DS4 device !! " << std::endl;
             return -1;

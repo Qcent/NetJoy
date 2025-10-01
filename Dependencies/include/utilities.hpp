@@ -186,6 +186,23 @@ std::vector<std::string> split(const std::string& str, char delimiter) {
     return tokens;
 }
 
+int findLastWhitespaceBefore(const char* str, size_t maxLen = 27) {
+    if (!str) return 0;
+
+    size_t len = std::strlen(str);
+    if (len < maxLen) {
+        return len;
+    }
+
+    for (int i = static_cast<int>(maxLen); i >= 0; --i) {
+        if (std::isspace(static_cast<unsigned char>(str[i]))) {
+            return i;
+        }
+    }
+
+    return maxLen; // no whitespace found
+}
+
 // returns index of last seen match
 int replaceXEveryNth(TCHAR* source, size_t sourceSize, const TCHAR* target, const TCHAR* replacement, int max_targets, int skip = 0) {
     int retVal = -1;
