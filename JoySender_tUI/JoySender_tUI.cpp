@@ -81,8 +81,9 @@ int joySendertUI(Arguments& args) {
     }
     // Initial Settings for Operating Mode:  DS4 / XBOX
     JOYSENDER_OPMODE_INIT(activeGamepad, args, allGood);
-    
+
     // UI resets
+    g_screen.ClearButtonsExcept(HEAP_BTN_IDs);
     g_screen.SetBackdrop(JoySendMain_Backdrop); // i think this is only need if a mapping occurred
     setErrorMsg(L"\0", 1); // clear error output in memory
 

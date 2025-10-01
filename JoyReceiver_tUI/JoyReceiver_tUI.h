@@ -1,6 +1,6 @@
 ﻿/*
 
-Copyright (c) 2024 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2025 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,7 @@ THE SOFTWARE.
 #undef min
 #undef max
 
-#define APP_VERSION_NUM     L"2.0.0.0"
+#define APP_VERSION_NUM     L"2.0.1.0"
 
 #define AXIS_INPUT_DEADZONE   3000    // stick input values must be greater than this to register
 

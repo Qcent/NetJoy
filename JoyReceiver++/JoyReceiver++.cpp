@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2024 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2025 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -39,6 +39,23 @@ void overwriteLatency(const std::string& text) {
 }
 
 
+//-
+void output_special_ds4_data(DS4_REPORT_EX& report) {
+    static uint8_t count = 0;
+    if ((++count % 10) > 0) return;
+
+    repositionConsoleCursor(2, 0);
+    std::cout << "accelX: " << report.Report.wAccelX
+              << "        \tgyroX: " << report.Report.wGyroX << "           \n";
+    std::cout << "accelY: " << report.Report.wAccelY
+              << "        \tgyroY: " << report.Report.wGyroY << "           \n";
+    std::cout << "accelZ: " << report.Report.wAccelZ
+              << "        \tgyroZ: " << report.Report.wGyroZ << "           \n";
+    // std::cout << "gyroY: ";
+    //std::cout << report.Report.wGyroY << "            \n";
+    repositionConsoleCursor(-5, 0);
+}
+//-
 int main(int argc, char* argv[]) {
     JOYRECEIVER_INIT_VARIABLES();
 
@@ -119,6 +136,7 @@ int main(int argc, char* argv[]) {
                 // Cast the buffer to an DS4_REPORT_EX pointer
                 ds4_report_ex = *reinterpret_cast<DS4_REPORT_EX*>(buffer);
                 vigem_target_ds4_update_ex(vigemClient, gamepad, ds4_report_ex);
+                //output_special_ds4_data(ds4_report_ex);
             }
             else {
                 // Cast the buffer to an XUSB_REPORT pointer
