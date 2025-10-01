@@ -1,4 +1,28 @@
-﻿#include <io.h>
+﻿/*
+
+Copyright (c) 2025 Dave Quinn <qcent@yahoo.com>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+*/
+
+#include <io.h>
 #include <fcntl.h>
 #include <map>
 #include <set>
@@ -142,27 +166,27 @@ void buttonStatesFromDS4Report(BYTE* ds4_report) {
 
     // Left Stick
     updateButtonStatus(button_LStickLeft_highlight, ds4_report[0] < 100);   // left
-    updateButtonStatus(button_LStickRight_highlight, ds4_report[0] > 156);   // right
+    updateButtonStatus(button_LStickRight_highlight, ds4_report[0] > 156);  // right
 
     ds4_report++;
-    updateButtonStatus(button_LStickDown_highlight, ds4_report[0] > 156);   // down
+    updateButtonStatus(button_LStickDown_highlight, ds4_report[0] > 156);  // down
     updateButtonStatus(button_LStickUp_highlight, ds4_report[0] < 100);   // up
 
     // Right Stick
     ds4_report++;
     updateButtonStatus(button_RStickLeft_highlight, ds4_report[0] < 100);   // left
-    updateButtonStatus(button_RStickRight_highlight, ds4_report[0] > 156);   // right
+    updateButtonStatus(button_RStickRight_highlight, ds4_report[0] > 156);  // right
 
     ds4_report++;
-    updateButtonStatus(button_RStickDown_highlight, ds4_report[0] > 156);   // down
+    updateButtonStatus(button_RStickDown_highlight, ds4_report[0] > 156);  // down
     updateButtonStatus(button_RStickUp_highlight, ds4_report[0] < 100);   // up
 
     ds4_report++;
     // Main Face Buttons
     updateButtonStatus(button_A_outline, ds4_report[0] & 0x20);   // A
-    updateButtonStatus(button_B_outline, ds4_report[0] & 0x40);    // B
-    updateButtonStatus(button_X_outline, ds4_report[0] & 0x10);    // X
-    updateButtonStatus(button_Y_outline, ds4_report[0] & 0x80);    // Y
+    updateButtonStatus(button_B_outline, ds4_report[0] & 0x40);   // B
+    updateButtonStatus(button_X_outline, ds4_report[0] & 0x10);   // X
+    updateButtonStatus(button_Y_outline, ds4_report[0] & 0x80);   // Y
 
     // DPAD
     int dval = ds4_report[0] & 0x0F;
@@ -190,7 +214,9 @@ void buttonStatesFromDS4Report(BYTE* ds4_report) {
 
     ds4_report++;
     // PS & T-Pad 
-    updateButtonStatus(button_Guide_highlight, ds4_report[0] & 0x03);  // guide
+    updateButtonStatus(button_Guide_highlight, ds4_report[0] & 0x01);  // ps button
+    updateButtonStatus(button_DS4_TouchPad_highlight, ds4_report[0] & 0x02);  // ds4 touchpad
+
 
 
     // must redraw both buttons in this order for highlighting to always be correct 
