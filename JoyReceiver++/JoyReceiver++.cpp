@@ -23,23 +23,24 @@ THE SOFTWARE.
 */
 
 #include "ArgumentParser.hpp"
-#include "TCPConnection.h"
+#include "NetworkCommunication.h"
 #include "FPSCounter.hpp"
 #include "JoyReceiver++.h"
 
-void overwriteFPS(const std::string& text) {
+static void overwriteFPS(const std::string& text) {
     // Move the cursor to the beginning of the last line
     std::cout << "\033[F";
     // Write the new text
     std::cout << text + "  " << std::endl;
 }
-void overwriteLatency(const std::string& text) {
+static void overwriteLatency(const std::string& text) {
     repositionConsoleCursor(-1, 27);
     std::cout << text << std::endl;
 }
 
 
 //-
+/*
 void output_special_ds4_data(DS4_REPORT_EX& report) {
     static uint8_t count = 0;
     if ((++count % 10) > 0) return;
@@ -55,6 +56,7 @@ void output_special_ds4_data(DS4_REPORT_EX& report) {
     //std::cout << report.Report.wGyroY << "            \n";
     repositionConsoleCursor(-5, 0);
 }
+*/
 //-
 int main(int argc, char* argv[]) {
     JOYRECEIVER_INIT_VARIABLES();
@@ -94,7 +96,7 @@ int main(int argc, char* argv[]) {
 
         // Await Connection in Non Blocking Mode
         JOYRECEIVER_CONSOLE_AWAIT_CONNECTION();
-
+        
         if (APP_KILLED) break;
 
         // Receive Operating Mode and Client Timing

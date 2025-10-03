@@ -28,7 +28,7 @@ THE SOFTWARE.
 #include <iostream>
 #include <conio.h>
 #include <csignal>
-#include "TCPConnection.h"
+#include "NetworkCommunication.h"
 #include "ArgumentParser.hpp"
 #include "FPSCounter.hpp"
 
@@ -357,7 +357,7 @@ void JOYSENDER_SET_DS4_CONTROLLER_FLAG(HidDeviceInfo& dev) {
     else { HID_CONTROLLER_TYPE = DS4Controller_TYPE;; }
 }
 
-bool JOYSENDER_ConsoleSelectDS4Dialog() {
+int JOYSENDER_ConsoleSelectDS4Dialog() {
     std::vector<HidDeviceInfo> devList = getDS4ControllersList();
     HidDeviceInfo* selectedDev = nullptr;
 

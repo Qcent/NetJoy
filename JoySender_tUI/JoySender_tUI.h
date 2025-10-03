@@ -32,7 +32,7 @@ THE SOFTWARE.
 #include <thread>
 #include <functional>
 
-#include "TCPConnection.h"
+#include "NetworkCommunication.h"
 #include "FPSCounter.hpp"
 
 #undef min
@@ -64,7 +64,7 @@ int screenLoop(textUI& screen);
 int tUISelectJoystickDialog(SDLJoystickData& joystick);
 int tUISelectDS4Dialog(std::vector<HidDeviceInfo>devList, textUI& screen, int autoSelect);
 std::string tUIGetHostAddress(textUI& screen);
-void threadedEstablishConnection(TCPConnection& client, int& retVal);
+void threadedEstablishConnection(NetworkConnection& client, Arguments& args, int& retVal);
 int tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonName>& inputList);
 int tUIRemapInputsScreen(SDLJoystickData& joystick);
 
@@ -500,10 +500,10 @@ bool uiConnectToDS4Controller(HidDeviceInfo* selectedDev) {
 }
 
 // to allow for smooth animation, establish connection to host in a separate thread
-void threadedEstablishConnection(TCPConnection& client, int& retVal) {
+void threadedEstablishConnection(NetworkConnection& client, Arguments& args, int& retVal) {
     while (!APP_KILLED && retVal == WSAEWOULDBLOCK)
     {
-        retVal = client.establish_connection();
+        retVal = client.establish_connection(args.host, args.port);
         if (!APP_KILLED && retVal == WSAEWOULDBLOCK)
             Sleep(50);
     }
@@ -2374,7 +2374,7 @@ int JOYSENDER_tUI_SELECT_JOYSTICK(SDLJoystickData& activeGamepad, Arguments& arg
     return 1;
 }
 
-void JOYSENDER_tUI_ANIMATED_CX(SDLJoystickData& activeGamepad,TCPConnection& client, Arguments& args, int& allGood) {
+void JOYSENDER_tUI_ANIMATED_CX(SDLJoystickData& activeGamepad, NetworkConnection& client, Arguments& args, int& allGood) {
     g_screen.ClearButtonsExcept(HEAP_BTN_IDs);
     JOYSENDER_tUI_INIT_FOOTER_ANIMATION();
     DEFAULT_EGG_BUTTS();
@@ -2427,7 +2427,7 @@ void JOYSENDER_tUI_ANIMATED_CX(SDLJoystickData& activeGamepad,TCPConnection& cli
 
     // ### establish the connection in separate thread to animate connecting dialog
     allGood = WSAEWOULDBLOCK;
-    std::thread connectThread(threadedEstablishConnection, std::ref(client), std::ref(allGood));
+    std::thread connectThread(threadedEstablishConnection, std::ref(client), std::ref(args), std::ref(allGood));
     // animation and input loop
     int lastFrame = -1;
     while (!APP_KILLED && allGood == WSAEWOULDBLOCK) {

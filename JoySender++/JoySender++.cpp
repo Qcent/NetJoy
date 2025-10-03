@@ -140,8 +140,8 @@ int joySender(Arguments& args) {
             args.host = getHostAddress();
         }
         if (APP_KILLED) return 0;
-        TCPConnection client(args.host, args.port);
-        allGood = client.establish_connection();
+        NetworkConnection client = UDPConnection(args.host, args.port);
+        allGood = client.establish_connection(args.host, args.port);
 
         // *******************
         // Attempt timing and mode setting handshake

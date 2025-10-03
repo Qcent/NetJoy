@@ -100,7 +100,7 @@ int joySendertUI(Arguments& args) {
             setErrorMsg(L"\0", 1); // clear errors in memory
         }
 
-        TCPConnection client(args.host, args.port);
+        NetworkConnection client = UDPConnection(args.host, args.port);
         client.set_silence(true);
 
         // Establish connection to host

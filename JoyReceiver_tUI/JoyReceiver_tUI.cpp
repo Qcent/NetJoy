@@ -24,7 +24,7 @@ THE SOFTWARE.
 #define NetJoyTUI
 
 #include "./../JoyReceiver++/ArgumentParser.hpp"
-#include "TCPConnection.h"
+#include "NetworkCommunication.h"
 #include "FPSCounter.hpp"
 #include "JoyReceiver_tUI.h"
 

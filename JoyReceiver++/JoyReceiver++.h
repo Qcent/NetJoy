@@ -76,7 +76,7 @@ xbox_rumble( PVIGEM_CLIENT Client, PVIGEM_TARGET Target,
 Arguments args = parse_arguments(argc, argv); \
 FPSCounter fps_counter; \
 FPSCounter latencyTimer; \
-TCPConnection server(args.port); \
+NetworkConnection server = UDPConnection(args.port); \
 PVIGEM_TARGET gamepad; \
 XUSB_REPORT xbox_report = {0}; \
 DS4_REPORT_EX ds4_report_ex = {0}; \
@@ -112,7 +112,7 @@ if (!VIGEM_SUCCESS(vigemErr)){ \
 externalIP = server.get_external_ip(); \
 localIP = server.get_local_ip(); \
 server.set_silence(true); \
-server.start_server(); 
+server.start_as_server(args.port); 
 
 #define JOYRECEIVER_CONSOLE_AWAIT_CONNECTION() \
 { \

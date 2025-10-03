@@ -30,9 +30,9 @@ THE SOFTWARE.
 #undef min
 #undef max
 
-#define APP_VERSION_NUM     L"2.0.1.0"
+constexpr auto APP_VERSION_NUM = L"2.0.1.0";
 
-#define AXIS_INPUT_DEADZONE   3000    // stick input values must be greater than this to register
+constexpr int AXIS_INPUT_DEADZONE = 3000;    // stick input values must be greater than this to register
 
 // stripped down SDLButtonMapping from JoySender++
 class SDLButtonMapping {
@@ -169,7 +169,7 @@ if (frameDelay % 4 == 0) {    \
 
 
 // to allow for screen loop and animation, wait for connection to client in a separate thread
-void threadedAwaitConnection(TCPConnection& server, int& retVal, char* clientIP) {
+void threadedAwaitConnection(NetworkConnection& server, int& retVal, char* clientIP) {
     // Await Connection in Non Blocking Mode
     server.set_server_blocking(false);
     std::pair<SOCKET, sockaddr_in> connectionResult;
@@ -282,7 +282,7 @@ void REDRAW_CX_TEXT() {
     wprintf_s(L" %S ", externalIP.c_str());
 }
 
-void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(TCPConnection& server, Arguments& args, int& allGood, char* connectionIP) {
+void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(NetworkConnection& server, Arguments& args, int& allGood, char* connectionIP) {
     /* Set up animation variables */
     JOYRECEIVER_tUI_INIT_FOOTER_ANIMATION();
 
@@ -385,7 +385,7 @@ void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(TCPConnection& server, Arguments&
     }
 }
 
-int JOYRECEIVER_tUI_WAIT_FOR_CLIENT_MAPPING(TCPConnection& server, char* buffer, int buffer_size) {
+int JOYRECEIVER_tUI_WAIT_FOR_CLIENT_MAPPING(NetworkConnection& server, char* buffer, int buffer_size) {
     int bytesReceived = 0, counter = 0, len = 43;
     int lastAniFrame = g_frameNum - 1, bgDrawCount = 0;
     bool inEditor = false;
