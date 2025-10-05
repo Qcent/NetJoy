@@ -169,6 +169,7 @@ int main(int argc, char* argv[]) {
             }
 
             //*******************************
+            /*
             // Send response back to client :: Rumble + lightbar data
             lock.lock();
             allGood = server.send_data(feedbackData, 5);
@@ -180,9 +181,30 @@ int main(int argc, char* argv[]) {
                 errorOut.SetText(errorPointer);
                 break;
             }
+            */
+            // Send response back to client :: Rumble + lightbar data
+            {
+                static int frameCount = 0;
+                lock.lock();
+                // gives at least 2 feedback responses a second to avoid timeouts
+                if (std::memcmp(feedBackComp, feedbackData, sizeof(feedbackData)) != 0 || (frameCount += 2) > client_timing) {
+                    std::memcpy(feedBackComp, feedbackData, sizeof(feedbackData));
+                    frameCount = 0;
+
+                    allGood = server.send_data(feedbackData, sizeof(feedbackData));
+                    if (allGood < 1) {
+                        int len = INET_ADDRSTRLEN + 29;
+                        swprintf(errorPointer, len, L" << Connection To: %S Lost >> ", connectionIP);
+                        errorOut.SetWidth(len);
+                        errorOut.SetText(errorPointer);
+                        break;
+                    }
+                }
+                lock.unlock();
+            }
 
             // FPS output
-            fpsOutput = do_fps_counting();
+            fpsOutput = do_fps_counting(client_timing);
             if (!fpsOutput.empty()) {
                 swprintf(fpsPointer, 8, L" %S   ", fpsOutput.c_str());
                 fpsMsg.SetText(fpsPointer);

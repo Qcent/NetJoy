@@ -41,16 +41,16 @@ class UDPConnection {
 private:
     char hostAddress[16];
     char listenAddress[16];
-    int port;
-    int socklen;
-    socklen_t addrlen;
-    SOCKET udpSocket;
+    int port = 0;
+    int socklen = 0;
+    socklen_t addrlen = 0;
+    SOCKET udpSocket = INVALID_SOCKET;
     struct sockaddr_in servaddr, cliaddr;
-    struct sockaddr_in* other; // simplifies 1 server/1 client communication
+    struct sockaddr_in* other = nullptr; // simplifies 1 server/1 client communication
     bool silent = false;
     bool server = false;
-    char* defaultBuffer;
-    size_t defaultBufferSize;
+    char* defaultBuffer = nullptr;
+    size_t defaultBufferSize = 0;
     bool alloc_buff = false;
     
     // Header packing and unpacking methods...
@@ -93,6 +93,54 @@ public:
     int receive_null_data(int count); // receives data over connection and does nothing with it, freeing up the socket buffer (TCP)
     bool is_server() { return server; }
 
+
+    //-- Move Semantics --//
+    // non-copyable
+    UDPConnection(const UDPConnection&) = delete;
+    UDPConnection& operator=(const UDPConnection&) = delete;
+
+    // moveable
+    UDPConnection(UDPConnection&& other) noexcept {
+        *this = std::move(other);
+    }
+
+    UDPConnection& operator=(UDPConnection&& other) noexcept {
+        if (this != &other) {
+            // cleanup self first
+            if (udpSocket != INVALID_SOCKET) {
+                closesocket(udpSocket);
+            }
+            if (alloc_buff && defaultBuffer) {
+                delete[] defaultBuffer;
+            }
+
+            // steal resources
+            udpSocket = other.udpSocket;
+            other.udpSocket = INVALID_SOCKET;
+
+            defaultBuffer = other.defaultBuffer;
+            defaultBufferSize = other.defaultBufferSize;
+            alloc_buff = other.alloc_buff;
+
+            hostAddress[0] = '\0';
+            listenAddress[0] = '\0';
+            port = other.port;
+            socklen = other.socklen;
+            addrlen = other.addrlen;
+            servaddr = other.servaddr;
+            cliaddr = other.cliaddr;
+            this->other = other.other;
+            silent = other.silent;
+            server = other.server;
+
+            // reset source
+            other.defaultBuffer = nullptr;
+            other.alloc_buff = false;
+            other.other = nullptr;
+        }
+        return *this;
+    }
+
 };
 
 UDPConnection::~UDPConnection() {
@@ -103,6 +151,7 @@ UDPConnection::~UDPConnection() {
 
     if (alloc_buff) {
         delete[] defaultBuffer;
+        defaultBuffer = nullptr;
     }
 }
 

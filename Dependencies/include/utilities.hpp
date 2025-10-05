@@ -174,6 +174,10 @@ void checkForQuit() {
         APP_KILLED = true;
 }
 
+bool checkForBack() {
+    return (IsAppActiveWindow() && checkKey('B', IS_PRESSED) && getKeyState(VK_SHIFT)); // B for Back
+}
+
 std::vector<std::string> split(const std::string& str, char delimiter) {
     std::vector<std::string> tokens;
     std::istringstream iss(str);

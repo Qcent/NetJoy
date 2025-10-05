@@ -40,8 +40,6 @@ THE SOFTWARE.
 
 #include "./../JoySender++/JoySender++.h"
 
-#define APP_VERSION_NUM     L"2.0.1.0"
-
 #define CANCELLED_FLAG      -2
 #define DISCONNECT_ERROR    -3
 
@@ -772,14 +770,18 @@ int tUISelectJoystickDialog(SDLJoystickData& joystick) {
             loadedBgFill = true;
         }
         tUI_DRAW_BG_AND_BUTTONS();
-        errorOut.Draw();
         output1.Draw();
         if (numJoysticks) {
             setCursorPosition(START_COL + 7, 17);
             std::wcout << " (1";
             if (numJoysticks > 1) std::wcout << "-" << numJoysticks;
             std::wcout << ") Select  ";
+            setErrorMsg(L"\0", 1);
         }
+        else {
+            setErrorMsg(L" No Gamepad Devices Connected! ", 33);
+        }
+        errorOut.Draw();
         PRINT_EGG_X();
         };
 
@@ -1266,6 +1268,14 @@ std::string tUIGetHostAddress(SDLJoystickData& activeGamepad) {
     quitButton.SetPosition(10, 17);
     g_screen.AddButton(&quitButton);
 
+    mouseButton backButton(30, 17, 11, L" (B) Back  ");
+    backButton.setCallback([](mouseButton& btn) {
+        if (btn.Status() & MOUSE_UP) {
+            btn.SetStatus(MOUSE_OUT);
+            RESTART_FLAG = 1;
+        }
+        });
+    g_screen.AddButton(&backButton);
 
     auto re_color = [&]() {
         loadedBgFill = false;
@@ -1297,12 +1307,11 @@ std::string tUIGetHostAddress(SDLJoystickData& activeGamepad) {
         PRINT_EGG_X();
         setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
         printCurrentController(activeGamepad);
-        //g_screen.DrawButtons();
         //errorOut.Draw(); // errors not shown on this screen 
         g_screen.DrawInputs();
         setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);
         setCursorPosition(12, 8);
-        std::wcout << L" Enter IP Address Of Host: ";
+        std::wcout << L" Enter IP Address Of Host (" << (UDP_COMMUNICATION ? L"UDP" : L"TCP") << "): ";
 
         setTextColor(screenButtonsCol.col1);
         setCursorPosition(28, 10);
@@ -1325,6 +1334,10 @@ std::string tUIGetHostAddress(SDLJoystickData& activeGamepad) {
     
     while (!APP_KILLED && !makeConnection) {
         checkForQuit();
+        if (checkForBack() || RESTART_FLAG == 1) {
+            RESTART_FLAG = 1;
+            break;
+        }
         screenLoop(g_screen);
 
         tUI_UPDATE_INTERFACE(re_color, draw_screen);
@@ -1458,8 +1471,9 @@ std::string tUIGetHostAddress(SDLJoystickData& activeGamepad) {
     hideConsoleCursor();
     g_screen.ClearInputs();
     g_screen.ClearButtonsExcept(HEAP_BTN_IDs);
-    buildAndTestIpAddress();
+    if (RESTART_FLAG) return {};
 
+    buildAndTestIpAddress();
     
     if (pushNewIP(g_converter.from_bytes(host_address).c_str())) {
         saveIPDataToFile();
@@ -2240,6 +2254,8 @@ bytesReceived = client.receive_data(buffer, buffer_size); \
 if (bytesReceived > 0) { \
     inConnection = true; \
     failed_connections = 0; \
+    std::thread rumbleThread = std::thread(JOYSENDER_tUI_FEEDBACK_THREAD, std::ref(client), std::ref(*buffer), buffer_size, std::ref(activeGamepad), std::ref(args), std::ref(inConnection)); \
+    rumbleThread.detach(); \
 } \
 else { \
     swprintf(errorPointer, 46, L" << Connection To: %S Failed >> ", args.host.c_str()); \
@@ -2540,4 +2556,14 @@ void JOYSENDER_tUI_BUILD_MAP_SCREEN() {
 
     controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
     tUI_SET_SUIT_POSITIONS(SUIT_POSITIONS_MAP_SCREEN());
+}
+
+void JOYSENDER_tUI_FEEDBACK_THREAD(NetworkConnection& client, char& buffer, size_t buffer_size, SDLJoystickData& activeGamepad, Arguments& args, bool& inConnection) {
+    JOYSENDER_FEEDBACK_LOOP_START()
+    // Connection was lost or ended
+        if (!RESTART_FLAG) {
+            swprintf(errorPointer, 50, L" << Connection To:  %S Failed >> ", args.host.c_str());
+            errorOut.SetText(errorPointer);
+        }
+    JOYSENDER_FEEDBACK_LOOP_END()
 }

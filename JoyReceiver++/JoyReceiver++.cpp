@@ -59,7 +59,23 @@ void output_special_ds4_data(DS4_REPORT_EX& report) {
 */
 //-
 int main(int argc, char* argv[]) {
+
+
+
+    // Get the console input handle to disable Quick Edit Mode
+    HANDLE console = GetStdHandle(STD_INPUT_HANDLE);
+    DWORD mode;
+    GetConsoleMode(console, &mode);                    
+    SetConsoleMode(console, mode & ~ENABLE_QUICK_EDIT_MODE);
+
     JOYRECEIVER_INIT_VARIABLES();
+
+    // Set Version into window title
+    wchar_t winTitle[30] = { 0 };
+    wcscpy_s(winTitle, L"JoyReceiver++ ");
+    wcscat_s(winTitle, args.udp ? L"UPD " : L"TCP ");
+    wcscat_s(winTitle, APP_VERSION_NUM);
+    SetConsoleTitleW(winTitle);
 
     auto do_fps_counting = [&fps_counter](int report_frequency = 30) {
         if (fps_counter.increment_frame_count() >= report_frequency) {
@@ -91,7 +107,7 @@ int main(int argc, char* argv[]) {
     ///********************************
     // Make Connection -> Receive Input Loop
     while (!APP_KILLED) {
-        std::cout << "Waiting for Connection on port : " << args.port
+        std::cout << "Waiting for Connection on port : " << args.port << (args.udp ? " UDP" : " TCP")
             << "\n\t\t LAN : " << localIP << "\n\t\t WAN : " << externalIP << std::endl;
 
         // Await Connection in Non Blocking Mode
@@ -123,6 +139,9 @@ int main(int argc, char* argv[]) {
         std::cout << std::endl << std::endl;
         fps_counter.reset();
 
+        memset(feedBackComp, 0, sizeof(feedBackComp));
+        memset(feedbackData, 0, sizeof(feedbackData));
+
         /* Start Receive Joystick Data Loop */
         while (!APP_KILLED) {
             //*****************************
@@ -148,16 +167,25 @@ int main(int argc, char* argv[]) {
 
             //*******************************
             // Send response back to client :: Rumble + lightbar data
-            lock.lock();
-            allGood = server.send_data(feedbackData, 5);
-            lock.unlock();
-            if (allGood < 1) {
-                break;
+            {
+                static int frameCount = 0;
+                lock.lock();
+                // gives at least 2 feedback responses a second to avoid timeouts
+                if (std::memcmp(feedBackComp, feedbackData, sizeof(feedbackData)) != 0 || (frameCount += 2) > client_timing) {
+                    std::memcpy(feedBackComp, feedbackData, sizeof(feedbackData));
+                    frameCount = 0;
+
+                    allGood = server.send_data(feedbackData, sizeof(feedbackData));
+                    if (allGood < 1) {
+                        break;
+                    }
+                }
+                lock.unlock();
             }
 
             // FPS output
             if (args.latency) {
-                fpsOutput = do_fps_counting();
+                fpsOutput = do_fps_counting(client_timing);
                 if (!fpsOutput.empty()) {
                     overwriteFPS("FPS: " + fpsOutput);
                 }

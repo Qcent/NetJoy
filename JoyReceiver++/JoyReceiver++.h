@@ -9,6 +9,7 @@
 #pragma comment(lib, "VIGEmClient.lib")
 
 constexpr auto APP_NAME = "NetJoy";
+constexpr auto APP_VERSION_NUM = L"2.0.2.0";
 volatile sig_atomic_t APP_KILLED = 0;
 std::mutex mtx;
 char feedbackData[5] = { 0 }; // For sending rumble data back to joySender
@@ -74,9 +75,10 @@ xbox_rumble( PVIGEM_CLIENT Client, PVIGEM_TARGET Target,
 // Defined Common Functionality
 #define JOYRECEIVER_INIT_VARIABLES() \
 Arguments args = parse_arguments(argc, argv); \
+UDP_COMMUNICATION = args.udp; \
 FPSCounter fps_counter; \
 FPSCounter latencyTimer; \
-NetworkConnection server = UDPConnection(args.port); \
+NetworkConnection server(args.udp, args.port); \
 PVIGEM_TARGET gamepad; \
 XUSB_REPORT xbox_report = {0}; \
 DS4_REPORT_EX ds4_report_ex = {0}; \
@@ -84,6 +86,7 @@ DS4_REPORT_EX ds4_report_ex = {0}; \
 std::unique_lock<std::mutex> lock(mtx, std::defer_lock); \
 int allGood; \
 UINT8 connection_error_count = 0; \
+char feedBackComp[5] = { 0 }; \
 char buffer[64] = { 0 }; \
 constexpr int buffer_size = sizeof(buffer); \
 int bytesReceived = 0; \

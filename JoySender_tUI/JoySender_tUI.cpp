@@ -94,13 +94,16 @@ int joySendertUI(Arguments& args) {
         if (args.host.empty()) {       
             args.host = tUIGetHostAddress(activeGamepad);
 
+            setErrorMsg(L"\0", 1);
+            if (RESTART_FLAG) { // back button will trigger this
+                return args.mode + 1;
+            }
             if (APP_KILLED) {
                 return -1;
             }
-            setErrorMsg(L"\0", 1); // clear errors in memory
         }
 
-        NetworkConnection client = UDPConnection(args.host, args.port);
+        NetworkConnection client(args.udp, args.host, args.port);
         client.set_silence(true);
 
         // Establish connection to host
@@ -225,6 +228,7 @@ int joySendertUI(Arguments& args) {
                 break;
             }
 
+            /* now in seperate thread
             // Wait for server Feedback (rumble, lightbar)
             allGood = client.receive_data(buffer, buffer_size);                
             if (allGood < 1) {
@@ -236,9 +240,10 @@ int joySendertUI(Arguments& args) {
 
             // Process Feedback data
             processFeedbackBuffer((byte*)&buffer, activeGamepad, args.mode);
+            */
 
             // calculate timing
-            fpsOutput = do_fps_counting();
+            fpsOutput = do_fps_counting(args.fps);
             if (!fpsOutput.empty()) {
                 //updateFPS(g_converter.from_bytes(fpsOutput + "   ").c_str(), 8);
                 swprintf(fpsPointer, 8, L" %S   ",fpsOutput.c_str());
@@ -310,6 +315,7 @@ console con(consoleWidth, consoleHeight);
 int main(int argc, char** argv)
 {
     Arguments args = parse_arguments(argc, argv);
+    UDP_COMMUNICATION = args.udp;
     int RUN = 1;
 
     // Register the signal handler function
@@ -330,8 +336,9 @@ int main(int argc, char** argv)
     if (err == -1) RUN = -1;
 
     // Set Version into window title
-    wchar_t winTitle[30] = {0};
+    wchar_t winTitle[33] = {0};
     wcscpy_s(winTitle, L"JoySender++ tUI ");
+    wcscat_s(winTitle, UDP_COMMUNICATION ? L"UPD ":L"TCP ");
     wcscat_s(winTitle, APP_VERSION_NUM);
     SetConsoleTitleW(winTitle);
 

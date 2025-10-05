@@ -22,6 +22,8 @@ THE SOFTWARE.
 
 */
 
+#pragma once 
+
 #include <io.h>
 #include <fcntl.h>
 #include <map>

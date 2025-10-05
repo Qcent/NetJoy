@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2024 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2025 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -28,6 +28,8 @@ THE SOFTWARE.
 
 struct Arguments {
     int port = 5000;
+    bool tcp = false;
+    bool udp = false;
 #ifndef NetJoyTUI
     bool latency = true;
 #endif
@@ -35,11 +37,16 @@ struct Arguments {
 
 Arguments parse_arguments(int argc, char* argv[]) {
     Arguments args;
-
-    cxxopts::Options options("JoyReceiver++", "Receive and emulate joystick data over tcp/ip");
+#ifdef NetJoyTUI 
+    cxxopts::Options options("JoyReceiver_tUI", "JoyReceiver++ (tUI) : Send joystick data over tcp/udp");
+#else
+    cxxopts::Options options("JoyReceiver++", "Receive and emulate joystick data over tcp/udp");
+#endif
     options.allow_unrecognised_options();
     options.add_options()
         ("p,port", "Port to run on", cxxopts::value<int>()->default_value("5000"))
+        ("t,tcp", "Use TCP protocol", cxxopts::value<bool>()->implicit_value("true"))
+        ("u,udp", "Use UDP protocol", cxxopts::value<bool>()->implicit_value("true"))
 #ifndef NetJoyTUI
         ("l,latency", "Show latency output", cxxopts::value<bool>()->implicit_value("true"))
 #endif
@@ -61,6 +68,9 @@ Arguments parse_arguments(int argc, char* argv[]) {
     }
 
     args.port = result["port"].as<int>();
+    args.udp = result["udp"].as<bool>();
+    args.tcp = result["tcp"].as<bool>();
+    args.udp = args.tcp ? false : true;
 #ifndef NetJoyTUI
     args.latency = result["latency"].as<bool>();   
 #endif

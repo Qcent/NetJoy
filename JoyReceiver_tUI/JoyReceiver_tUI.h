@@ -30,8 +30,6 @@ THE SOFTWARE.
 #undef min
 #undef max
 
-constexpr auto APP_VERSION_NUM = L"2.0.1.0";
-
 constexpr int AXIS_INPUT_DEADZONE = 3000;    // stick input values must be greater than this to register
 
 // stripped down SDLButtonMapping from JoySender++
@@ -228,6 +226,7 @@ void SET_tUI_CONSOLE_MODE(){
     /* Set Version into window title */ 
     wchar_t winTitle[30]; 
     wcscpy_s(winTitle, L"JoyReceiver++ tUI "); 
+    wcscat_s(winTitle, UDP_COMMUNICATION ? L"UPD " : L"TCP ");
     wcscat_s(winTitle, APP_VERSION_NUM); 
     SetConsoleTitleW(winTitle); 
 
@@ -271,7 +270,7 @@ void REDRAW_CX_TEXT() {
     /* Show PORT and IPs */
     setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
     setCursorPosition(26, 9);
-    wprintf_s(L" %d ", *(int*)feedbackData);
+    wprintf_s(L" %d %s ", *(int*)feedbackData, (UDP_COMMUNICATION ? L"UDP" : L"TCP"));
 
     setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);
     setCursorPosition(28, 11);

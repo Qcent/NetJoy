@@ -45,7 +45,7 @@ void overwriteLatency(const std::string& text) {
 
 int joySender(Arguments& args) {
     int allGood;
-    char buffer[24];
+    char buffer[24] = {0};
     int buffer_size = sizeof(buffer);
     bool inConnection = false;
     int failed_connections = 0;
@@ -114,7 +114,7 @@ int joySender(Arguments& args) {
           break;
     case 2: {   // DS4 MODE
         showConsoleCursor();
-        allGood = JOYSENDER_ConsoleSelectDS4Dialog();
+        allGood = JOYSENDER_CONSOLE_SELECT_DS4_DIALOG();
         if (!allGood) {
             std::cout << " Unable to connect to a DS4 device !! " << std::endl;
             return -1;
@@ -140,7 +140,8 @@ int joySender(Arguments& args) {
             args.host = getHostAddress();
         }
         if (APP_KILLED) return 0;
-        NetworkConnection client = UDPConnection(args.host, args.port);
+        NetworkConnection client(args.udp, args.host, args.port);
+
         allGood = client.establish_connection(args.host, args.port);
 
         // *******************
@@ -171,6 +172,9 @@ int joySender(Arguments& args) {
                 inConnection = true;   
                 client.set_silence(true);
                 failed_connections = 0;
+
+                std::thread rumbleThread = std::thread(JOYSENDER_FEEDBACK_THREAD, std::ref(client), std::ref(*buffer), buffer_size, std::ref(activeGamepad), std::ref(args), std::ref(inConnection));
+                rumbleThread.detach();
             }
 
             // Set Lines for FPS and Latency output
@@ -222,7 +226,7 @@ int joySender(Arguments& args) {
 
             // ###################################
             // let's calculate some timing
-            fpsOutput = do_fps_counting();
+            fpsOutput = do_fps_counting(args.fps);
             if (args.latency) {
                 if (!fpsOutput.empty()) {
                     overwriteFPS(fpsOutput + " fps  ");
@@ -251,6 +255,7 @@ int joySender(Arguments& args) {
                 break;
             }
 
+            /* now in seperate thread
             //##################################
             // # Wait for server response
             allGood = client.receive_data(buffer, buffer_size);                
@@ -264,7 +269,8 @@ int joySender(Arguments& args) {
             //#################################
             // **  Process Feedback data
             processFeedbackBuffer((byte*)&buffer, activeGamepad, args.mode);
-            
+            */
+
             // Sleep to yield thread
             Sleep(loop_delay > 0 ? loop_delay : 0);
             if (args.mode == 2) {
@@ -324,9 +330,23 @@ int joySender(Arguments& args) {
 int main(int argc, char **argv)
 {
     Arguments args = parse_arguments(argc, argv);
-    
+    UDP_COMMUNICATION = args.udp;
+
     // Register the signal handler function
     std::signal(SIGINT, signalHandler);
+
+    // Set Version into window title
+    wchar_t winTitle[30] = { 0 };
+    wcscpy_s(winTitle, L"JoySender++ ");
+    wcscat_s(winTitle, UDP_COMMUNICATION ? L"UPD " : L"TCP ");
+    wcscat_s(winTitle, APP_VERSION_NUM);
+    SetConsoleTitleW(winTitle);
+
+    // Get the console input handle to enable mouse input
+    HANDLE console = GetStdHandle(STD_INPUT_HANDLE);
+    DWORD mode;
+    GetConsoleMode(console, &mode);                     // Disable Quick Edit Mode
+    SetConsoleMode(console, ENABLE_MOUSE_INPUT | mode & ~ENABLE_QUICK_EDIT_MODE);
 
     int err = InitJoystickInput();
     if (err) return -1;

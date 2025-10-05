@@ -25,6 +25,8 @@ THE SOFTWARE.
 #pragma once
 #define NOMINMAX
 
+#define APP_VERSION_NUM     L"2.0.2.0"
+
 #include <iostream>
 #include <conio.h>
 #include <csignal>
@@ -68,7 +70,7 @@ std::string getHostAddress() {
     std::string host_address;
     showConsoleCursor();
     while (!APP_KILLED && host_address.empty()) {
-        std::cout << "Please enter the host IP address (or nothing for localhost): ";
+        std::cout << "Please enter the host IP address (" << (UDP_COMMUNICATION ? "UDP" : "TCP") << ") :"; // (blank = localhost) : ";
         //std::cin.ignore(80, '\n'); // Flush the input stream
         std::getline(std::cin, host_address);
 
@@ -236,11 +238,10 @@ void JOYSENDER_OPMODE_INIT(SDLJoystickData& activeGamepad, Arguments& args, int&
             auto& rumbler = NxRumble::instance(&DS4manager, !NxPro.info.usbPowered, true);
             rumbler.start();
             
-            rumbler.setFrame({ 160.0f, 1.0f, 0.0f, 0.5f, 120 });
-            Sleep(110);
-            Sleep(20);
-            rumbler.setFrame({ 0.0f, 1.0f, 250.0f, 0.8f, 80 });
-            Sleep(130);
+            rumbler.setFrame({ 250.0f, 1.0f, 0.0f, 0.7f, 70 });
+            Sleep(190);
+            rumbler.setFrame({ 0.0f, 1.0f, 240.0f, 0.8f, 50 });
+            Sleep(80);
             
 #ifndef NetJoyTUI
             g_outputText = "Nintendo Pro -> DS4 ";
@@ -255,26 +256,11 @@ void JOYSENDER_OPMODE_INIT(SDLJoystickData& activeGamepad, Arguments& args, int&
         }
         else {
 
-            // Get a report from the device to determine what type of connection it has
-            Sleep(5); // a fresh report should be generated every 4ms from the ds4 device
-            allGood = GetDS4Report();
-            if (allGood < 1) {
-                Sleep(5);
-                allGood = GetDS4Report();
-            }
-            if (allGood < 1) {
-                std::wcout << L"No good reports \r\n";
-            }
-            /* ^^^^^^^^^^^^^^^^^^^^^*/
-            /* GetDS4Report can return 0 if the report does not contain controller data.
-            this is not checked for here and is most likely the cause of the issue below.
-            TODO: investigate and fix in next release                                 */
-            /*^^^^^^^^^^^^^^^^^^^^^^*/
+            ds4DataOffset = DS4manager.devInfo.serial.empty() ?
+                DS4_VIA_USB : 
+                DS4_VIA_BT ;
 
-            // first byte is used to determine where stick input starts
-            ds4DataOffset = ds4_InReportBuf[0] == 0x11 ? DS4_VIA_BT : DS4_VIA_USB;
-
-            int attempts = 0;   // DS4 fails to properly initialize when connecting to pc (after power up) via BT so lets hack in multiple attempts
+            int attempts = 0;   // DS4 can fail to properly initialize when connecting to pc (after power up) via BT so lets hack in multiple attempts
             while (attempts < 2) {
                 attempts++;
 
@@ -321,8 +307,7 @@ void JOYSENDER_OPMODE_INIT(SDLJoystickData& activeGamepad, Arguments& args, int&
                     break; // break out of attempt loop
                 }
                 // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-            // Problem is probably related to not getting the correct report and assigning ds4DataOffset = DS4_VIA_USB
-            // taking the lazy route and just set ds4DataOffset = DS4_VIA_BT this works for me 100% of the time and hasn't led to problems yet ...
+            // Problem is fixed but leaving this in as a fallback
                 Sleep(10);
                 if (ds4DataOffset == DS4_VIA_USB)
                     ds4DataOffset = DS4_VIA_BT;
@@ -357,28 +342,28 @@ void JOYSENDER_SET_DS4_CONTROLLER_FLAG(HidDeviceInfo& dev) {
     else { HID_CONTROLLER_TYPE = DS4Controller_TYPE;; }
 }
 
-int JOYSENDER_ConsoleSelectDS4Dialog() {
+int JOYSENDER_CONSOLE_SELECT_DS4_DIALOG() {
     std::vector<HidDeviceInfo> devList = getDS4ControllersList();
     HidDeviceInfo* selectedDev = nullptr;
 
     if (devList.size() == 0) {
         std::cout << "\t No Connected DS4 Controllers \n Connect a controller and press a key..." << std::endl;
         _getch();
-        return ConnectToDS4Controller();
+        return JOYSENDER_CONSOLE_SELECT_DS4_DIALOG();
     }
-    if (devList.size() > 1) {
+    if (devList.size() > 0) {
         // User selects from connected DS4 devices
         int idx = ConsoleSelectDS4Dialog(devList);
         if (idx == -1) {
             clearConsoleScreen();
             std::cout << "Invalid index." << std::endl;
-            return ConnectToDS4Controller();
+            return JOYSENDER_CONSOLE_SELECT_DS4_DIALOG();
         }
         selectedDev = &devList[idx];
     }
-    else {
-        selectedDev = &devList[0];
-    }
+   // else {// no more auto select (stops death loops on failed connections)
+   //     selectedDev = &devList[0];
+   // }
 
     if (selectedDev != nullptr) {
         if (DS4manager.OpenHidDevice(selectedDev)) {
@@ -391,4 +376,34 @@ int JOYSENDER_ConsoleSelectDS4Dialog() {
     }
 
     return false;
+}
+
+#define JOYSENDER_FEEDBACK_LOOP_START() \
+int timeouts = 0; \
+while (!APP_KILLED && inConnection) { \
+    int allGood = client.receive_data(&buffer, buffer_size); \
+    if (allGood < 1) { \
+        int er = WSAGetLastError(); \
+        if (er == 10060) { \
+            if (++timeouts > 3) inConnection = false; \
+        } \
+        else /*if (er == 10054)*/ { \
+            inConnection = false; \
+        } \
+        if (!inConnection) { \
+
+#define JOYSENDER_FEEDBACK_LOOP_END() \
+        } \
+    } \
+    else processFeedbackBuffer((byte*)&buffer, activeGamepad, args.mode); \
+} \
+
+void JOYSENDER_FEEDBACK_THREAD(NetworkConnection& client, char& buffer, size_t buffer_size, SDLJoystickData& activeGamepad, Arguments& args, bool& inConnection) {
+    JOYSENDER_FEEDBACK_LOOP_START()
+
+        // Connection was lost or ended
+        g_outputText += "<< Connection Lost >> \r\n";
+        displayOutputText();
+
+    JOYSENDER_FEEDBACK_LOOP_END()
 }
