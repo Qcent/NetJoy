@@ -379,19 +379,41 @@ private:
     static void setDS4ExtReportSticks(const uint8_t* data, DS4_REPORT_EX& ds4_report) {
         // Left Stick 
         const uint8_t* leftData = data + 6;
+        /* OG Code *//*
         uint16_t rawLeftX = leftData[0] | ((leftData[1] & 0x0F) << 8);
         uint16_t rawLeftY = (leftData[1] >> 4) | (leftData[2] << 4);
 
         ds4_report.Report.bThumbLX = static_cast<uint8_t>((rawLeftX * 255) / 4095);
         ds4_report.Report.bThumbLY = static_cast<uint8_t>(255 - ((rawLeftY * 255) / 4095));
+        */
+        const uint16_t rawLeftX = leftData[0] | ((leftData[1] & 0x0F) << 8);
+        const uint16_t rawLeftY = (leftData[1] >> 4) | (leftData[2] << 4);
+
+        // Fast scaling from 12-bit to 8-bit (approx raw * 255 / 4095)
+        const uint8_t lx = static_cast<uint8_t>((rawLeftX * 255 + 2047) >> 12);
+        const uint8_t ly = static_cast<uint8_t>((rawLeftY * 255 + 2047) >> 12);
+
+        ds4_report.Report.bThumbLX = lx;
+        ds4_report.Report.bThumbLY = 255 - ly;
 
         // Right Stick 
         const uint8_t* rightData = data + 9;
+        /* OG Code *//*
         uint16_t rawRightX = rightData[0] | ((rightData[1] & 0x0F) << 8);
         uint16_t rawRightY = (rightData[1] >> 4) | (rightData[2] << 4);
 
         ds4_report.Report.bThumbRX = static_cast<uint8_t>((rawRightX * 255) / 4095);
         ds4_report.Report.bThumbRY = static_cast<uint8_t>(255 - ((rawRightY * 255) / 4095));
+        */
+        const uint16_t rawRightX = rightData[0] | ((rightData[1] & 0x0F) << 8);
+        const uint16_t rawRightY = (rightData[1] >> 4) | (rightData[2] << 4);
+
+        // Fast scaling from 12-bit to 8-bit (approx raw * 255 / 4095)
+        const uint8_t rx = static_cast<uint8_t>((rawRightX * 255 + 2047) >> 12);
+        const uint8_t ry = static_cast<uint8_t>((rawRightY * 255 + 2047) >> 12);
+
+        ds4_report.Report.bThumbRX = rx;
+        ds4_report.Report.bThumbRY = 255 - ry;
     }
 
     static void setDS4SimpleSticks(const uint8_t* data, DS4_REPORT_EX& ds4_report) {
@@ -412,31 +434,51 @@ private:
         ds4_report.Report.bThumbRY = static_cast<uint8_t>((rawRightY * 255) / 65535);
     }
 
+    inline static int16_t read_int16_le(const uint8_t* p) noexcept {
+        // reinterpret as unsigned so shifts behave well
+        uint16_t val = *reinterpret_cast<const uint16_t*>(p);
+#if defined(_M_IX86) || defined(_M_X64)
+        // On x86/x64, unaligned access is fine
+        return static_cast<int16_t>(_byteswap_ushort(val));
+#else
+        // Fallback for architectures where unaligned access is not allowed
+        return static_cast<int16_t>(p[0] | (p[1] << 8));
+#endif
+    }
+
     static void setDS4ImuValues(const uint8_t* data, DS4_REPORT_EX& ds4_report, imuCalibValues& cal) {
         constexpr int sampleCount = 3;
         constexpr int sampleSize = 12; // 6x int16 per sample
 
-        int16_t accelX = 0, accelY = 0, accelZ = 0, xNULL = 0;
-        int16_t gyroX = 0, gyroY = 0, gyroZ = 0;
+        //int16_t accelX = 0, accelY = 0, accelZ = 0, xNULL = 0;
+        //int16_t gyroX = 0, gyroY = 0, gyroZ = 0;
 
        // for (int i = 0; i < sampleCount; ++i) {  //## removing averaging the 3 samples, for now
         const uint8_t* sample = data + 13;// +i * sampleSize;
-            
+            /*
             int16_t ax = static_cast<int16_t>(sample[0] | (sample[1] << 8));
             int16_t ay = static_cast<int16_t>(sample[2] | (sample[3] << 8));
             int16_t az = static_cast<int16_t>(sample[4] | (sample[5] << 8));
             int16_t gx = static_cast<int16_t>(sample[6] | (sample[7] << 8));
             int16_t gy = static_cast<int16_t>(sample[8] | (sample[9] << 8));
             int16_t gz = static_cast<int16_t>(sample[10] | (sample[11] << 8));
-
+            
             accelX += ax;
             accelY += ay;
             accelZ += az;
             gyroX += gx;
             gyroY += gy;
             gyroZ += gz;
-        /* }
+            */
 
+        int16_t accelX = read_int16_le(sample + 0);
+        int16_t accelY = read_int16_le(sample + 2);
+        int16_t accelZ = read_int16_le(sample + 4);
+        int16_t gyroX = read_int16_le(sample + 6);
+        int16_t gyroY = read_int16_le(sample + 8);
+        int16_t gyroZ = read_int16_le(sample + 10);
+        /* }
+        
         // Average
         accelX /= sampleCount;
         accelY /= sampleCount;
@@ -533,6 +575,7 @@ public:
         //case(0x21):
         case(0x30):  // extended reports
         case(0x31): case(0x32): case(0x33):
+            /* OG Code
             if (Nx_report.data()[3] & 0x01) ds4_report->Report.wButtons |= DS4_BUTTON_SQUARE;   // Y
             if (Nx_report.data()[3] & 0x02) ds4_report->Report.wButtons |= DS4_BUTTON_TRIANGLE; // X
             if (Nx_report.data()[3] & 0x04) ds4_report->Report.wButtons |= DS4_BUTTON_CROSS;    // B
@@ -556,7 +599,74 @@ public:
             ds4_report->Report.wButtons |= extDpad2DS4(Nx_report.data()[5]);        // Dpad
             ds4_report->Report.bTriggerR = (Nx_report.data()[3] & 0x80) ? 255 : 0;  // Analog right trigger
             ds4_report->Report.bTriggerL = (Nx_report.data()[5] & 0x80) ? 255 : 0;  // Analog left trigger
+            */
+        {
+            /* Optimized Code v1*//*
+            const uint8_t b3 = Nx_report.data()[3];
+            const uint8_t b4 = Nx_report.data()[4];
+            const uint8_t b5 = Nx_report.data()[5];
 
+            // --- Buttons (word field)
+            ds4_report->Report.wButtons =
+                ((b3 & 0x01) ? DS4_BUTTON_SQUARE : 0) |
+                ((b3 & 0x02) ? DS4_BUTTON_TRIANGLE : 0) |
+                ((b3 & 0x04) ? DS4_BUTTON_CROSS : 0) |
+                ((b3 & 0x08) ? DS4_BUTTON_CIRCLE : 0) |
+                ((b3 & 0x40) ? DS4_BUTTON_SHOULDER_RIGHT : 0) |
+                ((b3 & 0x80) ? DS4_BUTTON_TRIGGER_RIGHT : 0) |
+                ((b5 & 0x40) ? DS4_BUTTON_SHOULDER_LEFT : 0) |
+                ((b5 & 0x80) ? DS4_BUTTON_TRIGGER_LEFT : 0) |
+                ((b4 & 0x04) ? DS4_BUTTON_THUMB_RIGHT : 0) |
+                ((b4 & 0x08) ? DS4_BUTTON_THUMB_LEFT : 0) |
+                ((b4 & 0x01) ? DS4_BUTTON_SHARE : 0) |
+                ((b4 & 0x02) ? DS4_BUTTON_OPTIONS : 0);
+
+            // --- DPad
+            ds4_report->Report.wButtons |= extDpad2DS4(b5);
+
+            // --- Special buttons (byte field)
+            ds4_report->Report.bSpecial =
+                ((b4 & 0x10) ? DS4_SPECIAL_BUTTON_PS : 0) |
+                ((b4 & 0x20) ? DS4_SPECIAL_BUTTON_TOUCHPAD : 0);
+
+            // --- Analog triggers (byte fields)
+            ds4_report->Report.bTriggerR = (b3 >> 7) * 255; // bit 7 → 0 or 255
+            ds4_report->Report.bTriggerL = (b5 >> 7) * 255; // bit 7 → 0 or 255
+            */
+            /* Optimized Code v2*/
+            const uint8_t b3 = Nx_report.data()[3];
+            const uint8_t b4 = Nx_report.data()[4];
+            const uint8_t b5 = Nx_report.data()[5];
+
+            uint16_t& buttons = ds4_report->Report.wButtons;
+            // Map each source bit to its DS4 bit position
+            buttons |= ((b3 >> 0) & 1) << 4;   // Square
+            buttons |= ((b3 >> 1) & 1) << 7;   // Triangle
+            buttons |= ((b3 >> 2) & 1) << 5;   // Cross
+            buttons |= ((b3 >> 3) & 1) << 6;   // Circle
+            buttons |= ((b3 >> 6) & 1) << 9;   // R1
+            buttons |= ((b3 >> 7) & 1) << 11;  // R2
+
+            buttons |= ((b5 >> 6) & 1) << 8;   // L1
+            buttons |= ((b5 >> 7) & 1) << 10;  // L2
+
+            buttons |= ((b4 >> 2) & 1) << 15;  // R3
+            buttons |= ((b4 >> 3) & 1) << 14;  // L3
+            buttons |= ((b4 >> 0) & 1) << 12;  // Share
+            buttons |= ((b4 >> 1) & 1) << 13;  // Options
+
+            buttons |= extDpad2DS4(b5);        // DPad
+
+            // Special buttons (8-bit)
+            uint8_t& special = ds4_report->Report.bSpecial;
+            special |= ((b4 >> 4) & 1) << 0;  // PS
+            special |= ((b4 >> 5) & 1) << 1;  // Touchpad
+            
+            // Triggers
+            ds4_report->Report.bTriggerR = -(int8_t)((b3 >> 7) & 1); // expands 0→0,1→0xFF
+            ds4_report->Report.bTriggerL = -(int8_t)((b5 >> 7) & 1);
+
+        }
             setDS4ExtReportSticks(Nx_report.data(), *ds4_report);
             setDS4ImuValues(Nx_report.data(), *ds4_report, cal);
 
@@ -720,9 +830,9 @@ private:
 
     struct CalibrationData {
     public:
-        StickCalibrationData leftStick;
-        StickCalibrationData rightStick;
-        ImuCalibrationData imu;
+        StickCalibrationData leftStick = {0};
+        StickCalibrationData rightStick = { 0 };
+        ImuCalibrationData imu = { 0 };
     } calib;
    
     // read SPI flash block 
