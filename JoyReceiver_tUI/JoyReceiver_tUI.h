@@ -444,10 +444,33 @@ int JOYRECEIVER_tUI_WAIT_FOR_CLIENT_MAPPING(NetworkConnection& server, char* buf
         inEditor = true;
     }
 
+    size_t framesWithoutSignal = 0;
     // loop
     while (!APP_KILLED) {
         // check on network traffic
         bytesReceived = server.receive_data(buffer, buffer_size);
+
+        //// IS UDP 'CONNECTION' ALIVE? /////
+        if (bytesReceived > 0 && bytesReceived != sizeof(UDPConnection::SIGPacket)) {
+            break; // recv'd a non udp signal packet
+        }
+        if (bytesReceived == sizeof(UDPConnection::SIGPacket) && UDP_COMMUNICATION) {
+            UDPConnection::SIGPacket* recvdPkt = (UDPConnection::SIGPacket*)buffer; 
+            if (recvdPkt->type == UDPConnection::PACKET_HANGUP){
+                bytesReceived = SOCKET_ERROR; // end connection
+            }
+            else if (recvdPkt->type == UDPConnection::PACKET_ALIVE) {
+                bytesReceived = -WSAEWOULDBLOCK;  // recv'd kepalive udp signal packet, cx confirmed
+                framesWithoutSignal = -1;
+            }
+        }
+        if (UDP_COMMUNICATION && bytesReceived == -WSAEWOULDBLOCK) {
+            if (++framesWithoutSignal > 40) { // lost keep alive signal
+                bytesReceived = SOCKET_ERROR;
+            }
+        }
+        ////---------------------/////
+
         if (bytesReceived != -WSAEWOULDBLOCK) {
             // An error or disconnect occurred
             cleanUp();
@@ -456,7 +479,7 @@ int JOYRECEIVER_tUI_WAIT_FOR_CLIENT_MAPPING(NetworkConnection& server, char* buf
         if (bytesReceived > -1) {
             break;
         }
-
+        
         // do stuff here
         if (theme_mtx.try_lock()) {
             if (inEditor) {

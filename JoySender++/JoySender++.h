@@ -41,6 +41,8 @@ volatile sig_atomic_t APP_KILLED = 0;
 constexpr auto APP_NAME = "NetJoy";
 constexpr auto OLDMAP_WARNING_MSG = "! WARNING OLD MAP FILE DETECTED, RE-MAPPING INPUTS RECOMMENDED !";
 bool OLDMAP_FLAG = 0;
+unsigned char RESTART_FLAG = 0;
+unsigned char MAPPING_FLAG = 0;
 std::string g_outputText;
 void displayOutputText();
 
@@ -378,32 +380,52 @@ int JOYSENDER_CONSOLE_SELECT_DS4_DIALOG() {
     return false;
 }
 
-#define JOYSENDER_FEEDBACK_LOOP_START() \
-int timeouts = 0; \
-while (!APP_KILLED && inConnection) { \
-    int allGood = client.receive_data(&buffer, buffer_size); \
-    if (allGood < 1) { \
-        int er = WSAGetLastError(); \
-        if (er == 10060) { \
-            if (++timeouts > 3) inConnection = false; \
-        } \
-        else /*if (er == 10054)*/ { \
-            inConnection = false; \
-        } \
-        if (!inConnection) { \
 
-#define JOYSENDER_FEEDBACK_LOOP_END() \
-        } \
+
+#define JOYSENDER_PROCESS_SIGNAL_PACKET() \
+{ \
+    UDPConnection::SIGPacket* pkt = (UDPConnection::SIGPacket*)buffer; \
+    if(pkt->type == UDPConnection::PACKET_HANGUP){ \
+        g_outputText += "<< Host Disconnected >> \r\n"; \
+        displayOutputText(); \
+        inConnection = false; \
     } \
-    else processFeedbackBuffer((byte*)&buffer, activeGamepad, args.mode); \
-} \
+    /* Do not process as feedback data */ \
+    continue; \
+}
 
-void JOYSENDER_FEEDBACK_THREAD(NetworkConnection& client, char& buffer, size_t buffer_size, SDLJoystickData& activeGamepad, Arguments& args, bool& inConnection) {
-    JOYSENDER_FEEDBACK_LOOP_START()
 
-        // Connection was lost or ended
-        g_outputText += "<< Connection Lost >> \r\n";
-        displayOutputText();
+void JOYSENDER_FEEDBACK_THREAD(NetworkConnection& client, char* buffer, size_t buffer_size, SDLJoystickData& activeGamepad, Arguments& args, bool& inConnection) {
+    int timeouts = 0;
+    while (!APP_KILLED && inConnection) {
+           
+        int allGood = client.receive_data(buffer, buffer_size);
 
-    JOYSENDER_FEEDBACK_LOOP_END()
+        if (allGood == sizeof(UDPConnection::SIGPacket)) JOYSENDER_PROCESS_SIGNAL_PACKET()
+
+        if (allGood < 1) {           
+            if (!inConnection) break;
+ //           if (MAPPING_FLAG && UDP_COMMUNICATION) { // no mapping wait in joysender++
+ //               Sleep(150);
+ //               client.keep_alive();
+ //           }
+            int er = WSAGetLastError();
+            if (er == 10060 && !MAPPING_FLAG) {
+                                           
+                    if (++timeouts > 3) inConnection = false;
+            }
+            else /*if (er == 10054)*/ {
+                                           
+                    inConnection = false;
+            }
+            if (!inConnection) {
+                // Connection was lost or ended
+                if (!APP_KILLED) {
+                    g_outputText += "<< Connection Lost >> \r\n";
+                    displayOutputText();
+                }
+            }
+        }
+        else processFeedbackBuffer((byte*)&buffer, activeGamepad, args.mode);
+    } 
 }

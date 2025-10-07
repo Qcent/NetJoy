@@ -225,3 +225,47 @@ void JOYRECEIVER_GET_MODE_AND_TIMING_FROM_BUFFER(const char* buffer, const int b
     vigem_disconnect(vigemClient); \
     vigem_free(vigemClient); \
 }
+
+
+#ifdef NetJoy_tUI
+#define JR_PSP \
+    swprintf(errorPointer, 50, L" << Special Signal: %d >> ", pkt->type); \
+    errorOut.SetWidth(50); \
+    errorOut.SetText(errorPointer); \
+    errorOut.Draw();
+#else
+#define JR_PSP
+#endif
+
+#define JOYRECEIVER_PROCESS_SIGNAL_PACKET() \
+{ \
+    UDPConnection::SIGPacket* pkt = (UDPConnection::SIGPacket*)buffer; \
+    JR_PSP \
+    if(pkt->type == UDPConnection::PACKET_HANGUP){ \
+        break; \
+    } \
+    /* Do not process as input report, jump to after_report */ \
+    goto after_report; \
+}
+
+
+#if DEVTEST
+// for visual on 6 axis data
+void output_extra_ds4_data(DS4_REPORT_EX& report) {
+    static uint8_t count = 0;
+    if ((++count % 10) > 0) return;
+
+#if defined(NetJoyTUI) 
+    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), { 0,0 });
+    std::wcout << L"X: " << report.Report.wAccelX << L"   \tXg: " << report.Report.wGyroX << L"       \r\n"; // pitch 
+    std::wcout << L"Y: " << report.Report.wAccelY << L"   \tYg: " << report.Report.wGyroY << L"       \r\n"; // yaw
+    std::wcout << L"Z: " << report.Report.wAccelZ << L"   \tZg: " << report.Report.wGyroZ << L"       \r\n"; // roll
+#else
+    repositionConsoleCursor(2, 0);
+    std::cout << "X: " << report.Report.wAccelX << "     \tXg: " << report.Report.wGyroX << "   pitch    \n";
+    std::cout << "Y: " << report.Report.wAccelY << "     \tYg: " << report.Report.wGyroY << "   yaw      \n";
+    std::cout << "Z: " << report.Report.wAccelZ << "     \tZg: " << report.Report.wGyroZ << "   roll     \n";
+    repositionConsoleCursor(-5, 0);
+#endif
+}
+#endif

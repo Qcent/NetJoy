@@ -505,9 +505,9 @@ private:
         // ROLL
         ds4_report.Report.wGyroZ = gyroX;//mult_frac(static_cast<int16_t>(JC_IMU_PREC_RANGE_SCALE * (gyroZ - cal.raw.gyroOffsetZ)), cal.raw.gyroScaleZ, cal.gyro_divisor[2]);
 
-#if 0 // set to 1 for visual on 6 axis data
-        static size_t cnt = 0;
-        if (cnt++ % 7 == 0) {
+#if DEVTEST && defined(NetJoyTUI) // for visual on 6 axis data
+        static size_t frames = 0;
+        if (frames++ % 7 == 0) {
             SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), { 0,0 });
             std::wcout << L"X: " << accelX << L"   \tXg: " << gyroX << L"       \r\n";
             std::wcout << L"Y: " << accelY << L"   \tYg: " << gyroY << L"       \r\n";

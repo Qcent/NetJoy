@@ -152,7 +152,6 @@ int joySender(Arguments& args) {
             displayOutputText();
             std::cout << std::endl;
 
-
             // Send timing and mode data
             std::string txSettings = std::to_string(args.fps) + ":" + std::to_string(args.mode);
             allGood = client.send_data(txSettings.c_str(), static_cast<int>(txSettings.length()));
@@ -173,7 +172,7 @@ int joySender(Arguments& args) {
                 client.set_silence(true);
                 failed_connections = 0;
 
-                std::thread rumbleThread = std::thread(JOYSENDER_FEEDBACK_THREAD, std::ref(client), std::ref(*buffer), buffer_size, std::ref(activeGamepad), std::ref(args), std::ref(inConnection));
+                std::thread rumbleThread = std::thread(JOYSENDER_FEEDBACK_THREAD, std::ref(client), buffer, buffer_size, std::ref(activeGamepad), std::ref(args), std::ref(inConnection));
                 rumbleThread.detach();
             }
 
@@ -218,6 +217,7 @@ int joySender(Arguments& args) {
 #endif
             }
             if (!allGood) {
+                if (UDP_COMMUNICATION) client.hang_up();
                 g_outputText += "<< Device Disconnected >> \r\n";
                 displayOutputText();
                 inConnection = false;
@@ -280,7 +280,8 @@ int joySender(Arguments& args) {
         }
         // ****************** \\
         // Connection ended    \\
-
+ 
+        if (UDP_COMMUNICATION) client.hang_up();
 
         // Catch key presses that could have terminiated connection
         // Shift + R  Resets program allowing joystick reconnection / selection, holding a number will change op mode

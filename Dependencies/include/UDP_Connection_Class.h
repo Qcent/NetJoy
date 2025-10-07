@@ -52,14 +52,138 @@ private:
     char* defaultBuffer = nullptr;
     size_t defaultBufferSize = 0;
     bool alloc_buff = false;
-    
-    // Header packing and unpacking methods...
-    std::vector<char> pack_header(const std::unordered_map<std::string, std::string>& header);
-    std::unordered_map<std::string, std::string> unpack_header(const char* headerData, int dataSize);
+
     void setSocketTimeout(int socket, int timeoutMillisec);
 
     // Establishes a buffer for UDP communication
     void allocate_default_buffer();
+
+public:
+    //--vv Handshaking vv--//
+    enum PacketType : uint8_t {
+        PACKET_SYN = 1,     // Client-> Server: request connection
+        PACKET_SYN_ACK = 2, // Server-> Client: acknowledge + confirm
+        PACKET_ACK = 3,     // Client-> Server: confirm handshake complete
+        PACKET_ALIVE = 4,   // Client-> Server: i am still here
+        PACKET_HANGUP = 5,  // ? -> ? : Goodbye!
+    };
+    // Simple packet structure
+#pragma pack(push, 1)
+    struct SIGPacket { // Keep total size below max of 24b to fit in joysender feedback buffer (joyreceiver:64b)
+        uint8_t  type;         // Of PacketType
+        uint16_t session_id;   // Randomly generated handshake/session ID
+        uint16_t seq_number;   // Optional (for data sequencing)
+        uint16_t ack_number;   // Optional (for ACK responses)
+        uint8_t  payload_size; // Optional data length
+        char     payload[12];  // Optional small payload
+    };
+#pragma pack(pop)
+
+    // Helper to create a clean packet
+    inline static SIGPacket make_packet(PacketType type, uint32_t session_id = 0) {
+        SIGPacket p{};
+        p.type = type;
+        p.session_id = session_id;
+        p.seq_number = 0;
+        p.ack_number = 0;
+        p.payload_size = 0;
+        std::memset(p.payload, 0, sizeof(p.payload));
+        return p;
+    }
+
+    const bool udp_handshake_client() {
+        SIGPacket syn{ PACKET_SYN, 69420 };
+        sendto(udpSocket, (const char*)&syn, sizeof(syn), 0, (sockaddr*)&servaddr, addrlen);
+
+        timeval tv{ 1, 0 }; // 1 sec timeout
+        setsockopt(udpSocket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
+
+        sockaddr_in fromAddr{};
+        int fromLen = sizeof(fromAddr);
+        SIGPacket recvPkt{};
+
+        int recvLen = recvfrom(udpSocket, (char*)&recvPkt, sizeof(recvPkt), 0,
+            (sockaddr*)&fromAddr, &fromLen);
+
+        for (int retries = 0; retries < 3; ++retries) {
+            if (recvLen < 0) {
+                int err = WSAGetLastError();
+                if (err == WSAETIMEDOUT || err == WSAEWOULDBLOCK) {
+                    //std::cerr << "Timed out (retry " << retries << ")\n";
+                    Sleep(10);
+                    recvLen = recvfrom(udpSocket, (char*)&recvPkt, sizeof(recvPkt), 0,
+                        (sockaddr*)&fromAddr, &fromLen);
+                    continue;
+                }
+                else {
+                    //std::cerr << "Recv error: " << err << "\n";
+                    return false;
+                }
+            }
+
+            if (recvPkt.type == PACKET_SYN_ACK && recvPkt.session_id == syn.session_id) {
+                SIGPacket ack{ PACKET_ACK, syn.session_id };
+                sendto(udpSocket, (const char*)&ack, sizeof(ack), 0,
+                    (sockaddr*)&servaddr, addrlen);
+                return true;
+            }
+        }
+
+        //std::cerr << "Handshake failed\n";
+        return false;
+    }
+
+    const bool udp_handshake_server() {
+        sockaddr_in clientAddr{};
+        int clientLen = sizeof(clientAddr);
+        SIGPacket recvPkt{};
+
+        int recvLen = recvfrom(udpSocket, (char*)&recvPkt, sizeof(recvPkt), 0,
+            (sockaddr*)&clientAddr, &clientLen);
+        if (recvLen <= 0 || recvPkt.type != PACKET_SYN) return false;
+
+        char addrStr[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &clientAddr.sin_addr, addrStr, INET_ADDRSTRLEN);
+
+        SIGPacket synAck{ PACKET_SYN_ACK, recvPkt.session_id };
+        sendto(udpSocket, (char*)&synAck, sizeof(synAck), 0,
+            (sockaddr*)&clientAddr, clientLen);
+
+        // final ACK
+        SIGPacket ackPkt{};
+        recvLen = recvfrom(udpSocket, (char*)&ackPkt, sizeof(ackPkt), 0,
+            (sockaddr*)&clientAddr, &clientLen);
+
+        for (int retries = 0; retries < 3; ++retries) {
+            if (recvLen < 0) {
+                int err = WSAGetLastError();
+                if (err == WSAEWOULDBLOCK || err == WSAETIMEDOUT) {
+                    Sleep(10);
+                    recvLen = recvfrom(udpSocket, (char*)&ackPkt, sizeof(ackPkt), 0,
+                        (sockaddr*)&clientAddr, &clientLen);
+                    continue;
+                }
+                else {
+                    //std::cerr << "Recv error: " << err << "\n";
+                    return false;
+                }
+            }
+            else if (recvLen > 0 && ackPkt.type == PACKET_ACK &&
+                ackPkt.session_id == recvPkt.session_id) {
+                //std::cerr << "Handshake success!\n";
+                return true;
+            }
+            else {
+                int err = WSAGetLastError();
+                //std::cerr << "Wrong packet? Error: " << err << std::endl;
+            }
+        }
+
+        //std::cerr << "Handshake incomplete.\n";
+        return false;
+    }
+
+    /***********^^ HAND-SHAKING ^^****************/
 
 public:
     UDPConnection();
@@ -192,7 +316,7 @@ UDPConnection::UDPConnection() {
 
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        std::cerr << "Failed to initialize Winsock" << std::endl;
+        if (!silent) std::cerr << "Failed to initialize Winsock" << std::endl;
     }
 
     addrlen = sizeof(servaddr);
@@ -205,22 +329,27 @@ UDPConnection::UDPConnection() {
 
 int UDPConnection::start_as_server(int PORT) {
     port = PORT;
-    
+
     udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
     if (udpSocket == INVALID_SOCKET) {
-        std::cerr << "Failed to create UDP socket" << std::endl;
+        if (!silent) std::cerr << "Failed to create UDP socket" << std::endl;
         return -1;
     }
 
     // Filling server information 
     servaddr.sin_family = AF_INET; // IPv4 
+#if DEVTEST
+    servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");  // local only
+#else
     servaddr.sin_addr.s_addr = INADDR_ANY;  // listen address
+#endif
+
     servaddr.sin_port = htons(port);
 
     // Bind the socket with the server address 
     if (bind(udpSocket, (sockaddr*)&servaddr, addrlen) == SOCKET_ERROR)
     {
-        std::cerr << "Socket Bind failed" << std::endl;
+        if (!silent) std::cerr << "Socket Bind failed" << std::endl;
         return -1;
     }
 
@@ -230,19 +359,19 @@ int UDPConnection::start_as_server(int PORT) {
 }
 
 void UDPConnection::start_as_client(const std::string& servAddress, int PORT) {
-// Use establish_connection() for TCP cross compatibility
+    // Use establish_connection() for TCP cross compatibility
     strcpy_s(this->hostAddress, sizeof(this->hostAddress), servAddress.c_str());
     port = PORT;
 
     udpSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP); // <<< UDP socket
     if (udpSocket == INVALID_SOCKET) {
-        std::cerr << "Failed to create UDP socket" << std::endl;
+        if (!silent) std::cerr << "Failed to create UDP socket" << std::endl;
         exit(EXIT_FAILURE);
     }
 
     // Filling server information 
     servaddr.sin_family = AF_INET; // IPv4 
-        // Get server ip as bit values
+    // Get server ip as bit values
     inet_pton(AF_INET, hostAddress, &(servaddr.sin_addr)); // server ip
     servaddr.sin_port = htons(port);
 
@@ -264,24 +393,30 @@ int UDPConnection::set_client_blocking(bool block) {
 
 
 int UDPConnection::send_data(const char* data, int size) {
-
     int bytesSent = sendto(udpSocket, data, size, 0, (sockaddr*)other, addrlen);
-    if (bytesSent == SOCKET_ERROR)
-    {
-        std::cerr << "Failed to send data (SOCKET_ERROR)" << WSAGetLastError() << std::endl;
+    if (bytesSent == SOCKET_ERROR) {
+        int err = WSAGetLastError();
+        if (err != WSAEWOULDBLOCK) {
+            if (!silent) std::cerr << "Failed to send data :" << err << std::endl;
+            return -1;
+        }
+        return -err;
     }
     return bytesSent;
 }
 
 int UDPConnection::receive_data(char* buffer, int bufferSize) {
     int bytesReceived = recvfrom(udpSocket, buffer, bufferSize, 0, (sockaddr*)other, &addrlen);
-    if (bytesReceived == SOCKET_ERROR)
-    {
-        std::cerr << "Failed to receive data (SOCKET_ERROR)" << WSAGetLastError() << std::endl;
+    if (bytesReceived == SOCKET_ERROR) {
+        int err = WSAGetLastError();
+        if (err != WSAEWOULDBLOCK) {
+            if (!silent) std::cerr << "Failed to receive data : " << err << std::endl;
+            return -1;
+        }
+        return -err; //lets keep errors negative
     }
     return bytesReceived;
 }
-
 
 void UDPConnection::allocate_default_buffer() {
     alloc_buff = true;
@@ -297,10 +432,8 @@ std::pair<SOCKET, sockaddr_in> UDPConnection::await_connection() {
     if (bytesReceived == SOCKET_ERROR)
     {
         int err = WSAGetLastError();
-        if (err != WSAEWOULDBLOCK)
-            std::cerr << "Failed to await data (SOCKET_ERROR)" << err << std::endl;
-        else
-            return { INVALID_SOCKET, {} };
+        if (err != WSAEWOULDBLOCK) if (!silent) std::cerr << "Failed to await data (SOCKET_ERROR)" << err << std::endl;
+        return { INVALID_SOCKET, {} };
     }
     clientAddress = *other;
     char clientIP[INET_ADDRSTRLEN];
@@ -308,9 +441,13 @@ std::pair<SOCKET, sockaddr_in> UDPConnection::await_connection() {
 
     if (udpSocket == INVALID_SOCKET) {
         int err = WSAGetLastError();
-        if (err != WSAEWOULDBLOCK)  if (!silent) std::cerr << "Failed to accept client connection : " << err << std::endl;
+        if (err != WSAEWOULDBLOCK)  if (!silent) if (!silent) std::cerr << "Failed to accept client connection : " << err << std::endl;
         return { INVALID_SOCKET, {} };
     }
+
+    bool connected = udp_handshake_server();
+    if(!connected) return { INVALID_SOCKET, {} };
+
     if (!silent)
         std::cout << "Connection from " << clientIP << ":" << ntohs(clientAddress.sin_port) << " established" << std::endl;
 
@@ -320,8 +457,10 @@ std::pair<SOCKET, sockaddr_in> UDPConnection::await_connection() {
 int UDPConnection::establish_connection(const std::string& servAddress, int PORT) {
     start_as_client(servAddress, PORT);
     send_data((const char*)defaultBuffer, 1);  // send 1 byte to initiate 'connection'
-
-    return 1;
+    /* New Handshake*/
+    bool connected = udp_handshake_client();
+    /**************/
+    return connected;
 }
 
 int UDPConnection::get_available_data_size() {
@@ -332,7 +471,7 @@ int UDPConnection::receive_null_data(int count) {
     char* tempBuffer = new char[count];
     int bytesReceived = recvfrom(udpSocket, tempBuffer, count, 0, (sockaddr*)other, &addrlen);
     if (bytesReceived == SOCKET_ERROR) {
-        std::cerr << "recvfrom failed: " << WSAGetLastError() << std::endl;
+        if (!silent) std::cerr << "recvfrom failed: " << WSAGetLastError() << std::endl;
         delete[] tempBuffer;
         return -1; // Error occurred
     }
@@ -345,13 +484,13 @@ void UDPConnection::setSocketTimeout(int socket, int timeoutMillisec) {
     // Set receive timeout
     if (setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeoutMillisec, sizeof(timeoutMillisec)) < 0) {
         if (!silent)
-            std::cerr << "Error setting receive timeout" << std::endl;
+            if (!silent) std::cerr << "Error setting receive timeout" << std::endl;
     }
 
     // Set send timeout
     if (setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, (const char*)&timeoutMillisec, sizeof(timeoutMillisec)) < 0) {
         if (!silent)
-            std::cerr << "Error setting send timeout" << std::endl;
+            if (!silent) std::cerr << "Error setting send timeout" << std::endl;
     }
 }
 
@@ -367,7 +506,7 @@ std::string UDPConnection::get_local_ip() {
     char hostName[256];
     if (gethostname(hostName, sizeof(hostName)) == SOCKET_ERROR) {
         if (!silent)
-            std::cerr << "Failed to get local IP address" << std::endl;
+            if (!silent) std::cerr << "Failed to get local IP address" << std::endl;
         return "";
     }
 
@@ -378,14 +517,14 @@ std::string UDPConnection::get_local_ip() {
 
     if (getaddrinfo(hostName, nullptr, &hints, &result) != 0) {
         if (!silent)
-            std::cerr << "Failed to resolve local IP address" << std::endl;
+            if (!silent) std::cerr << "Failed to resolve local IP address" << std::endl;
         return "";
     }
 
     char ipAddress[INET_ADDRSTRLEN];
     if (inet_ntop(AF_INET, &reinterpret_cast<sockaddr_in*>(result->ai_addr)->sin_addr, ipAddress, sizeof(ipAddress)) == nullptr) {
         if (!silent)
-            std::cerr << "Failed to convert local IP address to string" << std::endl;
+            if (!silent) std::cerr << "Failed to convert local IP address to string" << std::endl;
         return "";
     }
 

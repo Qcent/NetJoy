@@ -40,11 +40,11 @@ THE SOFTWARE.
 
 #include "./../JoySender++/JoySender++.h"
 
+extern byte RESTART_FLAG;
+extern byte MAPPING_FLAG;
+
 #define CANCELLED_FLAG      -2
 #define DISCONNECT_ERROR    -3
-
-byte RESTART_FLAG = 0;
-byte MAPPING_FLAG = 0;
 
 void signalHandler(int signal);
 
@@ -1307,7 +1307,7 @@ std::string tUIGetHostAddress(SDLJoystickData& activeGamepad) {
         PRINT_EGG_X();
         setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
         printCurrentController(activeGamepad);
-        //errorOut.Draw(); // errors not shown on this screen 
+        errorOut.Draw(); // errors not shown on this screen (pre udp)
         g_screen.DrawInputs();
         setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);
         setCursorPosition(12, 8);
@@ -2254,7 +2254,7 @@ bytesReceived = client.receive_data(buffer, buffer_size); \
 if (bytesReceived > 0) { \
     inConnection = true; \
     failed_connections = 0; \
-    std::thread rumbleThread = std::thread(JOYSENDER_tUI_FEEDBACK_THREAD, std::ref(client), std::ref(*buffer), buffer_size, std::ref(activeGamepad), std::ref(args), std::ref(inConnection)); \
+    std::thread rumbleThread = std::thread(JOYSENDER_tUI_FEEDBACK_THREAD, std::ref(client), buffer, buffer_size, std::ref(activeGamepad), std::ref(args), std::ref(inConnection)); \
     rumbleThread.detach(); \
 } \
 else { \
@@ -2558,12 +2558,50 @@ void JOYSENDER_tUI_BUILD_MAP_SCREEN() {
     tUI_SET_SUIT_POSITIONS(SUIT_POSITIONS_MAP_SCREEN());
 }
 
-void JOYSENDER_tUI_FEEDBACK_THREAD(NetworkConnection& client, char& buffer, size_t buffer_size, SDLJoystickData& activeGamepad, Arguments& args, bool& inConnection) {
-    JOYSENDER_FEEDBACK_LOOP_START()
-    // Connection was lost or ended
-        if (!RESTART_FLAG) {
-            swprintf(errorPointer, 50, L" << Connection To:  %S Failed >> ", args.host.c_str());
-            errorOut.SetText(errorPointer);
+void JOYSENDER_tUI_FEEDBACK_THREAD(NetworkConnection& client, char* buffer, size_t buffer_size, SDLJoystickData& activeGamepad, Arguments& args, bool& inConnection){
+    int timeouts = 0;
+    while (!APP_KILLED && inConnection) {
+
+        int allGood = client.receive_data(buffer, buffer_size);
+
+        if (allGood == sizeof(UDPConnection::SIGPacket)) {
+            UDPConnection::SIGPacket* pkt = (UDPConnection::SIGPacket*)buffer;
+            if (pkt->type == UDPConnection::PACKET_HANGUP) {
+
+                swprintf(errorPointer, 26, L" << Host Disconnected >> ");
+                errorOut.SetText(errorPointer);
+                errorOut.Draw();
+                inConnection = false;
+                args.host = "";
+                
+            }
+            // Do not process as feedback data
+            continue;
         }
-    JOYSENDER_FEEDBACK_LOOP_END()
+
+        if (allGood < 1) {
+            if (!inConnection) break;
+            if (MAPPING_FLAG && UDP_COMMUNICATION) {
+                Sleep(150);
+                client.keep_alive();
+            }
+            int er = WSAGetLastError();
+            if (er == 10060 && !MAPPING_FLAG) {
+
+                if (++timeouts > 3) inConnection = false;
+            }
+            else if (er) {  // anyother error ends connection
+
+                inConnection = false;
+            }
+            if (!inConnection) {
+                // Connection was lost or ended
+                if (!APP_KILLED) {
+                    swprintf(errorPointer, 50, L" << Connection To:  %S Lost >> ", args.host.c_str());
+                    errorOut.SetText(errorPointer);
+                }
+            }
+        }
+        else processFeedbackBuffer((byte*)&buffer, activeGamepad, args.mode);
+    }
 }

@@ -265,6 +265,7 @@ int joySendertUI(Arguments& args) {
         // #########################################################  \\
         // Connection Ended    ######################################  \\
 
+        if (UDP_COMMUNICATION) client.hang_up();
         theme_mtx.lock(); // must exit theme thread
         theme_mtx.unlock();  // before restarting
         tUI_SET_SUIT_POSITIONS(SUIT_POSITIONS_SCATTERED());

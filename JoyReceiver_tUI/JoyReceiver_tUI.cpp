@@ -81,6 +81,7 @@ int main(int argc, char* argv[]) {
             swprintf(errorPointer, len, L" << Connection From: %S Failed >> ", connectionIP);
             errorOut.SetWidth(len);
             errorOut.SetText(errorPointer);
+            errorOut.Draw();
             break;
         }
 
@@ -132,13 +133,16 @@ int main(int argc, char* argv[]) {
                     bytesReceived = JOYRECEIVER_tUI_WAIT_FOR_CLIENT_MAPPING(server, buffer, buffer_size);
                     fps_counter.reset();
                 }
-                else {
-                    int len = INET_ADDRSTRLEN + 31;
-                    swprintf(errorPointer, len, L" << Connection From: %S Lost >> ", connectionIP);
-                    errorOut.SetWidth(len);
-                    errorOut.SetText(errorPointer);
-                    break;
-                }
+            }
+            else if (bytesReceived == sizeof(UDPConnection::SIGPacket)) {
+                JOYRECEIVER_PROCESS_SIGNAL_PACKET();
+            }
+            if (bytesReceived < 1) {
+                int len = INET_ADDRSTRLEN + 31;
+                swprintf(errorPointer, len, L" << Connection From: %S Lost >> ", connectionIP);
+                errorOut.SetWidth(len);
+                errorOut.SetText(errorPointer);
+                break;
             }
 
             //******************************
@@ -152,6 +156,9 @@ int main(int argc, char* argv[]) {
                 if (theme_mtx.try_lock()) {
                     // activate screen buttons from ds4_report_ex
                     buttonStatesFromDS4Report(reinterpret_cast<BYTE*>(buffer));
+#if DEVTEST
+                    output_extra_ds4_data(ds4_report_ex);
+#endif
                     theme_mtx.unlock();
                 }
             }
@@ -168,20 +175,8 @@ int main(int argc, char* argv[]) {
                 }
             }
 
+            after_report:
             //*******************************
-            /*
-            // Send response back to client :: Rumble + lightbar data
-            lock.lock();
-            allGood = server.send_data(feedbackData, 5);
-            lock.unlock();
-            if (allGood < 1) {
-                int len = INET_ADDRSTRLEN + 29;
-                swprintf(errorPointer, len, L" << Connection To: %S Lost >> ", connectionIP);
-                errorOut.SetWidth(len);
-                errorOut.SetText(errorPointer);
-                break;
-            }
-            */
             // Send response back to client :: Rumble + lightbar data
             {
                 static int frameCount = 0;
@@ -227,7 +222,7 @@ int main(int argc, char* argv[]) {
         // Unregister rumble notifications // unplug virtual device
         JOYRECEIVER_UNPLUG_VIGEM_CONTROLLER();
     }
-
+    if (UDP_COMMUNICATION) server.hang_up();
     JOYRECEIVER_SHUTDOWN_VIGEM_BUS();
     CLEAN_EGGS();
     swallowInput();

@@ -124,9 +124,12 @@ TCPConnection::TCPConnection(int port, const std::string& listenAddress)
 int TCPConnection::start_as_server(int dummyPORT) {
     // for compatibility with UPD class
     if (dummyPORT) {    // if dummy PORT is provided take as actual variable
-        port = dummyPORT;
-        strcpy_s(this->listenAddress, sizeof(this->listenAddress), "0.0.0.0"); // set default listen address
+        port = dummyPORT;        
     }
+
+#if DEVTEST
+    strcpy_s(this->listenAddress, sizeof(this->listenAddress), "127.0.0.1"); // local only
+#endif
 
     serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSocket == INVALID_SOCKET) {
@@ -223,7 +226,7 @@ int TCPConnection::send_data(const char* data, int size) {
             if (!silent) std::cerr << "Failed to send data : " << err << std::endl;
             return -1;
         }
-        return err;
+        return -err;
     }
     return bytesSent;
 }

@@ -39,29 +39,7 @@ static void overwriteLatency(const std::string& text) {
 }
 
 
-//-
-/*
-void output_special_ds4_data(DS4_REPORT_EX& report) {
-    static uint8_t count = 0;
-    if ((++count % 10) > 0) return;
-
-    repositionConsoleCursor(2, 0);
-    std::cout << "accelX: " << report.Report.wAccelX
-              << "        \tgyroX: " << report.Report.wGyroX << "           \n";
-    std::cout << "accelY: " << report.Report.wAccelY
-              << "        \tgyroY: " << report.Report.wGyroY << "           \n";
-    std::cout << "accelZ: " << report.Report.wAccelZ
-              << "        \tgyroZ: " << report.Report.wGyroZ << "           \n";
-    // std::cout << "gyroY: ";
-    //std::cout << report.Report.wGyroY << "            \n";
-    repositionConsoleCursor(-5, 0);
-}
-*/
-//-
 int main(int argc, char* argv[]) {
-
-
-
     // Get the console input handle to disable Quick Edit Mode
     HANDLE console = GetStdHandle(STD_INPUT_HANDLE);
     DWORD mode;
@@ -112,7 +90,7 @@ int main(int argc, char* argv[]) {
 
         // Await Connection in Non Blocking Mode
         JOYRECEIVER_CONSOLE_AWAIT_CONNECTION();
-        
+
         if (APP_KILLED) break;
 
         // Receive Operating Mode and Client Timing
@@ -150,6 +128,9 @@ int main(int argc, char* argv[]) {
             if (bytesReceived < 1) {
                 break;
             }
+            else if (bytesReceived == sizeof(UDPConnection::SIGPacket)) {
+                JOYRECEIVER_PROCESS_SIGNAL_PACKET();
+            }
 
             //******************************
             // Update virtual gamepad
@@ -157,14 +138,16 @@ int main(int argc, char* argv[]) {
                 // Cast the buffer to an DS4_REPORT_EX pointer
                 ds4_report_ex = *reinterpret_cast<DS4_REPORT_EX*>(buffer);
                 vigem_target_ds4_update_ex(vigemClient, gamepad, ds4_report_ex);
-                //output_special_ds4_data(ds4_report_ex);
+#if DEVTEST
+                output_extra_ds4_data(ds4_report_ex);
+#endif
             }
             else {
                 // Cast the buffer to an XUSB_REPORT pointer
                 xbox_report = *reinterpret_cast<XUSB_REPORT*>(buffer);
                 vigem_target_x360_update(vigemClient, gamepad, xbox_report);
             }
-
+            after_report:
             //*******************************
             // Send response back to client :: Rumble + lightbar data
             {
@@ -205,7 +188,7 @@ int main(int argc, char* argv[]) {
         // Unregister rumble notifications // unplug virtual deveice
         JOYRECEIVER_UNPLUG_VIGEM_CONTROLLER();
     }
-
+    if (UDP_COMMUNICATION) server.hang_up();
     JOYRECEIVER_SHUTDOWN_VIGEM_BUS();
     swallowInput();
     showConsoleCursor();
