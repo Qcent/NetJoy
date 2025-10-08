@@ -426,6 +426,6 @@ void JOYSENDER_FEEDBACK_THREAD(NetworkConnection& client, char* buffer, size_t b
                 }
             }
         }
-        else processFeedbackBuffer((byte*)&buffer, activeGamepad, args.mode);
+        else processFeedbackBuffer((byte*)buffer, activeGamepad, args.mode);
     } 
 }

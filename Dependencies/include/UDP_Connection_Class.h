@@ -429,6 +429,13 @@ std::pair<SOCKET, sockaddr_in> UDPConnection::await_connection() {
     sockaddr_in clientAddress{};
 
     int bytesReceived = recvfrom(udpSocket, defaultBuffer, defaultBufferSize, 0, (sockaddr*)other, &addrlen);
+    if (bytesReceived == sizeof(UDPConnection::SIGPacket)) {
+        // FOR NOW SIGPackets are not associated with establishing connections
+        // and should be ignored as hangup notices, to not crash out on handshaking
+        // use WSASetLastError and the caller will be none the wiser **if from same thread**
+        WSASetLastError(WSAEWOULDBLOCK); 
+        return { INVALID_SOCKET, {} };
+    }
     if (bytesReceived == SOCKET_ERROR)
     {
         int err = WSAGetLastError();
@@ -441,12 +448,16 @@ std::pair<SOCKET, sockaddr_in> UDPConnection::await_connection() {
 
     if (udpSocket == INVALID_SOCKET) {
         int err = WSAGetLastError();
-        if (err != WSAEWOULDBLOCK)  if (!silent) if (!silent) std::cerr << "Failed to accept client connection : " << err << std::endl;
+        if (err != WSAEWOULDBLOCK)  if (!silent) std::cerr << "Failed to accept client connection : " << err << std::endl;
         return { INVALID_SOCKET, {} };
     }
 
     bool connected = udp_handshake_server();
-    if(!connected) return { INVALID_SOCKET, {} };
+    if (!connected) {
+        if (!silent) std::cerr << "Failed to perform upd handshake with " << clientIP << std::endl;
+        WSASetLastError(WSAEWOULDBLOCK);
+        return { INVALID_SOCKET, {} };
+    }
 
     if (!silent)
         std::cout << "Connection from " << clientIP << ":" << ntohs(clientAddress.sin_port) << " established" << std::endl;

@@ -180,9 +180,9 @@ int main(int argc, char* argv[]) {
             // Send response back to client :: Rumble + lightbar data
             {
                 static int frameCount = 0;
-                lock.lock();
-                // gives at least 2 feedback responses a second to avoid timeouts
-                if (std::memcmp(feedBackComp, feedbackData, sizeof(feedbackData)) != 0 || (frameCount += 2) > client_timing) {
+                lock.lock(); 
+                // gives at least 5 feedback responses a second to avoid timeouts
+                if (std::memcmp(feedBackComp, feedbackData, sizeof(feedbackData)) != 0 || (frameCount += 5) > client_timing) {
                     std::memcpy(feedBackComp, feedbackData, sizeof(feedbackData));
                     frameCount = 0;
 

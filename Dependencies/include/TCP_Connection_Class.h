@@ -88,6 +88,11 @@ public:
     int receive_null_data(int count);  // receives data over connection and does nothing with it, freeing up the socket buffer (TCP)
     bool is_server() { return server; }
 
+    // Disables Nagle's algorithm in the TCP stack.
+    // Nagle's algorithm increases network efficiency by combining would-be packets
+    // to reach the MSS, delaying transmission up to 500ms
+    void disable_nagle();
+
 };
 
 TCPConnection::~TCPConnection() {
@@ -175,6 +180,8 @@ std::pair<SOCKET, sockaddr_in> TCPConnection::await_connection() {
     }
     if (!silent)
         std::cout << "Connection from " << clientIP << ":" << ntohs(clientAddress.sin_port) << " established" << std::endl;
+    
+    disable_nagle();
 
     return { clientSocket, clientAddress };
 }
@@ -215,6 +222,9 @@ int TCPConnection::establish_connection(const std::string& dummyAddress, int dum
 
     freeaddrinfo(result);
     if (!silent) std::cout << "Connection established" << std::endl;
+
+    disable_nagle();
+
     return 1;
 }
 
@@ -371,6 +381,14 @@ int TCPConnection::set_client_blocking(bool block) {
     return ioctlsocket(clientSocket, FIONBIO, &mode);
 }
 
+void TCPConnection::disable_nagle() {
+    constexpr int opt = -1;
+    SOCKET& sock_fd = is_server() ? serverSocket : clientSocket;
+    if (setsockopt(sock_fd, IPPROTO_TCP, TCP_NODELAY, (char*)&opt, sizeof(opt))) {
+        if (!silent) 
+            std::cerr << "Error disabling Nagle's algorithm" << std::endl;
+    }
+}
 
 void TCPConnection::setSocketTimeout(int socket, int timeoutMillisec) {
     // Set receive timeout

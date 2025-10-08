@@ -2602,6 +2602,6 @@ void JOYSENDER_tUI_FEEDBACK_THREAD(NetworkConnection& client, char* buffer, size
                 }
             }
         }
-        else processFeedbackBuffer((byte*)&buffer, activeGamepad, args.mode);
+        else processFeedbackBuffer((byte*)buffer, activeGamepad, args.mode);
     }
 }

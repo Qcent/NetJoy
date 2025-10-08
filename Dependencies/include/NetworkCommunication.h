@@ -33,7 +33,10 @@ THE SOFTWARE.
 #include "TCP_Connection_Class.h"
 #include "UDP_Connection_Class.h"
 
-#define DEVTEST 1 /* Turns WAN IP discovery off and can enable extra output data (placing here because all programs load this file early)*/
+#define DEVTEST 0 /* Turns WAN IP discovery off
+                     Turns listening address to 127.0.0.1
+                     Enables gyro (imu) data output in connection
+  (placing here because all programs load this file early)*/
 
 bool UDP_COMMUNICATION = false; // global helper flag
 /* 

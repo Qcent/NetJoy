@@ -412,13 +412,8 @@ void InitDS4FeedbackBuffer() {
     }
                    break;
     case DS4_VIA_USB: {
-        // take first byte of report and place in the buffer
+        // place OutReport05 in the buffer
         memcpy(ds4_OutReportBuf, &ds4OutReport05, sizeof(ds4OutReport05));
-
-        // to prevent a padding byte in the structure manually place 
-        // the State of the report at buffer index 1
-       /// memcpy(ds4_OutReportBuf + 1, ds4StateUSB, sizeof(USBSetStateData));
-
     }
                    break;
     }
@@ -457,7 +452,7 @@ bool SendDS4Update() {
         }
     }
     else if (ds4DataOffset == DS4_VIA_USB) {
-        // Update the state of the report at buffer index 1
+        // Update the state of the report at buffer index 0
         memcpy(ds4_OutReportBuf, &ds4OutReport05, sizeof(ds4OutReport05));
         if (DS4manager.WriteFileOutputReport(ds4_OutReportBuf, DS4_USB_OUTPUT_REPORT_SIZE)) {
             return 1;
