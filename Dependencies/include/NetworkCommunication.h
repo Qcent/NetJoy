@@ -33,6 +33,9 @@ THE SOFTWARE.
 #include "TCP_Connection_Class.h"
 #include "UDP_Connection_Class.h"
 
+#define DS4_REPORT_NETWORK_DATA_SIZE 61
+#define XBOX_REPORT_NETWORK_DATA_SIZE 12
+
 #define DEVTEST 0 /* Turns WAN IP discovery off
                      Turns listening address to 127.0.0.1
                      Enables gyro (imu) data output in connection
