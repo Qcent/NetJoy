@@ -101,7 +101,7 @@ public:
         sockaddr_in fromAddr{};
         int fromLen = sizeof(fromAddr);
         SIGPacket recvPkt{};
-
+        Sleep(10);
         int recvLen = recvfrom(udpSocket, (char*)&recvPkt, sizeof(recvPkt), 0,
             (sockaddr*)&fromAddr, &fromLen);
 
@@ -109,8 +109,7 @@ public:
             if (recvLen < 0) {
                 int err = WSAGetLastError();
                 if (err == WSAETIMEDOUT || err == WSAEWOULDBLOCK) {
-                    //std::cerr << "Timed out (retry " << retries << ")\n";
-                    Sleep(10);
+                    Sleep(30);
                     recvLen = recvfrom(udpSocket, (char*)&recvPkt, sizeof(recvPkt), 0,
                         (sockaddr*)&fromAddr, &fromLen);
                     continue;
@@ -128,7 +127,6 @@ public:
                 return true;
             }
         }
-
         //std::cerr << "Handshake failed\n";
         return false;
     }
@@ -138,6 +136,7 @@ public:
         int clientLen = sizeof(clientAddr);
         SIGPacket recvPkt{};
 
+        Sleep(10);
         int recvLen = recvfrom(udpSocket, (char*)&recvPkt, sizeof(recvPkt), 0,
             (sockaddr*)&clientAddr, &clientLen);
         if (recvLen <= 0 || recvPkt.type != PACKET_SYN) return false;
@@ -149,6 +148,7 @@ public:
         sendto(udpSocket, (char*)&synAck, sizeof(synAck), 0,
             (sockaddr*)&clientAddr, clientLen);
 
+        Sleep(10);
         // final ACK
         SIGPacket ackPkt{};
         recvLen = recvfrom(udpSocket, (char*)&ackPkt, sizeof(ackPkt), 0,
@@ -158,13 +158,13 @@ public:
             if (recvLen < 0) {
                 int err = WSAGetLastError();
                 if (err == WSAEWOULDBLOCK || err == WSAETIMEDOUT) {
-                    Sleep(10);
+                    Sleep(30);
                     recvLen = recvfrom(udpSocket, (char*)&ackPkt, sizeof(ackPkt), 0,
                         (sockaddr*)&clientAddr, &clientLen);
                     continue;
                 }
                 else {
-                    //std::cerr << "Recv error: " << err << "\n";
+                    std::cerr << "Recv error: " << err << "\n";
                     return false;
                 }
             }
@@ -178,7 +178,6 @@ public:
                 //std::cerr << "Wrong packet? Error: " << err << std::endl;
             }
         }
-
         //std::cerr << "Handshake incomplete.\n";
         return false;
     }
@@ -398,7 +397,7 @@ int UDPConnection::send_data(const char* data, int size) {
         int err = WSAGetLastError();
         if (err != WSAEWOULDBLOCK) {
             if (!silent) std::cerr << "Failed to send data :" << err << std::endl;
-            return -1;
+            return -err;
         }
         return -err;
     }
@@ -411,7 +410,7 @@ int UDPConnection::receive_data(char* buffer, int bufferSize) {
         int err = WSAGetLastError();
         if (err != WSAEWOULDBLOCK) {
             if (!silent) std::cerr << "Failed to receive data : " << err << std::endl;
-            return -1;
+            return -err;
         }
         return -err; //lets keep errors negative
     }

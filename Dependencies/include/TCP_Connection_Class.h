@@ -234,7 +234,7 @@ int TCPConnection::send_data(const char* data, int size) {
         int err = WSAGetLastError();
         if (err != WSAEWOULDBLOCK) {
             if (!silent) std::cerr << "Failed to send data : " << err << std::endl;
-            return -1;
+            return -err;
         }
         return -err;
     }
@@ -246,7 +246,7 @@ int TCPConnection::receive_data(char* buffer, int bufferSize) {
         int err = WSAGetLastError();
         if (err != WSAEWOULDBLOCK) {
             if (!silent) std::cerr << "Failed to receive data : " << err << std::endl;
-            return -1;
+            return -err;
         }
         return -err; //lets keep errors negative
     }
