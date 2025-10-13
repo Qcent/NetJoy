@@ -2582,8 +2582,8 @@ void JOYSENDER_tUI_FEEDBACK_THREAD(NetworkConnection& client, char* buffer, size
         if (allGood < 1) {
             if (!inConnection) break;
             if (MAPPING_FLAG && UDP_COMMUNICATION) {
-                Sleep(150);
                 client.keep_alive();
+                Sleep(150);                
             }
             int er = WSAGetLastError();
             if (er == 10060 && !MAPPING_FLAG) {

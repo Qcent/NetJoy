@@ -116,6 +116,7 @@ int main(int argc, char* argv[]) {
         // Prep UI for loop
         std::cout << std::endl << std::endl;
         fps_counter.reset();
+        buffer_size = ((op_mode == 2) ? DS4_REPORT_NETWORK_DATA_SIZE : XBOX_REPORT_NETWORK_DATA_SIZE);
 
         memset(feedBackComp, 0, sizeof(feedBackComp));
         memset(feedbackData, 0, sizeof(feedbackData));
@@ -124,12 +125,16 @@ int main(int argc, char* argv[]) {
         while (!APP_KILLED) {
             //*****************************
             // Receive joystick input from client to the buffer
+            receive:
             bytesReceived = server.receive_data(buffer, buffer_size);
             if (bytesReceived < 1) {
                 break;
             }
-            else if (bytesReceived == sizeof(UDPConnection::SIGPacket)) {
+            if (bytesReceived == sizeof(UDPConnection::SIGPacket)) {
                 JOYRECEIVER_PROCESS_SIGNAL_PACKET();
+            }
+            if (bytesReceived != buffer_size) {
+                JOYRECEIVER_GET_COMPLETE_PACKET();
             }
 
             //******************************
@@ -147,7 +152,7 @@ int main(int argc, char* argv[]) {
                 xbox_report = *reinterpret_cast<XUSB_REPORT*>(buffer);
                 vigem_target_x360_update(vigemClient, gamepad, xbox_report);
             }
-            after_report:
+
             //*******************************
             // Send response back to client :: Rumble + lightbar data
             {

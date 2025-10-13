@@ -169,7 +169,9 @@ int joySender(Arguments& args) {
             }
             else{
                 inConnection = true;   
+#if !DEVTEST
                 client.set_silence(true);
+#endif
                 failed_connections = 0;
 
                 std::thread rumbleThread = std::thread(JOYSENDER_FEEDBACK_THREAD, std::ref(client), buffer, buffer_size, std::ref(activeGamepad), std::ref(args), std::ref(inConnection));

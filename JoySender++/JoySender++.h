@@ -25,7 +25,7 @@ THE SOFTWARE.
 #pragma once
 #define NOMINMAX
 
-#define APP_VERSION_NUM     L"2.0.2.0"
+#define APP_VERSION_NUM     L"3.0.0.0"
 
 #include <iostream>
 #include <conio.h>
@@ -323,7 +323,7 @@ void JOYSENDER_OPMODE_INIT(SDLJoystickData& activeGamepad, Arguments& args, int&
         BuildJoystickInputData(activeGamepad);
         // Look for an existing map for selected device
 #ifdef NetJoyTUI
-        uiOpenOrCreateMapping(activeGamepad);
+        uiOpenOrCreateMapping(activeGamepad);        
 #else
         g_outputText = "XBOX Mode Activated\r\n";
         OpenOrCreateMapping(activeGamepad);
@@ -412,7 +412,8 @@ void JOYSENDER_FEEDBACK_THREAD(NetworkConnection& client, char* buffer, size_t b
             int er = WSAGetLastError();
             if (er == 10060 && !MAPPING_FLAG) {
                                            
-                    if (++timeouts > 3) inConnection = false;
+                    if (++timeouts > 3) 
+                        inConnection = false;
             }
             else /*if (er == 10054)*/ {
                                            

@@ -103,6 +103,7 @@ int main(int argc, char* argv[]) {
         // Prep UI for loop
         tUI_BUILD_MAIN_LOOP(args);
         fps_counter.reset();
+        buffer_size = ((op_mode == 2) ? DS4_REPORT_NETWORK_DATA_SIZE : XBOX_REPORT_NETWORK_DATA_SIZE);
 
         /* Start Receive Joystick Data Loop */
         while (!APP_KILLED) {
@@ -127,15 +128,14 @@ int main(int argc, char* argv[]) {
 
             //*****************************
             // Receive joystick input from client to the buffer
-            bytesReceived = server.receive_data(buffer, buffer_size);
-            if (bytesReceived < 1) {
-                if (WSAGetLastError() == WSAETIMEDOUT) {
-                    bytesReceived = JOYRECEIVER_tUI_WAIT_FOR_CLIENT_MAPPING(server, buffer, buffer_size);
-                    fps_counter.reset();
-                }
-            }
-            else if (bytesReceived == sizeof(UDPConnection::SIGPacket)) {
+            receive:
+            bytesReceived = server.receive_data(buffer, std::max(buffer_size, (int)sizeof(UDPConnection::SIGPacket)));
+            if (bytesReceived == sizeof(UDPConnection::SIGPacket)) {
                 JOYRECEIVER_PROCESS_SIGNAL_PACKET();
+            }
+            if (bytesReceived == -WSAETIMEDOUT) {
+                bytesReceived = JOYRECEIVER_tUI_WAIT_FOR_CLIENT_MAPPING(server, buffer, buffer_size);
+                fps_counter.reset();
             }
             if (bytesReceived < 1) {
                 int len = INET_ADDRSTRLEN + 31;
@@ -143,6 +143,10 @@ int main(int argc, char* argv[]) {
                 errorOut.SetWidth(len);
                 errorOut.SetText(errorPointer);
                 break;
+            }
+
+            if (bytesReceived < buffer_size) {
+                JOYRECEIVER_GET_COMPLETE_PACKET();
             }
 
             //******************************
@@ -175,7 +179,6 @@ int main(int argc, char* argv[]) {
                 }
             }
 
-            after_report:
             //*******************************
             // Send response back to client :: Rumble + lightbar data
             {

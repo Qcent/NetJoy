@@ -104,7 +104,9 @@ int joySendertUI(Arguments& args) {
         }
 
         NetworkConnection client(args.udp, args.host, args.port);
+#if !DEVTEST
         client.set_silence(true);
+#endif
 
         // Establish connection to host
         JOYSENDER_tUI_ANIMATED_CX(activeGamepad, client, args, allGood);

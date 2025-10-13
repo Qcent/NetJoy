@@ -9,7 +9,7 @@
 #pragma comment(lib, "VIGEmClient.lib")
 
 constexpr auto APP_NAME = "NetJoy";
-constexpr auto APP_VERSION_NUM = L"2.0.2.0";
+constexpr auto APP_VERSION_NUM = L"3.0.0.0";
 volatile sig_atomic_t APP_KILLED = 0;
 std::mutex mtx;
 char feedbackData[5] = { 0 }; // For sending rumble data back to joySender
@@ -88,7 +88,7 @@ int allGood; \
 UINT8 connection_error_count = 0; \
 char feedBackComp[5] = { 0 }; \
 char buffer[64] = { 0 }; \
-constexpr int buffer_size = sizeof(buffer); \
+int buffer_size = sizeof(buffer); \
 int bytesReceived = 0; \
 int op_mode = 0; \
 int client_timing = 0; \
@@ -233,21 +233,44 @@ void JOYRECEIVER_GET_MODE_AND_TIMING_FROM_BUFFER(const char* buffer, const int b
     errorOut.SetWidth(50); \
     errorOut.SetText(errorPointer); \
     errorOut.Draw();
+
+#define ALIVE_PACKET_SIGNALS_MAPPING() \
+    if(pkt->type == UDPConnection::PACKET_ALIVE){ \
+        bytesReceived = -WSAETIMEDOUT; \
+        reset = false; \
+    } 
+
 #else
 #define JR_PSP
+#define ALIVE_PACKET_SIGNALS_MAPPING()
 #endif
 
 #define JOYRECEIVER_PROCESS_SIGNAL_PACKET() \
 { \
+    bool reset = true; \
     UDPConnection::SIGPacket* pkt = (UDPConnection::SIGPacket*)buffer; \
     JR_PSP \
     if(pkt->type == UDPConnection::PACKET_HANGUP){ \
         break; \
     } \
-    /* Do not process as input report, jump to after_report */ \
-    goto after_report; \
+    ALIVE_PACKET_SIGNALS_MAPPING(); \
+    /* Do not process as input report, jump to receive: and get more data*/ \
+    if(reset) goto receive; \
 }
 
+// with Nagle off we sometimes receive partial packets
+#define JOYRECEIVER_GET_COMPLETE_PACKET() \
+{ \
+    int filled = bytesReceived; \
+    while (!APP_KILLED && filled) { \
+        bytesReceived = server.receive_data(buffer + filled, buffer_size - filled); \
+        if (bytesReceived < 1) break; \
+        filled += bytesReceived; \
+        if (filled == buffer_size) { \
+            filled = 0; \
+        } \
+    } \
+}
 
 #if DEVTEST
 // for visual on 6 axis data

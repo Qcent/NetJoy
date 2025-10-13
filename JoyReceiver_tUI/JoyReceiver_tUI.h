@@ -448,36 +448,40 @@ int JOYRECEIVER_tUI_WAIT_FOR_CLIENT_MAPPING(NetworkConnection& server, char* buf
     // loop
     while (!APP_KILLED) {
         // check on network traffic
-        bytesReceived = server.receive_data(buffer, buffer_size);
+        bytesReceived = server.receive_data(buffer, std::max(buffer_size, (int)sizeof(UDPConnection::SIGPacket)));
 
         //// IS UDP 'CONNECTION' ALIVE? /////
-        if (bytesReceived > 0 && bytesReceived != sizeof(UDPConnection::SIGPacket)) {
-            break; // recv'd a non udp signal packet
-        }
-        if (bytesReceived == sizeof(UDPConnection::SIGPacket) && UDP_COMMUNICATION) {
-            UDPConnection::SIGPacket* recvdPkt = (UDPConnection::SIGPacket*)buffer; 
-            if (recvdPkt->type == UDPConnection::PACKET_HANGUP){
-                bytesReceived = SOCKET_ERROR; // end connection
+        if (UDP_COMMUNICATION) {
+            if (bytesReceived > 0 && bytesReceived != sizeof(UDPConnection::SIGPacket)) {
+                break; // recv'd a non udp signal packet
             }
-            else if (recvdPkt->type == UDPConnection::PACKET_ALIVE) {
-                bytesReceived = -WSAEWOULDBLOCK;  // recv'd kepalive udp signal packet, cx confirmed
-                framesWithoutSignal = -1;
+            if (bytesReceived == sizeof(UDPConnection::SIGPacket)) {
+                UDPConnection::SIGPacket* recvdPkt = (UDPConnection::SIGPacket*)buffer;
+                if (recvdPkt->type == UDPConnection::PACKET_HANGUP) {
+                    bytesReceived = SOCKET_ERROR; // end connection
+                }
+                else if (recvdPkt->type == UDPConnection::PACKET_ALIVE) {
+                    bytesReceived = -WSAEWOULDBLOCK;  // recv'd kepalive udp signal packet, cx confirmed
+                    framesWithoutSignal = -1;
+                }
             }
-        }
-        if (UDP_COMMUNICATION && bytesReceived == -WSAEWOULDBLOCK) {
-            if (++framesWithoutSignal > 40) { // lost keep alive signal
-                bytesReceived = SOCKET_ERROR;
+            if (bytesReceived == -WSAEWOULDBLOCK) {
+                if (++framesWithoutSignal > 40) { // lost keep alive signal
+                    bytesReceived = SOCKET_ERROR;
+                }
             }
         }
         ////---------------------/////
-
+        else if (bytesReceived && bytesReceived != buffer_size) {
+            JOYRECEIVER_GET_COMPLETE_PACKET();
+        }
+        if (bytesReceived > -1) {
+            break;
+        }
         if (bytesReceived != -WSAEWOULDBLOCK) {
             // An error or disconnect occurred
             cleanUp();
             return -1;
-        }
-        if (bytesReceived > -1) {
-            break;
         }
         
         // do stuff here
