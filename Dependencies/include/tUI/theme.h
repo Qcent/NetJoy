@@ -1034,12 +1034,11 @@ void tUI_BUILD_MAIN_LOOP(Arguments& args) {
     else {
         g_screen.SetBackdrop(XBOX_Backdrop);
         QUITLINE = XBOX_QUIT_LINE;
-        BuildXboxFace();        
+        BuildXboxFace();   
     }
 
 #ifdef JOYSENDER_TUI
-    g_screen.AddButton(&mappingButton);
-
+    if (g_mode == 1) g_screen.AddButton(&mappingButton); 
     quitButton.SetPosition(consoleWidth / 2 - 5, QUITLINE);
     newColorsButton.SetPosition(consoleWidth / 2 - 8, QUITLINE - 3);
 
@@ -1047,6 +1046,7 @@ void tUI_BUILD_MAIN_LOOP(Arguments& args) {
     restartButton[1].SetPosition(CONSOLE_WIDTH / 2 - 8, QUITLINE - 1);
     restartButton[2].SetPosition(CONSOLE_WIDTH / 2 - 6, QUITLINE - 1);
     restartButton[3].SetPosition(CONSOLE_WIDTH / 2 + 6, QUITLINE - 1);
+    restartButtonCover.SetPosition(CONSOLE_WIDTH / 2 + 13, QUITLINE - 1);
     restartButtonCover.setLength(2);
     restartButtonCover.getText()[2] = L'\0';
 
