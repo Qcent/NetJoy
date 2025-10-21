@@ -58,10 +58,10 @@ void joystickSelectCallback(mouseButton& button);
 void newControllerColorsCallback(mouseButton& button);
 void printCurrentController(SDLJoystickData& activeGamepad);
 char IpInputLoop();
-int screenLoop(textUI& screen);
+inline int screenLoop(textUI& screen);
 int tUISelectJoystickDialog(SDLJoystickData& joystick);
 int tUISelectDS4Dialog(std::vector<HidDeviceInfo>devList, textUI& screen, int autoSelect);
-std::string tUIGetHostAddress(textUI& screen);
+std::string tUIGetHostAddress(SDLJoystickData& activeGamepad);
 void threadedEstablishConnection(NetworkConnection& client, Arguments& args, int& retVal);
 int tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonName>& inputList);
 int tUIRemapInputsScreen(SDLJoystickData& joystick);
@@ -713,7 +713,7 @@ int tUISelectJoystickDialog(SDLJoystickData& joystick) {
     output1.SetText(msgPointer1);
 
     // map from sellect screen
-    mouseButton remapSelectScreenButton(CONSOLE_WIDTH + 10, 8, 18, L"\t\t\t\t╔════════════╗◄───╢ MAP INPUTS ║\t\t\t\t╚════════════╝");
+    mouseButton remapSelectScreenButton(CONSOLE_WIDTH + 10, 8, 18, L"\t\t\t\t╔════════════╗◄───╢ MAP INPUTS ║\t\t\t\t╚════════════╝",88);
     remapSelectScreenButton.SetSettings(INACTIVE);
     remapSelectScreenButton.setCallback([](mouseButton& btn) {
         if (btn.Settings() & INACTIVE) return;
@@ -761,6 +761,9 @@ int tUISelectJoystickDialog(SDLJoystickData& joystick) {
 
         };
     auto draw_screen = [&]() {
+        g_screen.RemoveButtonById(88);
+        tUI_DRAW_BG_AND_BUTTONS();
+        g_screen.AddButton(&remapSelectScreenButton);
         // get pattern behind map input button
         if (~(g_status & tUI_THEME_af) || !loadedBgFill) {
             for (int i = 0; i < LINES_TO_FILL; i++) {
@@ -769,7 +772,6 @@ int tUISelectJoystickDialog(SDLJoystickData& joystick) {
             }
             loadedBgFill = true;
         }
-        tUI_DRAW_BG_AND_BUTTONS();
         output1.Draw();
         if (numJoysticks) {
             setCursorPosition(START_COL + 7, 17);
@@ -857,7 +859,7 @@ int tUISelectJoystickDialog(SDLJoystickData& joystick) {
 
         tUI_UPDATE_INTERFACE(re_color, draw_screen);
         JOYSENDER_tUI_ANIMATE_FOOTER();
-
+        
         if (MAPPING_FLAG > 199) {
             int stickIdx = MAPPING_FLAG-200;
             if (ConnectToJoystick(stickIdx, joystick)) {
@@ -1346,7 +1348,7 @@ std::string tUIGetHostAddress(SDLJoystickData& activeGamepad) {
         for (int i = 0; i < 4; ++i) {
             if (octet[i].Status() & ACTIVE_INPUT) {
                 validIP = buildAndTestIpAddress();
-                octNum = i;        
+                octNum = i;
             }
         }
         setOctetCursorPos();
@@ -2282,6 +2284,7 @@ void JOYSENDER_tUI_INIT_UI() {
     newColorsButton.setCallback(&newControllerColorsCallback);
     quitButton.SetPosition(10, 17);
 
+    if (HOLIDAY_FLAG) tUI_LOAD_HOLIDAY();
 }
 
 int JOYSENDER_tUI_SELECT_JOYSTICK(SDLJoystickData& activeGamepad, Arguments& args, int& allGood) {

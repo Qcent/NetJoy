@@ -341,15 +341,20 @@ int main(int argc, char **argv)
     // Set Version into window title
     wchar_t winTitle[30] = { 0 };
     wcscpy_s(winTitle, L"JoySender++ ");
-    wcscat_s(winTitle, UDP_COMMUNICATION ? L"UPD " : L"TCP ");
     wcscat_s(winTitle, APP_VERSION_NUM);
+    wcscat_s(winTitle, UDP_COMMUNICATION ? L" UPD" : L" TCP");
     SetConsoleTitleW(winTitle);
 
-    // Get the console input handle to enable mouse input
+    DWORD inMode = 0, outMode = 0;
+    DetermineConsoleMode(inMode, outMode);
+    if (CONSOLE_MODE == CONSOLE_VT_MODE) {
+        /* VT NOT FULLY WORKING */
+        return prompt_to_relaunch_with_consoleHost();
+    }
+
     HANDLE console = GetStdHandle(STD_INPUT_HANDLE);
-    DWORD mode;
-    GetConsoleMode(console, &mode);                     // Disable Quick Edit Mode
-    SetConsoleMode(console, ENABLE_MOUSE_INPUT | mode & ~ENABLE_QUICK_EDIT_MODE);
+    // Disable Quick Edit Mode
+    SetConsoleMode(console,inMode & ~ENABLE_QUICK_EDIT_MODE);
 
     int err = InitJoystickInput();
     if (err) return -1;

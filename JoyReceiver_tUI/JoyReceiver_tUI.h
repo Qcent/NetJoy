@@ -212,22 +212,16 @@ void threadedAwaitConnection(NetworkConnection& server, int& retVal, char* clien
     }
 }
 
-void SET_tUI_CONSOLE_MODE(){ 
-    /* Get the console input handle to enable mouse input */ 
-    g_hConsoleInput = GetStdHandle(STD_INPUT_HANDLE); 
-    DWORD mode; 
-    GetConsoleMode(g_hConsoleInput, &mode); 
-    /* Disable Quick Edit Mode */ 
-    SetConsoleMode(g_hConsoleInput, ENABLE_MOUSE_INPUT | (mode & ~ENABLE_QUICK_EDIT_MODE)); 
+void JOYRECEIVER_SET_tUI_CONSOLE_MODE(){
 
-    /* Set the console to UTF-8 mode */ 
-    auto _ = _setmode(_fileno(stdout), _O_U8TEXT); 
+    if (!tUI_INIT_CONSOLE())
+        APP_KILLED = true;
 
     /* Set Version into window title */ 
     wchar_t winTitle[30]; 
     wcscpy_s(winTitle, L"JoyReceiver++ tUI "); 
-    wcscat_s(winTitle, UDP_COMMUNICATION ? L"UPD " : L"TCP ");
-    wcscat_s(winTitle, APP_VERSION_NUM); 
+    wcscat_s(winTitle, APP_VERSION_NUM);
+    wcscat_s(winTitle, UDP_COMMUNICATION ? L" UPD" : L" TCP");
     SetConsoleTitleW(winTitle); 
 
     hideConsoleCursor(); 
@@ -250,6 +244,9 @@ void JOYRECEIVER_INIT_tUI_SCREEN(){
     GET_NEW_COLOR_SCHEME(); 
     errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2); 
     fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
+
+    HOLIDAY_FLAG = tUI_GET_HOLIDAY_FLAG();
+    if (HOLIDAY_FLAG) tUI_LOAD_HOLIDAY();
 } 
 
 void JOYRECEIVER_tUI_BUILD_CONNECTION() {

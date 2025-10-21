@@ -40,20 +40,24 @@ static void overwriteLatency(const std::string& text) {
 
 
 int main(int argc, char* argv[]) {
-    // Get the console input handle to disable Quick Edit Mode
-    HANDLE console = GetStdHandle(STD_INPUT_HANDLE);
-    DWORD mode;
-    GetConsoleMode(console, &mode);                    
-    SetConsoleMode(console, mode & ~ENABLE_QUICK_EDIT_MODE);
-
     JOYRECEIVER_INIT_VARIABLES();
 
     // Set Version into window title
     wchar_t winTitle[30] = { 0 };
     wcscpy_s(winTitle, L"JoyReceiver++ ");
-    wcscat_s(winTitle, args.udp ? L"UPD " : L"TCP ");
     wcscat_s(winTitle, APP_VERSION_NUM);
+    wcscat_s(winTitle, args.udp ? L" UPD" : L" TCP");
     SetConsoleTitleW(winTitle);
+
+    // Get the console input handle to disable Quick Edit Mode
+    HANDLE console = GetStdHandle(STD_INPUT_HANDLE);
+    DWORD inMode = 0, outMode = 0;
+    DetermineConsoleMode(inMode, outMode);
+    if (CONSOLE_MODE == CONSOLE_VT_MODE) {
+        /* VT NOT FULLY WORKING */
+        return prompt_to_relaunch_with_consoleHost();
+    }
+    SetConsoleMode(console, inMode & ~ENABLE_QUICK_EDIT_MODE);
 
     auto do_fps_counting = [&fps_counter](int report_frequency = 30) {
         if (fps_counter.increment_frame_count() >= report_frequency) {

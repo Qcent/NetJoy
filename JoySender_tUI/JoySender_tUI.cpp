@@ -327,23 +327,14 @@ int main(int argc, char** argv)
     int err = InitJoystickInput();
     if (err) return -1;
 
-    // Get the console input handle to enable mouse input
-    g_hConsoleInput = GetStdHandle(STD_INPUT_HANDLE);
-
-    DWORD mode;
-    GetConsoleMode(g_hConsoleInput, &mode);                     // Disable Quick Edit Mode
-    SetConsoleMode(g_hConsoleInput, ENABLE_MOUSE_INPUT | mode & ~ENABLE_QUICK_EDIT_MODE);
-
-    // Set the console to UTF-8 mode
-    err = _setmode(_fileno(stdout), _O_U8TEXT);
-    if (err == -1) RUN = -1;
-
     // Set Version into window title
-    wchar_t winTitle[33] = {0};
+    wchar_t winTitle[33] = { 0 };
     wcscpy_s(winTitle, L"JoySender++ tUI ");
-    wcscat_s(winTitle, UDP_COMMUNICATION ? L"UPD ":L"TCP ");
     wcscat_s(winTitle, APP_VERSION_NUM);
+    wcscat_s(winTitle, UDP_COMMUNICATION ? L" UPD" : L" TCP");
     SetConsoleTitleW(winTitle);
+
+    if (!tUI_INIT_CONSOLE()) RUN = -1;
 
     // Set Version into backdrop
     {
@@ -354,6 +345,8 @@ int main(int argc, char** argv)
             JoySendMain_Backdrop[versionStartPoint + i] = APP_VERSION_NUM[i];
         }
     }
+
+    HOLIDAY_FLAG = tUI_GET_HOLIDAY_FLAG();
 
     loadIPDataFromFile();
 

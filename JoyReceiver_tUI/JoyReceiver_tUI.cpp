@@ -45,15 +45,14 @@ int main(int argc, char* argv[]) {
     // Register the signal handler
     std::signal(SIGINT, signalHandler);
 
+    JOYRECEIVER_SET_tUI_CONSOLE_MODE();
     JOYRECEIVER_INIT_VIGEM_BUS();
     if (APP_KILLED) {
         return -1;
     }
     JOYRECEIVER_DETERMINE_IPS_START_SERVER();
-
-    // Set Up Console
-    SET_tUI_CONSOLE_MODE();
     JOYRECEIVER_INIT_tUI_SCREEN();
+
     ///********************************
     // Make Connection -> Receive Input Loop
     while (!APP_KILLED) {
