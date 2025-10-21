@@ -63,9 +63,9 @@ struct ColorScheme {
 
 // Generate a random integer from r1 - r2 inclusive
 int generateRandomInt(int r1, int r2) {
-	// Create a random number generator engine
-	std::random_device rd;
-	std::mt19937 gen(rd());
+	// Create a random number generator engine ...once(static)
+	static std::random_device rd;
+	static std::mt19937 gen(rd());
 	// Create a distribution to generate integers between r1 and r2
 	std::uniform_int_distribution<> dist(r1, r2);
 	// Generate and return a random number
