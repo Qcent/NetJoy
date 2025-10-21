@@ -88,6 +88,10 @@ bool LaunchInConsoleHost(){
     return false;
 }
 bool prompt_to_relaunch_with_consoleHost() {
+#if DEVTEST
+    return true; // VS console has VT support and will trigger this prompt
+#endif
+
     int result = MessageBoxW(
         nullptr,                                       // owner (none)
         L"Windows Terminal not currently supported. \r\n\
