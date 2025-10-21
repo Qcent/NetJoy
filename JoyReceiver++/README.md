@@ -1,6 +1,5 @@
-# JoyReceiver++
-JoyReceiver++ is a console application that receives and emulates joystick data over TCP/IP. It allows you to seamlessly control a joystick connected to a remote machine, providing an immersive gaming experience.
-
+# JoyReceiver++ 3
+JoyReceiver++ is a console application that receives and emulates joystick data over UDP or TCP. It allows you to seamlessly control a joystick connected to a remote machine, providing an immersive gaming experience.
 
 ## Table of Contents
 - [Requirements](#requirements)
@@ -20,7 +19,7 @@ Before using JoyReceiver++, make sure you have installed the ViGEm Bus Driver:
 
 To use JoyReceiver++:
 - Simply run the JoyReceiver++ executable.
-- JoyReceiver++ will start listening for incoming joystick data on the default port (5000).
+- JoyReceiver++ will start listening for incoming joystick data on the default port (5000) UDP.
 - Once a connection is received, gamepad emulation will begin using the ViGEm driver.
 
 ### With Command-Line Parameters
@@ -28,6 +27,8 @@ JoyReceiver++ provides command-line parameters for advanced settings and customi
 
     -p, --port <PORT>: Sets the port number to run JoyReceiver++ on for communication with the client/sender.
     -l, --latency: Enables the display of latency output during communication.
+    -t, --tcp: Use TCP protocol.
+    -u, --udp: Use UDP protocol. (default)
     -h, --help: Displays the help message with information on how to use JoyReceiver++ and its available options.
 
 By default, JoyReceiver++ uses port 5000 for communication. If you wish to use a different port, specify it using the -p/--port option.
@@ -51,13 +52,18 @@ To specify the port to listen on and output latency, use the `-p/--port` and '-l
 JoyReceiver++ -p 8080 -l
 ```
 
+To specify port 3000 and TCP communication, use the `-p/--port` and `-t/--tcp` options:
+
+```
+JoyReceiver++ -p 3000 -t
+```
 **Note:** You can safely quit the program at any time by pressing `Ctrl + C` in the console window.
 
 
 ## License
 MIT Licence
 
-Copyright (c) 2024 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2025 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

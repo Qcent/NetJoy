@@ -97,7 +97,7 @@ Arguments parse_arguments(int argc, char* argv[]) {
     args.tcp = result["tcp"].as<bool>();
 
     args.udp = args.tcp ? false : true;
-    if (args.fps == 0) args.fps = (args.udp ?  60 : 30); // default 60fps for udp, 30/tcp
+    if (args.fps == 0) args.fps = (args.udp ?  80 : 60); // default 80fps for udp, 60/tcp
 
     return args;
 }

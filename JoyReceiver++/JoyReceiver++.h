@@ -9,7 +9,7 @@
 #pragma comment(lib, "VIGEmClient.lib")
 
 constexpr auto APP_NAME = "NetJoy";
-constexpr auto APP_VERSION_NUM = L"3.0.0.0";
+constexpr auto APP_VERSION_NUM = L"3.0.3.0";
 volatile sig_atomic_t APP_KILLED = 0;
 std::mutex mtx;
 char feedbackData[5] = { 0 }; // For sending rumble data back to joySender
@@ -276,13 +276,46 @@ void JOYRECEIVER_GET_MODE_AND_TIMING_FROM_BUFFER(const char* buffer, const int b
 // for visual on 6 axis data
 void output_extra_ds4_data(DS4_REPORT_EX& report) {
     static uint8_t count = 0;
+
+    static int maxX = 0, maxY = 0, maxZ = 0;
+    static int minX = 0, minY = 0, minZ = 0;
+    static int maxXg = 0, maxYg = 0, maxZg = 0;
+    static int minXg = 0, minYg = 0, minZg = 0;
+
+    // --- Accelerometer ---
+    if (report.Report.wAccelX > maxX) maxX = report.Report.wAccelX;
+    else if (report.Report.wAccelX < minX) minX = report.Report.wAccelX;
+
+    if (report.Report.wAccelY > maxY) maxY = report.Report.wAccelY;
+    else if (report.Report.wAccelY < minY) minY = report.Report.wAccelY;
+
+    if (report.Report.wAccelZ > maxZ) maxZ = report.Report.wAccelZ;
+    else if (report.Report.wAccelZ < minZ) minZ = report.Report.wAccelZ;
+
+    // --- Gyroscope ---
+    if (report.Report.wGyroX > maxXg) maxXg = report.Report.wGyroX;
+    else if (report.Report.wGyroX < minXg) minXg = report.Report.wGyroX;
+
+    if (report.Report.wGyroY > maxYg) maxYg = report.Report.wGyroY;
+    else if (report.Report.wGyroY < minYg) minYg = report.Report.wGyroY;
+
+    if (report.Report.wGyroZ > maxZg) maxZg = report.Report.wGyroZ;
+    else if (report.Report.wGyroZ < minZg) minZg = report.Report.wGyroZ;
+
+    if (checkKey('G', IS_PRESSED)) {
+        maxX = 0, maxY = 0, maxZ = 0;
+        minX = 0, minY = 0, minZ = 0;
+        maxXg = 0, maxYg = 0, maxZg = 0;
+        minXg = 0, minYg = 0, minZg = 0;
+    }
+
     if ((++count % 10) > 0) return;
 
 #if defined(NetJoyTUI) 
     SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), { 0,0 });
-    std::wcout << L"X: " << report.Report.wAccelX << L"   \tXg: " << report.Report.wGyroX << L"       \r\n"; // pitch 
-    std::wcout << L"Y: " << report.Report.wAccelY << L"   \tYg: " << report.Report.wGyroY << L"       \r\n"; // yaw
-    std::wcout << L"Z: " << report.Report.wAccelZ << L"   \tZg: " << report.Report.wGyroZ << L"       \r\n"; // roll
+    std::wcout << L"X: " << report.Report.wAccelX << L" \tXg: " << report.Report.wGyroX << L"\tmax: " << maxX << L"  min: " << minX << L"  maxG: " << maxXg << L"  minG: " << minXg << L"       \r\n"; // pitch 
+    std::wcout << L"Y: " << report.Report.wAccelY << L" \tYg: " << report.Report.wGyroY << L"\tmax: " << maxY << L"  min: " << minY << L"  maxG: " << maxYg << L"  minG: " << minYg << L"       \r\n"; // yaw
+    std::wcout << L"Z: " << report.Report.wAccelZ << L" \tZg: " << report.Report.wGyroZ << L"\tmax: " << maxZ << L"  min: " << minZ << L"  maxG: " << maxZg << L"  minG: " << minZg << L"       \r\n"; // roll
 #else
     repositionConsoleCursor(2, 0);
     std::cout << "X: " << report.Report.wAccelX << "     \tXg: " << report.Report.wGyroX << "   pitch    \n";
