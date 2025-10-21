@@ -434,6 +434,10 @@ private:
         ds4_report.Report.bThumbRY = static_cast<uint8_t>((rawRightY * 255) / 65535);
     }
 
+    inline static int16_t read_int16_be(const uint8_t* p) noexcept {
+        // reinterpret as unsigned so shifts behave well
+        return *reinterpret_cast<const uint16_t*>(p);
+    }
     inline static int16_t read_int16_le(const uint8_t* p) noexcept {
         // reinterpret as unsigned so shifts behave well
         uint16_t val = *reinterpret_cast<const uint16_t*>(p);
@@ -450,18 +454,19 @@ private:
         constexpr int sampleCount = 3;
         constexpr int sampleSize = 12; // 6x int16 per sample
 
-        //int16_t accelX = 0, accelY = 0, accelZ = 0, xNULL = 0;
-        //int16_t gyroX = 0, gyroY = 0, gyroZ = 0;
+#if 1 //  Average the three samples in the report
+        int accelX = 0, accelY = 0, accelZ = 0, xNULL = 0;
+        int gyroX = 0, gyroY = 0, gyroZ = 0;
 
-       // for (int i = 0; i < sampleCount; ++i) {  //## removing averaging the 3 samples, for now
-        const uint8_t* sample = data + 13;// +i * sampleSize;
-            /*
-            int16_t ax = static_cast<int16_t>(sample[0] | (sample[1] << 8));
-            int16_t ay = static_cast<int16_t>(sample[2] | (sample[3] << 8));
-            int16_t az = static_cast<int16_t>(sample[4] | (sample[5] << 8));
-            int16_t gx = static_cast<int16_t>(sample[6] | (sample[7] << 8));
-            int16_t gy = static_cast<int16_t>(sample[8] | (sample[9] << 8));
-            int16_t gz = static_cast<int16_t>(sample[10] | (sample[11] << 8));
+        for (int i = 0; i < sampleCount; ++i) {  //## removing averaging the 3 samples, for now
+            const uint8_t* sample = data + 13 + i * sampleSize;
+            
+            int16_t ax = read_int16_be(sample + 0);
+            int16_t ay = read_int16_be(sample + 2);
+            int16_t az = read_int16_be(sample + 4);
+            int16_t gx = read_int16_be(sample + 6);
+            int16_t gy = read_int16_be(sample + 8);
+            int16_t gz = read_int16_be(sample + 10);
             
             accelX += ax;
             accelY += ay;
@@ -469,15 +474,7 @@ private:
             gyroX += gx;
             gyroY += gy;
             gyroZ += gz;
-            */
-
-        int16_t accelX = read_int16_le(sample + 0);
-        int16_t accelY = read_int16_le(sample + 2);
-        int16_t accelZ = read_int16_le(sample + 4);
-        int16_t gyroX = read_int16_le(sample + 6);
-        int16_t gyroY = read_int16_le(sample + 8);
-        int16_t gyroZ = read_int16_le(sample + 10);
-        /* }
+         }
         
         // Average
         accelX /= sampleCount;
@@ -487,23 +484,51 @@ private:
         gyroY /= sampleCount;
         gyroZ /= sampleCount;
 
-        */
+#else // No averaging the 3 samples
+        const uint8_t* sample = data + 13
+
+        int16_t accelX = read_int16_be(sample + 0);
+        int16_t accelY = read_int16_be(sample + 2);
+        int16_t accelZ = read_int16_be(sample + 4);
+        int16_t gyroX = read_int16_be(sample + 6);
+        int16_t gyroY = read_int16_be(sample + 8);
+        int16_t gyroZ = read_int16_be(sample + 10);
+
+#endif
+
        
         // Convert
+#if 0
+        // PITCH        //## extra math (calibration calulations) not working
+        ds4_report.Report.wAccelX = static_cast<int16_t>(-(accelY * cal.raw.accelScaleY) / cal.accel_divisor[1]); // left/right tilt
+        // YAW
+        ds4_report.Report.wAccelY = static_cast<int16_t>((accelZ * cal.raw.accelScaleZ) / cal.accel_divisor[2]);  // back/forward tilt
+        // ROLL
+        ds4_report.Report.wAccelZ = static_cast<int16_t>(-(accelX * cal.raw.accelScaleX) / cal.accel_divisor[0]);  // left/right rotation
 
+        // PITCH
+        ds4_report.Report.wGyroX = mult_frac(static_cast<int16_t>(JC_IMU_PREC_RANGE_SCALE * -(gyroY - cal.raw.gyroOffsetY)), cal.raw.gyroScaleY, cal.gyro_divisor[1]);
+        // YAW
+        ds4_report.Report.wGyroY = mult_frac(static_cast<int16_t>(JC_IMU_PREC_RANGE_SCALE * (gyroZ - cal.raw.gyroOffsetZ)), cal.raw.gyroScaleZ, cal.gyro_divisor[0]);
+        // ROLL
+        ds4_report.Report.wGyroZ = mult_frac(static_cast<int16_t>(JC_IMU_PREC_RANGE_SCALE * -(gyroX - cal.raw.gyroOffsetX)), cal.raw.gyroScaleX, cal.gyro_divisor[2]);
+
+#else
         // PITCH        //## passing the raw values is working, removing extra math (calibration calulations) for now
         ds4_report.Report.wAccelX = -accelY;// static_cast<int16_t>(-(accelY * cal.raw.accelScaleY) / cal.accel_divisor[1]); // left/right tilt
         // YAW
         ds4_report.Report.wAccelY = accelZ;//static_cast<int16_t>((accelX * cal.raw.accelScaleX) / cal.accel_divisor[0]);  // back/forward tilt
         // ROLL
-        ds4_report.Report.wAccelZ = accelX;//static_cast<int16_t>((accelZ * cal.raw.accelScaleZ) / cal.accel_divisor[2]);  // left/right rotation
+        ds4_report.Report.wAccelZ = -accelX;//static_cast<int16_t>((accelZ * cal.raw.accelScaleZ) / cal.accel_divisor[2]);  // left/right rotation
 
         // PITCH
         ds4_report.Report.wGyroX = -gyroY;// mult_frac(static_cast<int16_t>(JC_IMU_PREC_RANGE_SCALE * -(gyroY - cal.raw.gyroOffsetY)), cal.raw.gyroScaleY, cal.gyro_divisor[1]);
         // YAW
         ds4_report.Report.wGyroY = gyroZ;//mult_frac(static_cast<int16_t>(JC_IMU_PREC_RANGE_SCALE * (gyroX - cal.raw.gyroOffsetX)), cal.raw.gyroScaleX, cal.gyro_divisor[0]);
         // ROLL
-        ds4_report.Report.wGyroZ = gyroX;//mult_frac(static_cast<int16_t>(JC_IMU_PREC_RANGE_SCALE * (gyroZ - cal.raw.gyroOffsetZ)), cal.raw.gyroScaleZ, cal.gyro_divisor[2]);
+        ds4_report.Report.wGyroZ = -gyroX;//mult_frac(static_cast<int16_t>(JC_IMU_PREC_RANGE_SCALE * (gyroZ - cal.raw.gyroOffsetZ)), cal.raw.gyroScaleZ, cal.gyro_divisor[2]);
+#endif
+
 
 #if DEVTEST && defined(NetJoyTUI) // for visual on 6 axis data
         static size_t frames = 0;
@@ -886,6 +911,7 @@ private:
 
     bool parseImuCalibration(ImuCalibrationData& imu, const std::vector<uint8_t>& raw) {
         if (raw.size() == 0) return false;
+#if 0
         imu.gyroOffsetX = static_cast<int16_t>(raw[0] | (raw[1] << 8));
         imu.gyroOffsetY = static_cast<int16_t>(raw[2] | (raw[3] << 8));
         imu.gyroOffsetZ = static_cast<int16_t>(raw[4] | (raw[5] << 8));
@@ -901,7 +927,27 @@ private:
         imu.accelScaleX = static_cast<int16_t>(raw[18] | (raw[19] << 8));
         imu.accelScaleY = static_cast<int16_t>(raw[20] | (raw[21] << 8));
         imu.accelScaleZ = static_cast<int16_t>(raw[22] | (raw[23] << 8));
-        
+             
+#else
+        const uint8_t* sample = raw.data();
+
+        imu.gyroOffsetX = read_int16_le(sample + 0);
+        imu.gyroOffsetY = read_int16_le(sample + 2);
+        imu.gyroOffsetZ = read_int16_le(sample + 4);
+
+        imu.accelOffsetX = read_int16_le(sample + 6);
+        imu.accelOffsetY = read_int16_le(sample + 8);
+        imu.accelOffsetZ = read_int16_le(sample + 10);
+
+        imu.gyroScaleX = read_int16_le(sample + 12);
+        imu.gyroScaleY = read_int16_le(sample + 14);
+        imu.gyroScaleZ = read_int16_le(sample + 16);
+
+        imu.accelScaleX = read_int16_le(sample + 18);
+        imu.accelScaleY = read_int16_le(sample + 20);
+        imu.accelScaleZ = read_int16_le(sample + 22);
+#endif
+
         return true;
     }
 
