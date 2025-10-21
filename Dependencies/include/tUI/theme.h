@@ -33,6 +33,11 @@ extern void restartModeCallback(mouseButton&);
 extern void restartStatusCallback(mouseButton&);
 extern void mappingButtonCallback(mouseButton&);
 void tUI_CLEAR_SCREEN(WORD col);
+void tUI_DRAW_TITLE_AND_VERSION();
+mouseButton* tUI_GET_HOLIDAY_IMAGE(uint8_t size);
+
+constexpr int HOLIDAY_BASE_ID = 69400;
+textUI* holidayImages = nullptr;
 
 // ^*%*^*&^*%*^*&^*%*^*&^*%*^*&^*%*^*&^*%*^*&^*%*^*&^*%*^*&^
 // tUI Helper Defines
@@ -237,6 +242,15 @@ tUITheme g_theme, loadedTheme;
 DWORD g_status = 0;
 int g_clubPos = 0;
 
+#define tUI_DRAW_HOLIDAY_IMAGES() {\
+    mouseButton* tmp = tUI_GET_HOLIDAY_IMAGE(3); \
+    tmp->Draw(); \
+    tmp = tUI_GET_HOLIDAY_IMAGE(2); \
+    tmp->Draw(); \
+    cheer = true; \
+    tUI_DRAW_TITLE_AND_VERSION(); \
+}
+
 
 WORD tUI_FLAGS() {
     return g_status & (DIAMONDS_a | BORDER_EGG_a | HEART_EGG_a | PTRN_EGG_b);
@@ -330,6 +344,10 @@ tUIColorPkg GET_EGG_COLOR() {
 void COLOR_EGGS() {
     tUIColorPkg colors = GET_EGG_COLOR();
     g_screen.SetButtonsColorsById(colors, EGG_IDs);
+
+    if (holidayImages != nullptr) {
+        holidayImages->SetButtonsColors(colors);
+    }
 }
 
 void RESTORE_BORDER() {
@@ -515,6 +533,13 @@ void CLEAN_EGGS() {
     g_screen.DeleteButton(45);
     g_screen.DeleteButton(46);
     g_screen.DeleteButton(47);
+
+    if (holidayImages != nullptr) {
+        holidayImages->DeleteButtons({ 69400, 69401, 69402, 69403, 69404, 69405, 69406 });
+        delete holidayImages;
+        holidayImages = nullptr;
+    }
+
 }
 
 // loads clubs(41) on heap and into g_screen
@@ -772,12 +797,25 @@ void tUI_THEME_BUTTONS() {
 }
 
 void tUI_DRAW_BG_AND_BUTTONS() {
+    bool cheer = false;
     if (g_status & PTRN_EGG_b) {
         setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
         g_screen.DrawBackdropClearWhitespace();
+
+        if (!cheer && HOLIDAY_FLAG) {
+            tUI_DRAW_HOLIDAY_IMAGES();
+        }
+
         setCursorPosition(50, 17);
-        std::wcout << L"©░Quinnco.░2024";
+        std::wcout << L"©░Quinnco.░2025";
     }
+
+    if (!cheer && HOLIDAY_FLAG) {
+        tUI_DRAW_HOLIDAY_IMAGES();
+        setCursorPosition(50, 17);
+        std::wcout << L"© Quinnco. 2025";
+    }
+
     g_screen.DrawButtons();
 }
 
@@ -959,7 +997,7 @@ void tUI_DRAW_BORDER() {
 }
 
 void tUI_DRAW_NO_BORDER() {
-    // draw top
+    //draw top
     printSubsetOfBuffer({ 0,0 }, { 0,0,74,2 }, { 0,0,73,2 }, XBOX_Backdrop, true);
     //draw left 
     printSubsetOfBuffer({ 0,2 }, { 0,0,74,21 }, { 0,2,5,18 }, XBOX_Backdrop, true);
@@ -1144,4 +1182,176 @@ void tUI_THEME_RESTART() {
         g_status &= ~tUI_RESTART_f;
         g_status |= REDRAW_tUI_f | RECOL_tUI_f;
     }
+}
+
+
+int tUI_GET_HOLIDAY_FLAG() {
+    std::time_t t = std::time(nullptr);
+    std::tm localTime{};
+    localtime_s(&localTime, &t);
+
+    int day = localTime.tm_mday;
+    int month = localTime.tm_mon + 1;
+    int value = (month * 100) + day;
+
+    return (g_HOLIDAYS.count(value) > 0) ? value : 0;
+}
+ 
+void tUI_DRAW_TITLE_AND_VERSION() {
+#ifdef JOYSENDER_TUI
+    setCursorPosition(9, 3);
+    std::wcout << L"JoySender++";
+    setCursorPosition(21, 3);
+    std::wcout << L"tUI";
+    setCursorPosition(25, 3);
+    std::wcout << L"v" << APP_VERSION_NUM;
+#else
+    setCursorPosition(9, 3);
+    std::wcout << L"JoyReceiver++";
+    setCursorPosition(23, 3);
+    std::wcout << L"tUI";
+    setCursorPosition(27, 3);
+    std::wcout << L"v" << APP_VERSION_NUM;
+#endif
+}
+
+void tUI_LOAD_HOLIDAY() {
+
+    struct THREE_IMAGES {
+        wchar_t* img[3];
+    };
+    struct TWO_IMAGES {
+        wchar_t* img[2];
+    };
+    wchar_t BLANK_IMAGE[1] = L"";
+
+    // id's 69400-69406 reserved for heap allocated holiday images
+    int idNum = HOLIDAY_BASE_ID;
+
+    // loads a full set of holiday imagery into heap allocated mouseButtons
+    auto Set_Holiday_Images = [&](THREE_IMAGES lg, TWO_IMAGES md /*, TWO_IMAGES sm*/, COORD lgPos, uint8_t lgWidth, COORD mdPos, uint8_t mdWidth) {
+        // three large images
+        for (int i = 0; i < 3; i++) {
+            mouseButton* existing = holidayImages->GetButtonById(idNum);
+            mouseButton* largeImage = existing ? existing : new mouseButton(lgPos.X, lgPos.Y, lgWidth, lg.img[i]);
+            largeImage->SetId(idNum++);
+            holidayImages->AddButton(largeImage);
+        }
+
+        // two medium images 
+        for (int i = 0; i < 2; i++) {
+            mouseButton* existing = holidayImages->GetButtonById(idNum);
+            mouseButton* mediumImage = existing ? existing : new mouseButton(mdPos.X, mdPos.Y, mdWidth, md.img[i]);
+            mediumImage->SetId(idNum++);
+            holidayImages->AddButton(mediumImage);
+        }
+
+        // two small images -- not used...
+        /*
+        for (int i = 0; i < 2; i++) {
+            mouseButton* existing = holidayImages->GetButtonById(idNum);
+            mouseButton* smallImage = existing ? existing : new mouseButton(1, 2, 32, sm.img[i]);
+            smallImage->SetId(idNum++);
+            holidayImages->AddButton(smallImage);
+        }
+        */
+
+        };
+
+    //if (holidayImages != nullptr) return; // use these 
+    //if (holidayImages->GetButtonById(idNum)) return; // for safety
+
+    if (holidayImages == nullptr) {
+        holidayImages = new textUI();
+    }
+
+    switch (HOLIDAY_FLAG){
+
+    case 1: {  // TESTING
+        
+        Set_Holiday_Images(
+            THREE_IMAGES{ VHEART_1, VHEART_2, VHEART_1 },
+            TWO_IMAGES{ BLANK_IMAGE, BLANK_IMAGE },
+            { 32,2 }, 33, { 5,6 }, 1
+        );
+
+       
+    }break;
+
+    case VALENTINES_DAY: { 
+        Set_Holiday_Images(
+            THREE_IMAGES{ VHEART_1, VHEART_2, VHEART_1 },
+            TWO_IMAGES{ BLANK_IMAGE, BLANK_IMAGE },
+            { 32,2 }, 33, { 0,0 }, 1
+        );
+    }break;
+
+    case ST_PATRICKS_DAY: {
+        Set_Holiday_Images(
+            THREE_IMAGES{ LEPERCHAUN, POT_O_GOLD, ST_PATS_HAT },
+            TWO_IMAGES{ SHAMROCK_1, SHAMROCK_2 },
+            { 3,2 }, 32, { 35,0 }, 36
+        );
+    }break;
+
+    case APRIL_TWENTY_DAY: {
+        Set_Holiday_Images(
+            THREE_IMAGES{ WEED_BANNER, WEED_LEAF, WEED_LEAF },
+            TWO_IMAGES{ BLANK_IMAGE, LIGHTER_MEDUIM },
+            { 28,2 }, 38, { 10,6 }, 10
+        );
+    }break;
+
+    case CANADA_DAY: {
+        Set_Holiday_Images(
+            THREE_IMAGES{ VIOLA_DESMOND, VIOLA_DESMOND, LOUIS_RIEL },
+            TWO_IMAGES{ MAPLELEAF_MEDIUM, BEAVER_MEDIUM },
+            { 32,1 }, 37, { 5,6 }, 30
+        );
+    }break;
+
+    case NEVER_FORGET_DAY: {
+        Set_Holiday_Images(
+            THREE_IMAGES{ NINE_11, BUSH_LARGE, NINE_11 },
+            TWO_IMAGES{ BLANK_IMAGE, BLANK_IMAGE },
+            { 3,1 }, 67, { 0,0 }, 1
+        );
+    }break;
+
+    case HALLOWEEN_DAY: {
+        Set_Holiday_Images(
+            THREE_IMAGES{ GHOST_LARGE, SKULL_LARGE, PUMPKIN_LARGE },
+            TWO_IMAGES{ BAT_MEDIUM, CREEP_MEDIUM },
+            { 38,2 }, 33, { 6,6 }, 21
+        );
+    }break;
+
+    case CHRISTMAS_DAY: {
+        Set_Holiday_Images(
+            THREE_IMAGES{ GIFT_LARGE, REINDEER_LARGE, CHRISTMAS_TREE },
+            TWO_IMAGES{ SANTA_MEDIUM, SNOWFLAKE_MEDIUM },
+            { 31,2 }, 41, { 5,2 }, 34
+        );
+    }break;
+
+    default:
+        break;
+    }
+}
+
+mouseButton* tUI_GET_HOLIDAY_IMAGE(uint8_t size) {
+    if (holidayImages == nullptr) return nullptr;
+
+    int id = HOLIDAY_BASE_ID;
+    if (size == 3) { // Large
+        id += generateRandomInt(0, 2);
+    }
+    else if (size == 2) { // Medium
+        id += generateRandomInt(3, 4);
+    }
+    else if (size == 1) { // Small
+        id += generateRandomInt(5, 6);
+    }
+
+    return holidayImages->GetButtonById(id);
 }
