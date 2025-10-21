@@ -1,5 +1,5 @@
-# JoySender++
-JoySender++ is a console application that enables you to send joystick data over TCP/IP to a host/server. It simplifies the process of remote joystick control, allowing you to enjoy gaming experiences on a different machine within a local network or even over the internet. \
+# JoySender++ 3
+JoySender++ is a console application that enables you to send joystick data over UDP or TCP, to a host/server. It simplifies the process of remote joystick control, allowing you to enjoy gaming experiences on a different machine within a local network or even over the internet. \
 It runs in two modes: 
 
 **Mode 1:** 
@@ -7,6 +7,7 @@ It runs in two modes:
 
 **Mode 2:** 
 - JoySender++ reads input reports from a DS4 controller and sends them to a host machine running JoyReceiver++.
+- Beta Support for Switch compatible Pro Controllers, emulated as DS4 with gyro/accel capabilities.
 
 ## Table of Contents
 - [Usage](#usage)
@@ -39,6 +40,10 @@ JoySender++ [OPTIONS] <ipaddress of host>
 
 - `-m, --mode <MODE>`: Sets the operational mode for JoySender++. Use `1` for Xbox 360 emulation mode or `2` for DS4 emulation mode. Choose the desired mode based on your requirements. The default mode is Xbox 360 emulation.
 
+- `-t, --tcp`: Use TCP protocol.
+
+- `-u, --udp`: Use UDP protocol. (default)
+
 - `-l, --latency`: Enables the display of latency output. Use this option if you want to see the latency information during communication. By default, this option is disabled.
 
 - `-a, --auto`: Automatically selects the first joystick recognized by the system. If you have multiple joysticks connected, this option will automatically choose the first one. By default, this option is disabled.
@@ -67,6 +72,12 @@ For DS4 emulation mode and latency output enabled, use the following command:
 JoySender++ -m 2 -l 
 ```
 
+For DS4 emulation mode, running at 88 fps, and transmitting over TCP, use the following command:
+
+```
+'JoySender_tUI' -m 2 -f 88 -t
+```
+
 ## Mapping Joystick Inputs to an Xbox360 Controller
 
 While using JoySender++ in Mode 1: 
@@ -81,7 +92,7 @@ This allows you to map the various buttons and controls on your joystick to the 
 
 - To remap your selected joystick inputs, simply press Shift+M within the JoySender++ application. This will initiate the remapping process and allow you to modify or update the mapping configuration.
 
-- Mappings are saved to disc, for reuse when controller is sellected in future.
+- Mappings are saved to disc, for reuse when controller is selected in future.
 
 ## HotKeys
 Once you establish a connection with the host/server, JoySender++ provides several hotkey buttons for convenient control:
@@ -99,7 +110,7 @@ Once you establish a connection with the host/server, JoySender++ provides sever
 ## License
 MIT Licence
 
-Copyright (c) 2024 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2025 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

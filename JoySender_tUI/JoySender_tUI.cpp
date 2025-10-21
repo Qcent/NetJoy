@@ -80,9 +80,10 @@ int joySendertUI(Arguments& args) {
         return 0;
     }
     // Initial Settings for Operating Mode:  DS4 / XBOX
-    JOYSENDER_tUI_OPMODE_INIT(activeGamepad, args, allGood);
-    
+    JOYSENDER_OPMODE_INIT(activeGamepad, args, allGood);
+
     // UI resets
+    g_screen.ClearButtonsExcept(HEAP_BTN_IDs);
     g_screen.SetBackdrop(JoySendMain_Backdrop); // i think this is only need if a mapping occurred
     setErrorMsg(L"\0", 1); // clear error output in memory
 
@@ -93,14 +94,19 @@ int joySendertUI(Arguments& args) {
         if (args.host.empty()) {       
             args.host = tUIGetHostAddress(activeGamepad);
 
+            setErrorMsg(L"\0", 1);
+            if (RESTART_FLAG) { // back button will trigger this
+                return args.mode + 1;
+            }
             if (APP_KILLED) {
                 return -1;
             }
-            setErrorMsg(L"\0", 1); // clear errors in memory
         }
 
-        TCPConnection client(args.host, args.port);
+        NetworkConnection client(args.udp, args.host, args.port);
+#if !DEVTEST
         client.set_silence(true);
+#endif
 
         // Establish connection to host
         JOYSENDER_tUI_ANIMATED_CX(activeGamepad, client, args, allGood);
@@ -224,6 +230,7 @@ int joySendertUI(Arguments& args) {
                 break;
             }
 
+            /* now in seperate thread
             // Wait for server Feedback (rumble, lightbar)
             allGood = client.receive_data(buffer, buffer_size);                
             if (allGood < 1) {
@@ -235,9 +242,10 @@ int joySendertUI(Arguments& args) {
 
             // Process Feedback data
             processFeedbackBuffer((byte*)&buffer, activeGamepad, args.mode);
+            */
 
             // calculate timing
-            fpsOutput = do_fps_counting();
+            fpsOutput = do_fps_counting(args.fps);
             if (!fpsOutput.empty()) {
                 //updateFPS(g_converter.from_bytes(fpsOutput + "   ").c_str(), 8);
                 swprintf(fpsPointer, 8, L" %S   ",fpsOutput.c_str());
@@ -259,6 +267,7 @@ int joySendertUI(Arguments& args) {
         // #########################################################  \\
         // Connection Ended    ######################################  \\
 
+        if (UDP_COMMUNICATION) client.hang_up();
         theme_mtx.lock(); // must exit theme thread
         theme_mtx.unlock();  // before restarting
         tUI_SET_SUIT_POSITIONS(SUIT_POSITIONS_SCATTERED());
@@ -309,6 +318,7 @@ console con(consoleWidth, consoleHeight);
 int main(int argc, char** argv)
 {
     Arguments args = parse_arguments(argc, argv);
+    UDP_COMMUNICATION = args.udp;
     int RUN = 1;
 
     // Register the signal handler function
@@ -317,22 +327,14 @@ int main(int argc, char** argv)
     int err = InitJoystickInput();
     if (err) return -1;
 
-    // Get the console input handle to enable mouse input
-    g_hConsoleInput = GetStdHandle(STD_INPUT_HANDLE);
-
-    DWORD mode;
-    GetConsoleMode(g_hConsoleInput, &mode);                     // Disable Quick Edit Mode
-    SetConsoleMode(g_hConsoleInput, ENABLE_MOUSE_INPUT | mode & ~ENABLE_QUICK_EDIT_MODE);
-
-    // Set the console to UTF-8 mode
-    err = _setmode(_fileno(stdout), _O_U8TEXT);
-    if (err == -1) RUN = -1;
-
     // Set Version into window title
-    wchar_t winTitle[30] = {0};
+    wchar_t winTitle[33] = { 0 };
     wcscpy_s(winTitle, L"JoySender++ tUI ");
     wcscat_s(winTitle, APP_VERSION_NUM);
+    wcscat_s(winTitle, UDP_COMMUNICATION ? L" UPD" : L" TCP");
     SetConsoleTitleW(winTitle);
+
+    if (!tUI_INIT_CONSOLE()) RUN = -1;
 
     // Set Version into backdrop
     {
@@ -343,6 +345,8 @@ int main(int argc, char** argv)
             JoySendMain_Backdrop[versionStartPoint + i] = APP_VERSION_NUM[i];
         }
     }
+
+    HOLIDAY_FLAG = tUI_GET_HOLIDAY_FLAG();
 
     loadIPDataFromFile();
 

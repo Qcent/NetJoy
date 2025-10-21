@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2024 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2025 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -24,7 +24,7 @@ THE SOFTWARE.
 #define NetJoyTUI
 
 #include "./../JoyReceiver++/ArgumentParser.hpp"
-#include "TCPConnection.h"
+#include "NetworkCommunication.h"
 #include "FPSCounter.hpp"
 #include "JoyReceiver_tUI.h"
 
@@ -45,15 +45,14 @@ int main(int argc, char* argv[]) {
     // Register the signal handler
     std::signal(SIGINT, signalHandler);
 
+    JOYRECEIVER_SET_tUI_CONSOLE_MODE();
     JOYRECEIVER_INIT_VIGEM_BUS();
     if (APP_KILLED) {
         return -1;
     }
     JOYRECEIVER_DETERMINE_IPS_START_SERVER();
-
-    // Set Up Console
-    SET_tUI_CONSOLE_MODE();
     JOYRECEIVER_INIT_tUI_SCREEN();
+
     ///********************************
     // Make Connection -> Receive Input Loop
     while (!APP_KILLED) {
@@ -81,6 +80,7 @@ int main(int argc, char* argv[]) {
             swprintf(errorPointer, len, L" << Connection From: %S Failed >> ", connectionIP);
             errorOut.SetWidth(len);
             errorOut.SetText(errorPointer);
+            errorOut.Draw();
             break;
         }
 
@@ -102,6 +102,7 @@ int main(int argc, char* argv[]) {
         // Prep UI for loop
         tUI_BUILD_MAIN_LOOP(args);
         fps_counter.reset();
+        buffer_size = ((op_mode == 2) ? DS4_REPORT_NETWORK_DATA_SIZE : XBOX_REPORT_NETWORK_DATA_SIZE);
 
         /* Start Receive Joystick Data Loop */
         while (!APP_KILLED) {
@@ -126,19 +127,25 @@ int main(int argc, char* argv[]) {
 
             //*****************************
             // Receive joystick input from client to the buffer
-            bytesReceived = server.receive_data(buffer, buffer_size);
+            receive:
+            bytesReceived = server.receive_data(buffer, std::max(buffer_size, (int)sizeof(UDPConnection::SIGPacket)));
+            if (bytesReceived == sizeof(UDPConnection::SIGPacket)) {
+                JOYRECEIVER_PROCESS_SIGNAL_PACKET();
+            }
+            if (bytesReceived == -WSAETIMEDOUT) {
+                bytesReceived = JOYRECEIVER_tUI_WAIT_FOR_CLIENT_MAPPING(server, buffer, buffer_size);
+                fps_counter.reset();
+            }
             if (bytesReceived < 1) {
-                if (WSAGetLastError() == WSAETIMEDOUT) {
-                    bytesReceived = JOYRECEIVER_tUI_WAIT_FOR_CLIENT_MAPPING(server, buffer, buffer_size);
-                    fps_counter.reset();
-                }
-                else {
-                    int len = INET_ADDRSTRLEN + 31;
-                    swprintf(errorPointer, len, L" << Connection From: %S Lost >> ", connectionIP);
-                    errorOut.SetWidth(len);
-                    errorOut.SetText(errorPointer);
-                    break;
-                }
+                int len = INET_ADDRSTRLEN + 31;
+                swprintf(errorPointer, len, L" << Connection From: %S Lost >> ", connectionIP);
+                errorOut.SetWidth(len);
+                errorOut.SetText(errorPointer);
+                break;
+            }
+
+            if (bytesReceived < buffer_size) {
+                JOYRECEIVER_GET_COMPLETE_PACKET();
             }
 
             //******************************
@@ -152,6 +159,9 @@ int main(int argc, char* argv[]) {
                 if (theme_mtx.try_lock()) {
                     // activate screen buttons from ds4_report_ex
                     buttonStatesFromDS4Report(reinterpret_cast<BYTE*>(buffer));
+#if DEVTEST
+                    output_extra_ds4_data(ds4_report_ex);
+#endif
                     theme_mtx.unlock();
                 }
             }
@@ -170,19 +180,28 @@ int main(int argc, char* argv[]) {
 
             //*******************************
             // Send response back to client :: Rumble + lightbar data
-            lock.lock();
-            allGood = server.send_data(feedbackData, 5);
-            lock.unlock();
-            if (allGood < 1) {
-                int len = INET_ADDRSTRLEN + 29;
-                swprintf(errorPointer, len, L" << Connection To: %S Lost >> ", connectionIP);
-                errorOut.SetWidth(len);
-                errorOut.SetText(errorPointer);
-                break;
+            {
+                static int frameCount = 0;
+                lock.lock(); 
+                // gives at least 5 feedback responses a second to avoid timeouts
+                if (std::memcmp(feedBackComp, feedbackData, sizeof(feedbackData)) != 0 || (frameCount += 5) > client_timing) {
+                    std::memcpy(feedBackComp, feedbackData, sizeof(feedbackData));
+                    frameCount = 0;
+
+                    allGood = server.send_data(feedbackData, sizeof(feedbackData));
+                    if (allGood < 1) {
+                        int len = INET_ADDRSTRLEN + 29;
+                        swprintf(errorPointer, len, L" << Connection To: %S Lost >> ", connectionIP);
+                        errorOut.SetWidth(len);
+                        errorOut.SetText(errorPointer);
+                        break;
+                    }
+                }
+                lock.unlock();
             }
 
             // FPS output
-            fpsOutput = do_fps_counting();
+            fpsOutput = do_fps_counting(client_timing);
             if (!fpsOutput.empty()) {
                 swprintf(fpsPointer, 8, L" %S   ", fpsOutput.c_str());
                 fpsMsg.SetText(fpsPointer);
@@ -202,10 +221,10 @@ int main(int argc, char* argv[]) {
             g_status &= ~CTRLR_SCREEN_f;
         }
 
-        // Unregister rumble notifications // unplug virtual deveice
+        // Unregister rumble notifications // unplug virtual device
         JOYRECEIVER_UNPLUG_VIGEM_CONTROLLER();
     }
-
+    if (UDP_COMMUNICATION) server.hang_up();
     JOYRECEIVER_SHUTDOWN_VIGEM_BUS();
     CLEAN_EGGS();
     swallowInput();

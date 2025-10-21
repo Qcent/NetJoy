@@ -38,7 +38,7 @@ THE SOFTWARE.
 DEFINE_GUID(GUID_DEVINTERFACE_HID, 0x4D1E55B2, 0xF16F, 0x11CF, 0x88, 0xCB, 0x00, 0x11, 0x11, 0x00, 0x00, 0x30);
 
 struct HidDeviceInfo {
-    std::wstring       path;
+    std::wstring      path;
     std::wstring      serial;
     std::wstring      manufacturer;
     std::wstring      product;
@@ -48,13 +48,15 @@ struct HidDeviceInfo {
     unsigned short    usagePage       = 0;
     unsigned short    usage           = 0;
     int               interfaceNumber = 0;
+    size_t            output_report_length = 0;
+    size_t            input_report_length  = 0;
 };
 
 class HidDeviceManager
 {
 public:
     HANDLE selectedDevice;
-    HidDeviceInfo Info;
+    HidDeviceInfo devInfo;
 
     HidDeviceManager()
     {
@@ -89,16 +91,41 @@ public:
     bool OpenHidDevice(HidDeviceInfo* newDevice) {
         selectedDevice = CreateFile(newDevice->path.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
         if (IsDeviceOpen()) {
-            Info.path = newDevice->path;
-            Info.serial = newDevice->serial;
-            Info.manufacturer = newDevice->manufacturer;
-            Info.product = newDevice->product;
-            Info.vendorId = newDevice->vendorId;
-            Info.productId = newDevice->productId;
-            Info.release = newDevice->release;
-            Info.usagePage = newDevice->usagePage;
-            Info.usage = newDevice->usage;
-            Info.interfaceNumber = newDevice->interfaceNumber;
+            devInfo.path = newDevice->path;
+            devInfo.serial = newDevice->serial;
+            devInfo.manufacturer = newDevice->manufacturer;
+            devInfo.product = newDevice->product;
+            devInfo.vendorId = newDevice->vendorId;
+            devInfo.productId = newDevice->productId;
+            devInfo.release = newDevice->release;
+            devInfo.usagePage = newDevice->usagePage;
+            devInfo.usage = newDevice->usage;
+            devInfo.interfaceNumber = newDevice->interfaceNumber;
+            //    return true;
+            //}
+
+            /* Experimental below */
+            /* Get the Input Report length for the device. */
+            HIDP_CAPS caps;
+            PHIDP_PREPARSED_DATA pp_data = NULL;
+            auto res = HidD_GetPreparsedData(selectedDevice, &pp_data);
+            if (!res) {
+                //std::wcout << "error!";
+                if(pp_data != NULL) HidD_FreePreparsedData(pp_data);
+                return -1;
+            }
+            auto nt_res = HidP_GetCaps(pp_data, &caps);
+            if (nt_res != HIDP_STATUS_SUCCESS) {
+                //std::wcout << "error!";
+                HidD_FreePreparsedData(pp_data);
+                return -1;
+            }
+
+            devInfo.output_report_length = caps.OutputReportByteLength;
+            devInfo.input_report_length = caps.InputReportByteLength;
+            HidD_FreePreparsedData(pp_data);
+            /* ^^^^^^^^^^^^^^^^^^^^^^^  */
+
             return true;
         }
         return 0;

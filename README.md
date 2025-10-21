@@ -2,15 +2,16 @@
 Project NetJoy is a software solution that allows for remote joystick control between Windows machines. It enables users to send joystick inputs over a network, facilitating remote gaming, simulations, and various applications. With NetJoy, you can emulate any joystick as an Xbox 360 controller, pass through DualShock 4 inputs (including gyro motion), customize control mappings, and experience rumble feedback for enhanced immersion.
 
 Available in two (2) flavours, [bland(++)](#plain-console) and [colorful(tUI)](#colorful-tUI), both are cross compatible.
-For non Windows OS users there is a compatible python script (sender only for non windows) [JoySendPy](https://github.com/Qcent/JoySendPy).
+For non Windows OS users there is a compatible (currently not compatible with version 3+) python script (sender only for non windows) [JoySendPy](https://github.com/Qcent/JoySendPy).
 
-### Version 2.0
-NetJoy has reached version 2.0.
+### Version 3.0
+NetJoy has reached version 3.0.
 #### Featuring:
-- a new and improved input mapping system
-- improved functionality
-- dozens of bugfixes
-- and better UI.
+- faster and more robust network logic
+- UDP communication (now default)
+- Support for Switch Pro Controllers as DS4 controller
+- many bugfixes
+- Holidays.
 
 ## Table of Contents
 - [Key Features](#key-features)
@@ -25,7 +26,8 @@ NetJoy has reached version 2.0.
 #### JoySender: Xbox 360 Controller Emulation
 - Connect any Windows recognized joystick and seamlessly emulate it as an Xbox 360 controller on the host machine. This mode features user created button mapping to emulate controller input on the host machine.
 #### JoySender: DS4 Controller Emulation
-- When a DualShock 4 (DS4) controller is connected, select mode 2 to  emulate a DS4 controller on the host machine. This mode allows DS4 controller users to fully utilize their controller's capabilities on the remote machine, providing all gyro, accelerometer and controller metadata to the host machine.
+- When a DualShock 4 (DS4) or Switch Pro Compatible controller is connected, select mode 2 to  emulate a DS4 controller on the host machine. This mode allows DS4 controller users to fully utilize their controller's capabilities on the remote machine, providing all gyro, accelerometer and controller metadata to the host machine. \
+\* Switch Pro controllers gyro / accelerometer data is reinterpreted as DS4 gyro / accelerometer
 #### JoyReceiver: Seamless Input Emulation via ViGEm Driver
 - JoyReceiver works in conjunction with JoySender on the host machine. It receives the selected mode and joystick inputs transmitted by JoySender. Based on the mode and input received, JoyReceiver emulates the corresponding input on the host machine using the [ViGEmBus Driver](https://github.com/ViGEm/ViGEmBus).
 #### Customizable Control Mapping
@@ -64,13 +66,13 @@ Both JoySender and JoyReceiver are console applications that can be run without 
 
 To get started, follow these steps:
 ### JoySender
-- Allows you to send joystick data over TCP/IP to a host/server.
+- Allows you to send joystick data over UDP or TCP to a host/server.
 - Run any JoySender executable, and it will guide you through the initial joystick mapping process. 
-- Once mapped, JoySender will request an ip to the host/server, and start transmitting joystick data.
+- Once mapped, JoySender will request an ip address to the host/server, and start transmitting joystick data.
  
 ### JoyReceiver
 - Operates on the host/server machine and receives the joystick data transmitted by JoySender. 
-- Run the JoyReceiver executable, and it will open port 5000 and await a connection from JoySender
+- Run the JoyReceiver executable, and it will open port 5000 UDP and await a connection from JoySender
 - Once a connection has been established JoyReceiver will begin emulating the received joystick input using the ViGEm driver.
 
 \
@@ -92,7 +94,7 @@ To get started, follow these steps:
 ## License
 MIT Licence
 
-Copyright (c) 2024 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2025 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

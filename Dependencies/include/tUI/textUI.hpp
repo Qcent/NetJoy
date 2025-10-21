@@ -1105,6 +1105,26 @@ public:
         }
     }
 
+    void DeleteButtons(const std::vector<int>& IDs) {
+        if (_buttonsCount == 0) return;
+
+        int writeIndex = 0;
+        for (int readIndex = 0; readIndex < _buttonsCount; ++readIndex) {
+            mouseButton* btn = _buttons[readIndex];
+            if (std::find(IDs.begin(), IDs.end(), btn->GetId()) != IDs.end()) {
+                delete btn;
+            }
+            else {
+                _buttons[writeIndex++] = btn;
+            }
+        }
+
+        for (int i = writeIndex; i < _buttonsCount; ++i)
+            _buttons[i] = nullptr;
+
+        _buttonsCount = writeIndex;
+    }
+
     void ClearInputs() {
         for (int i = 0; i < MAX_SCREEN_INPUTS; ++i) {
             _textInputs[i] = nullptr;
@@ -1113,7 +1133,7 @@ public:
     }
 
     void AddInput(textInput* ptr) {
-        if (_inputsCount == MAX_SCREEN_BUTTONS) return;
+        if (_inputsCount == MAX_SCREEN_INPUTS) return;
         _textInputs[_inputsCount] = ptr;
         _inputsCount++;
     }

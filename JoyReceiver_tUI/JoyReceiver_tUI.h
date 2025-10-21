@@ -1,6 +1,6 @@
 ﻿/*
 
-Copyright (c) 2024 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2025 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -30,9 +30,7 @@ THE SOFTWARE.
 #undef min
 #undef max
 
-#define APP_VERSION_NUM     L"2.0.0.0"
-
-#define AXIS_INPUT_DEADZONE   3000    // stick input values must be greater than this to register
+constexpr int AXIS_INPUT_DEADZONE = 3000;    // stick input values must be greater than this to register
 
 // stripped down SDLButtonMapping from JoySender++
 class SDLButtonMapping {
@@ -169,7 +167,7 @@ if (frameDelay % 4 == 0) {    \
 
 
 // to allow for screen loop and animation, wait for connection to client in a separate thread
-void threadedAwaitConnection(TCPConnection& server, int& retVal, char* clientIP) {
+void threadedAwaitConnection(NetworkConnection& server, int& retVal, char* clientIP) {
     // Await Connection in Non Blocking Mode
     server.set_server_blocking(false);
     std::pair<SOCKET, sockaddr_in> connectionResult;
@@ -214,21 +212,16 @@ void threadedAwaitConnection(TCPConnection& server, int& retVal, char* clientIP)
     }
 }
 
-void SET_tUI_CONSOLE_MODE(){ 
-    /* Get the console input handle to enable mouse input */ 
-    g_hConsoleInput = GetStdHandle(STD_INPUT_HANDLE); 
-    DWORD mode; 
-    GetConsoleMode(g_hConsoleInput, &mode); 
-    /* Disable Quick Edit Mode */ 
-    SetConsoleMode(g_hConsoleInput, ENABLE_MOUSE_INPUT | (mode & ~ENABLE_QUICK_EDIT_MODE)); 
+void JOYRECEIVER_SET_tUI_CONSOLE_MODE(){
 
-    /* Set the console to UTF-8 mode */ 
-    auto _ = _setmode(_fileno(stdout), _O_U8TEXT); 
+    if (!tUI_INIT_CONSOLE())
+        APP_KILLED = true;
 
     /* Set Version into window title */ 
     wchar_t winTitle[30]; 
     wcscpy_s(winTitle, L"JoyReceiver++ tUI "); 
-    wcscat_s(winTitle, APP_VERSION_NUM); 
+    wcscat_s(winTitle, APP_VERSION_NUM);
+    wcscat_s(winTitle, UDP_COMMUNICATION ? L" UPD" : L" TCP");
     SetConsoleTitleW(winTitle); 
 
     hideConsoleCursor(); 
@@ -251,6 +244,9 @@ void JOYRECEIVER_INIT_tUI_SCREEN(){
     GET_NEW_COLOR_SCHEME(); 
     errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2); 
     fpsMsg.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
+
+    HOLIDAY_FLAG = tUI_GET_HOLIDAY_FLAG();
+    if (HOLIDAY_FLAG) tUI_LOAD_HOLIDAY();
 } 
 
 void JOYRECEIVER_tUI_BUILD_CONNECTION() {
@@ -271,7 +267,7 @@ void REDRAW_CX_TEXT() {
     /* Show PORT and IPs */
     setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
     setCursorPosition(26, 9);
-    wprintf_s(L" %d ", *(int*)feedbackData);
+    wprintf_s(L" %d %s ", *(int*)feedbackData, (UDP_COMMUNICATION ? L"UDP" : L"TCP"));
 
     setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);
     setCursorPosition(28, 11);
@@ -282,7 +278,7 @@ void REDRAW_CX_TEXT() {
     wprintf_s(L" %S ", externalIP.c_str());
 }
 
-void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(TCPConnection& server, Arguments& args, int& allGood, char* connectionIP) {
+void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(NetworkConnection& server, Arguments& args, int& allGood, char* connectionIP) {
     /* Set up animation variables */
     JOYRECEIVER_tUI_INIT_FOOTER_ANIMATION();
 
@@ -385,7 +381,7 @@ void JOYRECEIVER_tUI_AWAIT_ANIMATED_CONNECTION(TCPConnection& server, Arguments&
     }
 }
 
-int JOYRECEIVER_tUI_WAIT_FOR_CLIENT_MAPPING(TCPConnection& server, char* buffer, int buffer_size) {
+int JOYRECEIVER_tUI_WAIT_FOR_CLIENT_MAPPING(NetworkConnection& server, char* buffer, int buffer_size) {
     int bytesReceived = 0, counter = 0, len = 43;
     int lastAniFrame = g_frameNum - 1, bgDrawCount = 0;
     bool inEditor = false;
@@ -445,19 +441,46 @@ int JOYRECEIVER_tUI_WAIT_FOR_CLIENT_MAPPING(TCPConnection& server, char* buffer,
         inEditor = true;
     }
 
+    size_t framesWithoutSignal = 0;
     // loop
     while (!APP_KILLED) {
         // check on network traffic
-        bytesReceived = server.receive_data(buffer, buffer_size);
+        bytesReceived = server.receive_data(buffer, std::max(buffer_size, (int)sizeof(UDPConnection::SIGPacket)));
+
+        //// IS UDP 'CONNECTION' ALIVE? /////
+        if (UDP_COMMUNICATION) {
+            if (bytesReceived > 0 && bytesReceived != sizeof(UDPConnection::SIGPacket)) {
+                break; // recv'd a non udp signal packet
+            }
+            if (bytesReceived == sizeof(UDPConnection::SIGPacket)) {
+                UDPConnection::SIGPacket* recvdPkt = (UDPConnection::SIGPacket*)buffer;
+                if (recvdPkt->type == UDPConnection::PACKET_HANGUP) {
+                    bytesReceived = SOCKET_ERROR; // end connection
+                }
+                else if (recvdPkt->type == UDPConnection::PACKET_ALIVE) {
+                    bytesReceived = -WSAEWOULDBLOCK;  // recv'd kepalive udp signal packet, cx confirmed
+                    framesWithoutSignal = -1;
+                }
+            }
+            if (bytesReceived == -WSAEWOULDBLOCK) {
+                if (++framesWithoutSignal > 40) { // lost keep alive signal
+                    bytesReceived = SOCKET_ERROR;
+                }
+            }
+        }
+        ////---------------------/////
+        else if (bytesReceived && bytesReceived != buffer_size) {
+            JOYRECEIVER_GET_COMPLETE_PACKET();
+        }
+        if (bytesReceived > -1) {
+            break;
+        }
         if (bytesReceived != -WSAEWOULDBLOCK) {
             // An error or disconnect occurred
             cleanUp();
             return -1;
         }
-        if (bytesReceived > -1) {
-            break;
-        }
-
+        
         // do stuff here
         if (theme_mtx.try_lock()) {
             if (inEditor) {

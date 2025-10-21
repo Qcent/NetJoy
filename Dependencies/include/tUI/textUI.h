@@ -1,4 +1,30 @@
-﻿#include <io.h>
+﻿/*
+
+Copyright (c) 2025 Dave Quinn <qcent@yahoo.com>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+*/
+
+#pragma once 
+
+#include <io.h>
 #include <fcntl.h>
 #include <map>
 #include <set>
@@ -37,6 +63,7 @@ textBox output3(3, 24, 60, 0, ALIGN_LEFT, msgPointer3, BRIGHT_BLUE);
 
 #include "DrawUtils.h"
 #include "animations.h"
+#include "extraArt.h"
 #include "theme.h"
 
 //----------------------------------------------------------------------------
@@ -78,9 +105,124 @@ struct console
 
 // ********************************
 // tUI Helper Functions
+bool tUI_INIT_CONSOLE(){
+    DWORD inMode = 0, outMode = 0;
+    DetermineConsoleMode(inMode, outMode);
 
-// used in a loop, looks for mouse input and compares to buttons on screen
-int screenLoop(textUI& screen) {
+    HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    g_hConsoleInput = hIn;
+    
+    // Disable Quick Edit and enable mouse
+    inMode &= ~ENABLE_QUICK_EDIT_MODE;
+    inMode |= ENABLE_MOUSE_INPUT;
+    SetConsoleMode(g_hConsoleInput, inMode);
+
+    // UTF-8 output mode
+    if (_setmode(_fileno(stdout), _O_U8TEXT) == -1)
+        return false;
+
+    if (CONSOLE_MODE == CONSOLE_HOST_MODE) {
+        // Change font if using classic Console Host
+        CONSOLE_FONT_INFOEX cfi = { sizeof(cfi) };
+        if (GetCurrentConsoleFontEx(hOut, FALSE, &cfi)) {
+            wcscpy_s(cfi.FaceName, L"Cascadia Code SemiBold");
+            cfi.dwFontSize.Y = 20;
+            SetCurrentConsoleFontEx(hOut, FALSE, &cfi);
+        }
+    }
+    else if(CONSOLE_MODE == CONSOLE_VT_MODE) {
+
+        outMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+        SetConsoleMode(hOut, outMode);
+
+        // turn off line buffering and echo
+        inMode &= ~(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT);
+        inMode |= ENABLE_VIRTUAL_TERMINAL_INPUT;
+        SetConsoleMode(hIn, inMode);
+
+        wprintf(L"\x1b[?1006h"); // Enable SGR mouse reporting
+        wprintf(L"\x1b[?1003h"); // Any-motion mouse tracking
+        wprintf(L"\x1b[?1004h"); // enable focus tracking
+
+        fflush(stdout);
+
+
+        /* VT NOT FULLY WORKING */
+        return prompt_to_relaunch_with_consoleHost();
+        /* -------------------- */
+    }
+
+    return true;
+}
+
+struct MouseEvent {
+    byte type;
+    int x;
+    int y;
+    int button; // 0=left, 1=middle, 2=right
+};
+
+bool ReadVTMouseEvent(MouseEvent& evt)
+{
+    char buf[64];
+    int bytesRead = _read(0, buf, sizeof(buf) - 1); // file descriptor 0 = stdin
+
+    if (bytesRead <= 0)
+        return false;
+
+    buf[bytesRead] = '\0';
+    std::string s(buf, bytesRead);
+
+    // Focus
+    if (s.find("\x1b[I") != std::string::npos) { g_hasFocus = true;  return false; }
+    if (s.find("\x1b[O") != std::string::npos) { g_hasFocus = false; return false; }
+
+    // --- SGR mouse: ESC [ < b ; x ; y M/m ---
+    std::smatch m;
+    std::regex re("\x1b\\[<([0-9]+);([0-9]+);([0-9]+)([Mm])");
+
+    if (std::regex_search(s, m, re)) {
+        int b = std::stoi(m[1]);
+        evt.x = std::stoi(m[2])-1;
+        evt.y = std::stoi(m[3])-1;
+        bool release = (m[4] == "m");
+        bool motion = (b & 32);
+
+        if (motion)       evt.type = MOUSE_MOVED;
+        else if (release) evt.type = MOUSE_UP;
+        else              evt.type = MOUSE_DOWN;
+
+        evt.button = (b & 3);
+        return true;
+    }
+
+    return false;
+}
+
+int screenLoopVirtualTerminal(textUI& screen)
+{
+    int retVal = 0;
+    MouseEvent evt;
+    if (ReadVTMouseEvent(evt)) {
+        COORD mousePos = { (SHORT)evt.x, (SHORT)evt.y };
+
+        if (evt.type == MOUSE_MOVED) {
+            screen.CheckMouseHover(mousePos);
+        }
+        else if (evt.type == MOUSE_DOWN) {
+            screen.CheckMouseClick(MOUSE_DOWN);
+            retVal = MOUSE_DOWN;
+        }
+        else if (evt.type == MOUSE_UP) {
+            screen.CheckMouseClick(MOUSE_UP);
+            retVal = MOUSE_UP;
+        }
+    }
+    return retVal;    
+}
+
+int screenLoopConsoleHost(textUI& screen) {
     int retVal = 0;
     DWORD eventsAvailable;
     GetNumberOfConsoleInputEvents(g_hConsoleInput, &eventsAvailable);
@@ -119,6 +261,15 @@ int screenLoop(textUI& screen) {
     return retVal;
 }
 
+// used in a loop, looks for mouse input and compares to buttons on screen
+inline int screenLoop(textUI& screen)
+{
+    if (CONSOLE_MODE == CONSOLE_VT_MODE)
+        return screenLoopVirtualTerminal(screen);
+    else
+        return screenLoopConsoleHost(screen);
+}
+
 // used to display current DS4 inputs via on-screen controller face
 void buttonStatesFromDS4Report(BYTE* ds4_report) {
     byte shoulderRedraw = 0;  // 0x01: left, 0x08: right
@@ -142,27 +293,27 @@ void buttonStatesFromDS4Report(BYTE* ds4_report) {
 
     // Left Stick
     updateButtonStatus(button_LStickLeft_highlight, ds4_report[0] < 100);   // left
-    updateButtonStatus(button_LStickRight_highlight, ds4_report[0] > 156);   // right
+    updateButtonStatus(button_LStickRight_highlight, ds4_report[0] > 156);  // right
 
     ds4_report++;
-    updateButtonStatus(button_LStickDown_highlight, ds4_report[0] > 156);   // down
+    updateButtonStatus(button_LStickDown_highlight, ds4_report[0] > 156);  // down
     updateButtonStatus(button_LStickUp_highlight, ds4_report[0] < 100);   // up
 
     // Right Stick
     ds4_report++;
     updateButtonStatus(button_RStickLeft_highlight, ds4_report[0] < 100);   // left
-    updateButtonStatus(button_RStickRight_highlight, ds4_report[0] > 156);   // right
+    updateButtonStatus(button_RStickRight_highlight, ds4_report[0] > 156);  // right
 
     ds4_report++;
-    updateButtonStatus(button_RStickDown_highlight, ds4_report[0] > 156);   // down
+    updateButtonStatus(button_RStickDown_highlight, ds4_report[0] > 156);  // down
     updateButtonStatus(button_RStickUp_highlight, ds4_report[0] < 100);   // up
 
     ds4_report++;
     // Main Face Buttons
     updateButtonStatus(button_A_outline, ds4_report[0] & 0x20);   // A
-    updateButtonStatus(button_B_outline, ds4_report[0] & 0x40);    // B
-    updateButtonStatus(button_X_outline, ds4_report[0] & 0x10);    // X
-    updateButtonStatus(button_Y_outline, ds4_report[0] & 0x80);    // Y
+    updateButtonStatus(button_B_outline, ds4_report[0] & 0x40);   // B
+    updateButtonStatus(button_X_outline, ds4_report[0] & 0x10);   // X
+    updateButtonStatus(button_Y_outline, ds4_report[0] & 0x80);   // Y
 
     // DPAD
     int dval = ds4_report[0] & 0x0F;
@@ -190,7 +341,9 @@ void buttonStatesFromDS4Report(BYTE* ds4_report) {
 
     ds4_report++;
     // PS & T-Pad 
-    updateButtonStatus(button_Guide_highlight, ds4_report[0] & 0x03);  // guide
+    updateButtonStatus(button_Guide_highlight, ds4_report[0] & 0x01);  // ps button
+    updateButtonStatus(button_DS4_TouchPad_highlight, ds4_report[0] & 0x02);  // ds4 touchpad
+
 
 
     // must redraw both buttons in this order for highlighting to always be correct 

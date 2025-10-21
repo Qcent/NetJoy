@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2024 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2025 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -22,10 +22,88 @@ THE SOFTWARE.
 */
 
 #pragma once
-#include<Windows.h>
+#include <Windows.h>
 #include <string>
 #include <tchar.h>
 #include <vector>
+
+#define CONSOLE_HOST_MODE   0x01
+#define CONSOLE_VT_MODE     0x02
+byte CONSOLE_MODE = 0;
+bool g_hasFocus = true;
+
+// detects classic console vs Windoes Terminal/ConPTY
+void DetermineConsoleMode(DWORD& inMode, DWORD& outMode) {
+    HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    GetConsoleMode(hIn, &inMode);
+    GetConsoleMode(hOut, &outMode);
+
+    bool vtInput = (inMode & ENABLE_VIRTUAL_TERMINAL_INPUT);
+    bool vtOutput = (outMode & ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+
+    if (vtInput || vtOutput) {
+        // VT mode supported - likely Windows Terminal or a ConPTY 
+        CONSOLE_MODE = CONSOLE_VT_MODE;
+    }
+    else {
+        // classic console behavior 
+        CONSOLE_MODE = CONSOLE_HOST_MODE;
+    }
+}
+bool LaunchInConsoleHost(){
+    // Get full path to current EXE
+    wchar_t exePath[MAX_PATH];
+    GetModuleFileNameW(nullptr, exePath, MAX_PATH);
+
+    // Get command-line arguments (skip program name)
+    LPWSTR cmdLine = GetCommandLineW();
+    LPWSTR args = wcschr(cmdLine, L' ');
+    if (!args) args = const_cast<LPWSTR>(L"");
+
+    // Build command: conhost.exe <path> <args>
+    std::wstring command = L"conhost.exe \"";
+    command += exePath;
+    command += L"\"";
+    command += args;
+
+    // Launch
+    STARTUPINFOW si = { sizeof(si) };
+    PROCESS_INFORMATION pi;
+    BOOL ok = CreateProcessW(
+        nullptr,
+        command.data(),
+        nullptr, nullptr,
+        FALSE,
+        CREATE_NEW_CONSOLE,
+        nullptr, nullptr,
+        &si, &pi
+    );
+
+    if (ok) {
+        CloseHandle(pi.hThread);
+        CloseHandle(pi.hProcess);
+        return true;
+    }
+    return false;
+}
+bool prompt_to_relaunch_with_consoleHost() {
+    int result = MessageBoxW(
+        nullptr,                                       // owner (none)
+        L"Windows Terminal not currently supported. \r\n\
+Would you like to re-launch with Console Host?",       // message
+L"NetJoy3 tUI",                                // title
+MB_OKCANCEL | MB_ICONQUESTION                  // buttons & icon
+);
+
+    if (result == IDOK) {
+        LaunchInConsoleHost();
+        return false;  // returning false forces app shutdown
+    }
+    else if (result == IDCANCEL) {
+        return false;  // returning false forces app shutdown
+    }
+}
 
 // Function safely return environment variables
 std::string g_getenv(const char* variableName) {
@@ -140,6 +218,8 @@ void wait_for_no_keyboard_input() {
 // Function determines if app is the active window
 bool IsAppActiveWindow()
 {
+    if (CONSOLE_MODE == CONSOLE_VT_MODE) return true; // VT loop uses bool g_hasFocus 
+
     HWND consoleWindow = GetConsoleWindow();
     HWND foregroundWindow = GetForegroundWindow();
 
@@ -174,6 +254,10 @@ void checkForQuit() {
         APP_KILLED = true;
 }
 
+bool checkForBack() {
+    return (IsAppActiveWindow() && checkKey('B', IS_PRESSED) && getKeyState(VK_SHIFT)); // B for Back
+}
+
 std::vector<std::string> split(const std::string& str, char delimiter) {
     std::vector<std::string> tokens;
     std::istringstream iss(str);
@@ -184,6 +268,23 @@ std::vector<std::string> split(const std::string& str, char delimiter) {
     }
 
     return tokens;
+}
+
+int findLastWhitespaceBefore(const char* str, size_t maxLen = 27) {
+    if (!str) return 0;
+
+    size_t len = std::strlen(str);
+    if (len < maxLen) {
+        return len;
+    }
+
+    for (int i = static_cast<int>(maxLen); i >= 0; --i) {
+        if (std::isspace(static_cast<unsigned char>(str[i]))) {
+            return i;
+        }
+    }
+
+    return maxLen; // no whitespace found
 }
 
 // returns index of last seen match

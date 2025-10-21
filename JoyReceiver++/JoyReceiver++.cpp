@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2024 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2025 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -23,17 +23,17 @@ THE SOFTWARE.
 */
 
 #include "ArgumentParser.hpp"
-#include "TCPConnection.h"
+#include "NetworkCommunication.h"
 #include "FPSCounter.hpp"
 #include "JoyReceiver++.h"
 
-void overwriteFPS(const std::string& text) {
+static void overwriteFPS(const std::string& text) {
     // Move the cursor to the beginning of the last line
     std::cout << "\033[F";
     // Write the new text
     std::cout << text + "  " << std::endl;
 }
-void overwriteLatency(const std::string& text) {
+static void overwriteLatency(const std::string& text) {
     repositionConsoleCursor(-1, 27);
     std::cout << text << std::endl;
 }
@@ -41,6 +41,23 @@ void overwriteLatency(const std::string& text) {
 
 int main(int argc, char* argv[]) {
     JOYRECEIVER_INIT_VARIABLES();
+
+    // Set Version into window title
+    wchar_t winTitle[30] = { 0 };
+    wcscpy_s(winTitle, L"JoyReceiver++ ");
+    wcscat_s(winTitle, APP_VERSION_NUM);
+    wcscat_s(winTitle, args.udp ? L" UPD" : L" TCP");
+    SetConsoleTitleW(winTitle);
+
+    // Get the console input handle to disable Quick Edit Mode
+    HANDLE console = GetStdHandle(STD_INPUT_HANDLE);
+    DWORD inMode = 0, outMode = 0;
+    DetermineConsoleMode(inMode, outMode);
+    if (CONSOLE_MODE == CONSOLE_VT_MODE) {
+        /* VT NOT FULLY WORKING */
+        return prompt_to_relaunch_with_consoleHost();
+    }
+    SetConsoleMode(console, inMode & ~ENABLE_QUICK_EDIT_MODE);
 
     auto do_fps_counting = [&fps_counter](int report_frequency = 30) {
         if (fps_counter.increment_frame_count() >= report_frequency) {
@@ -72,7 +89,7 @@ int main(int argc, char* argv[]) {
     ///********************************
     // Make Connection -> Receive Input Loop
     while (!APP_KILLED) {
-        std::cout << "Waiting for Connection on port : " << args.port
+        std::cout << "Waiting for Connection on port : " << args.port << (args.udp ? " UDP" : " TCP")
             << "\n\t\t LAN : " << localIP << "\n\t\t WAN : " << externalIP << std::endl;
 
         // Await Connection in Non Blocking Mode
@@ -103,14 +120,25 @@ int main(int argc, char* argv[]) {
         // Prep UI for loop
         std::cout << std::endl << std::endl;
         fps_counter.reset();
+        buffer_size = ((op_mode == 2) ? DS4_REPORT_NETWORK_DATA_SIZE : XBOX_REPORT_NETWORK_DATA_SIZE);
+
+        memset(feedBackComp, 0, sizeof(feedBackComp));
+        memset(feedbackData, 0, sizeof(feedbackData));
 
         /* Start Receive Joystick Data Loop */
         while (!APP_KILLED) {
             //*****************************
             // Receive joystick input from client to the buffer
+            receive:
             bytesReceived = server.receive_data(buffer, buffer_size);
             if (bytesReceived < 1) {
                 break;
+            }
+            if (bytesReceived == sizeof(UDPConnection::SIGPacket)) {
+                JOYRECEIVER_PROCESS_SIGNAL_PACKET();
+            }
+            if (bytesReceived != buffer_size) {
+                JOYRECEIVER_GET_COMPLETE_PACKET();
             }
 
             //******************************
@@ -119,6 +147,9 @@ int main(int argc, char* argv[]) {
                 // Cast the buffer to an DS4_REPORT_EX pointer
                 ds4_report_ex = *reinterpret_cast<DS4_REPORT_EX*>(buffer);
                 vigem_target_ds4_update_ex(vigemClient, gamepad, ds4_report_ex);
+#if DEVTEST
+                output_extra_ds4_data(ds4_report_ex);
+#endif
             }
             else {
                 // Cast the buffer to an XUSB_REPORT pointer
@@ -128,16 +159,25 @@ int main(int argc, char* argv[]) {
 
             //*******************************
             // Send response back to client :: Rumble + lightbar data
-            lock.lock();
-            allGood = server.send_data(feedbackData, 5);
-            lock.unlock();
-            if (allGood < 1) {
-                break;
+            {
+                static int frameCount = 0;
+                lock.lock();
+                // gives at least 5 feedback responses a second to avoid timeouts
+                if (std::memcmp(feedBackComp, feedbackData, sizeof(feedbackData)) != 0 || (frameCount += 5) > client_timing) {
+                    std::memcpy(feedBackComp, feedbackData, sizeof(feedbackData));
+                    frameCount = 0;
+
+                    allGood = server.send_data(feedbackData, sizeof(feedbackData));
+                    if (allGood < 1) {
+                        break;
+                    }
+                }
+                lock.unlock();
             }
 
             // FPS output
             if (args.latency) {
-                fpsOutput = do_fps_counting();
+                fpsOutput = do_fps_counting(client_timing);
                 if (!fpsOutput.empty()) {
                     overwriteFPS("FPS: " + fpsOutput);
                 }
@@ -157,7 +197,7 @@ int main(int argc, char* argv[]) {
         // Unregister rumble notifications // unplug virtual deveice
         JOYRECEIVER_UNPLUG_VIGEM_CONTROLLER();
     }
-
+    if (UDP_COMMUNICATION) server.hang_up();
     JOYRECEIVER_SHUTDOWN_VIGEM_BUS();
     swallowInput();
     showConsoleCursor();

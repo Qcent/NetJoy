@@ -45,7 +45,7 @@ void overwriteLatency(const std::string& text) {
 
 int joySender(Arguments& args) {
     int allGood;
-    char buffer[24];
+    char buffer[24] = {0};
     int buffer_size = sizeof(buffer);
     bool inConnection = false;
     int failed_connections = 0;
@@ -114,7 +114,7 @@ int joySender(Arguments& args) {
           break;
     case 2: {   // DS4 MODE
         showConsoleCursor();
-        allGood = ConnectToDS4Controller();
+        allGood = JOYSENDER_CONSOLE_SELECT_DS4_DIALOG();
         if (!allGood) {
             std::cout << " Unable to connect to a DS4 device !! " << std::endl;
             return -1;
@@ -128,79 +128,8 @@ int joySender(Arguments& args) {
     }
 
     //##########################################################################
-    // Init Settings for Operating Mode
-    if (args.mode == 2) {      
-        // Get a report from the device to determine what type of connection it has
-        GetDS4Report();
-
-        // first byte is used to determine where stick input starts
-        ds4DataOffset = ds4_report[0] == 0x11 ? DS4_VIA_BT : DS4_VIA_USB;
-
-        int attempts = 0;   // DS4 fails to properly initialize when connecting to pc (after power up) via BT so lets hack in multiple attempts
-        while (attempts < 2) {
-            attempts++;
-
-            Sleep(5); // lets slow things down
-            bool extReport = ActivateDS4ExtendedReports();
-
-            // Set up feedback buffer with correct headers for connection mode
-            InitDS4FeedbackBuffer();
-
-            // Set new LightBar color with update to confirm rumble/lightbar support
-            switch (ds4DataOffset) {
-            case(DS4_VIA_BT):
-                SetDS4LightBar(105, 4, 32); // hot pink
-                break;
-            case(DS4_VIA_USB):
-                SetDS4LightBar(180, 188, 5); // citrus yellow-green
-            }
-
-            Sleep(5); // update fails if controller is bombarded with read/writes, so take a rest bud
-            allGood = SendDS4Update();
-
-            g_outputText = "DS4 ";
-            if (extReport) g_outputText += "Full Motion ";
-            g_outputText += "Mode Activated : ";
-            if (ds4DataOffset == DS4_VIA_BT) { g_outputText += "| Wireless |"; }
-            else if (ds4DataOffset == DS4_VIA_USB) { g_outputText += "| USB |"; }
-            if (allGood) g_outputText += " Rumble On | ";
-            g_outputText += "\r\n";
-
-            // Rumble the Controller
-            if (allGood) {
-                // jiggle it
-                SetDS4RumbleValue(12, 200);
-                SendDS4Update();
-                Sleep(110);
-                SetDS4RumbleValue(165, 12);
-                SendDS4Update();
-                // stop the rumble
-                SetDS4RumbleValue(0, 0);
-                Sleep(130);
-                SendDS4Update();
-                break; // break out of attempt loop
-            }
-            // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-            // Problem is probably related to not getting the correct report and assigning ds4DataOffset = DS4_VIA_USB
-            // taking the lazy route and just set ds4DataOffset = DS4_VIA_BT this works for me 100% of the time and hasn't led to problems yet ...
-            Sleep(10);
-            if (ds4DataOffset == DS4_VIA_USB)
-                ds4DataOffset = DS4_VIA_BT;
-            else
-                ds4DataOffset = DS4_VIA_USB;
-        }
-    }
-    else {
-        g_outputText = "XBOX Mode Activated\r\n";
-        BuildJoystickInputData(activeGamepad);
-    }
-
-    //##########################################################################
-    // If not in DS4 Passthrough mode look for Saved Mapping or create one
-    if (args.mode != 2) {
-        // Look for an existing map for selected device
-        OpenOrCreateMapping(activeGamepad);
-    }
+    // Initial Settings for Operating Mode:  DS4 / XBOX
+    JOYSENDER_OPMODE_INIT(activeGamepad, args, allGood);
     displayOutputText();
     //##########################################################################
     // Main Loop keeps client running
@@ -211,8 +140,9 @@ int joySender(Arguments& args) {
             args.host = getHostAddress();
         }
         if (APP_KILLED) return 0;
-        TCPConnection client(args.host, args.port);
-        allGood = client.establish_connection();
+        NetworkConnection client(args.udp, args.host, args.port);
+
+        allGood = client.establish_connection(args.host, args.port);
 
         // *******************
         // Attempt timing and mode setting handshake
@@ -221,7 +151,6 @@ int joySender(Arguments& args) {
             g_outputText += "<< Connected To : " + args.host + " >>  "; //  \r\n";
             displayOutputText();
             std::cout << std::endl;
-
 
             // Send timing and mode data
             std::string txSettings = std::to_string(args.fps) + ":" + std::to_string(args.mode);
@@ -240,8 +169,13 @@ int joySender(Arguments& args) {
             }
             else{
                 inConnection = true;   
+#if !DEVTEST
                 client.set_silence(true);
+#endif
                 failed_connections = 0;
+
+                std::thread rumbleThread = std::thread(JOYSENDER_FEEDBACK_THREAD, std::ref(client), buffer, buffer_size, std::ref(activeGamepad), std::ref(args), std::ref(inConnection));
+                rumbleThread.detach();
             }
 
             // Set Lines for FPS and Latency output
@@ -285,6 +219,7 @@ int joySender(Arguments& args) {
 #endif
             }
             if (!allGood) {
+                if (UDP_COMMUNICATION) client.hang_up();
                 g_outputText += "<< Device Disconnected >> \r\n";
                 displayOutputText();
                 inConnection = false;
@@ -293,7 +228,7 @@ int joySender(Arguments& args) {
 
             // ###################################
             // let's calculate some timing
-            fpsOutput = do_fps_counting();
+            fpsOutput = do_fps_counting(args.fps);
             if (args.latency) {
                 if (!fpsOutput.empty()) {
                     overwriteFPS(fpsOutput + " fps  ");
@@ -322,6 +257,7 @@ int joySender(Arguments& args) {
                 break;
             }
 
+            /* now in seperate thread
             //##################################
             // # Wait for server response
             allGood = client.receive_data(buffer, buffer_size);                
@@ -335,7 +271,8 @@ int joySender(Arguments& args) {
             //#################################
             // **  Process Feedback data
             processFeedbackBuffer((byte*)&buffer, activeGamepad, args.mode);
-            
+            */
+
             // Sleep to yield thread
             Sleep(loop_delay > 0 ? loop_delay : 0);
             if (args.mode == 2) {
@@ -345,7 +282,8 @@ int joySender(Arguments& args) {
         }
         // ****************** \\
         // Connection ended    \\
-
+ 
+        if (UDP_COMMUNICATION) client.hang_up();
 
         // Catch key presses that could have terminiated connection
         // Shift + R  Resets program allowing joystick reconnection / selection, holding a number will change op mode
@@ -395,9 +333,28 @@ int joySender(Arguments& args) {
 int main(int argc, char **argv)
 {
     Arguments args = parse_arguments(argc, argv);
-    
+    UDP_COMMUNICATION = args.udp;
+
     // Register the signal handler function
     std::signal(SIGINT, signalHandler);
+
+    // Set Version into window title
+    wchar_t winTitle[30] = { 0 };
+    wcscpy_s(winTitle, L"JoySender++ ");
+    wcscat_s(winTitle, APP_VERSION_NUM);
+    wcscat_s(winTitle, UDP_COMMUNICATION ? L" UPD" : L" TCP");
+    SetConsoleTitleW(winTitle);
+
+    DWORD inMode = 0, outMode = 0;
+    DetermineConsoleMode(inMode, outMode);
+    if (CONSOLE_MODE == CONSOLE_VT_MODE) {
+        /* VT NOT FULLY WORKING */
+        return prompt_to_relaunch_with_consoleHost();
+    }
+
+    HANDLE console = GetStdHandle(STD_INPUT_HANDLE);
+    // Disable Quick Edit Mode
+    SetConsoleMode(console,inMode & ~ENABLE_QUICK_EDIT_MODE);
 
     int err = InitJoystickInput();
     if (err) return -1;

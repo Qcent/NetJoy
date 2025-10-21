@@ -1,6 +1,6 @@
 ﻿/*
 
-Copyright (c) 2024 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2025 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -32,7 +32,7 @@ THE SOFTWARE.
 #include <thread>
 #include <functional>
 
-#include "TCPConnection.h"
+#include "NetworkCommunication.h"
 #include "FPSCounter.hpp"
 
 #undef min
@@ -40,14 +40,11 @@ THE SOFTWARE.
 
 #include "./../JoySender++/JoySender++.h"
 
-#define APP_VERSION_NUM     L"2.0.0.0"
+extern byte RESTART_FLAG;
+extern byte MAPPING_FLAG;
 
 #define CANCELLED_FLAG      -2
 #define DISCONNECT_ERROR    -3
-
-byte RESTART_FLAG = 0;
-byte MAPPING_FLAG = 0;
-bool OLDMAP_FLAG = 0;
 
 void signalHandler(int signal);
 
@@ -61,11 +58,11 @@ void joystickSelectCallback(mouseButton& button);
 void newControllerColorsCallback(mouseButton& button);
 void printCurrentController(SDLJoystickData& activeGamepad);
 char IpInputLoop();
-int screenLoop(textUI& screen);
+inline int screenLoop(textUI& screen);
 int tUISelectJoystickDialog(SDLJoystickData& joystick);
 int tUISelectDS4Dialog(std::vector<HidDeviceInfo>devList, textUI& screen, int autoSelect);
-std::string tUIGetHostAddress(textUI& screen);
-void threadedEstablishConnection(TCPConnection& client, int& retVal);
+std::string tUIGetHostAddress(SDLJoystickData& activeGamepad);
+void threadedEstablishConnection(NetworkConnection& client, Arguments& args, int& retVal);
 int tUIMapTheseInputs(SDLJoystickData& joystick, std::vector<SDLButtonMapping::ButtonName>& inputList);
 int tUIRemapInputsScreen(SDLJoystickData& joystick);
 
@@ -500,33 +497,11 @@ bool uiConnectToDS4Controller(HidDeviceInfo* selectedDev) {
     return false;
 }
 
-// returns a list of DS4 controllers by HidDeviceInfo info
-std::vector<HidDeviceInfo> getDS4ControllersList() {
-    std::vector<HidDeviceInfo> devList;
-
-    devList = DS4manager.scanDevices(
-        ANY,                // vendor id  // Sony:: 1356
-        ANY,                // product id // DS4 v1:: 2508
-        ANY,                // serial
-        ANY,                // manufacturer
-        L"Wireless Controller",                // product string // L"Wireless Controller"
-        ANY,                // release
-        ANY,                // usage page
-        ANY                 // usage
-    );
-
-    if (!devList.size()) {
-         setErrorMsg(L" No DS4 Devices Connected! ", 28);
-    }
-
-    return devList;
-}
-
 // to allow for smooth animation, establish connection to host in a separate thread
-void threadedEstablishConnection(TCPConnection& client, int& retVal) {
+void threadedEstablishConnection(NetworkConnection& client, Arguments& args, int& retVal) {
     while (!APP_KILLED && retVal == WSAEWOULDBLOCK)
     {
-        retVal = client.establish_connection();
+        retVal = client.establish_connection(args.host, args.port);
         if (!APP_KILLED && retVal == WSAEWOULDBLOCK)
             Sleep(50);
     }
@@ -596,7 +571,7 @@ char IpInputLoop() {
 }
 
 // will look for a saved controller mapping and open it or initiate the mapping process
-void uiOpenOrCreateMapping(SDLJoystickData& joystick, textUI& screen) {
+void uiOpenOrCreateMapping(SDLJoystickData& joystick) {
     // Convert joystick name to hex  
     std::string mapName = encodeStringToHex(joystick.name);
     // Check for a saved Map for selected joystick
@@ -608,12 +583,11 @@ void uiOpenOrCreateMapping(SDLJoystickData& joystick, textUI& screen) {
         if (!allGood) {
             // invald data, delete file and try to remap controller
             std::filesystem::remove(result.second);
-            return uiOpenOrCreateMapping(joystick, screen);
+            return uiOpenOrCreateMapping(joystick);
         }
     }
     else {
         // File does not exist
-        
         // set up UI for xbox controller face
         BuildXboxFace();
         SetControllerButtonPositions(1);
@@ -739,7 +713,7 @@ int tUISelectJoystickDialog(SDLJoystickData& joystick) {
     output1.SetText(msgPointer1);
 
     // map from sellect screen
-    mouseButton remapSelectScreenButton(CONSOLE_WIDTH + 10, 8, 18, L"\t\t\t\t╔════════════╗◄───╢ MAP INPUTS ║\t\t\t\t╚════════════╝");
+    mouseButton remapSelectScreenButton(CONSOLE_WIDTH + 10, 8, 18, L"\t\t\t\t╔════════════╗◄───╢ MAP INPUTS ║\t\t\t\t╚════════════╝",88);
     remapSelectScreenButton.SetSettings(INACTIVE);
     remapSelectScreenButton.setCallback([](mouseButton& btn) {
         if (btn.Settings() & INACTIVE) return;
@@ -758,7 +732,7 @@ int tUISelectJoystickDialog(SDLJoystickData& joystick) {
             g_screen.RemoveButton(&availableJoystickBtn[i]);
             delete[] availableJoystickBtn[i].getTextPtr();
         }
-        g_screen.ClearButtonsExcept(HEAP_BTN_IDs);
+        g_screen.RemoveButton(&remapSelectScreenButton);
         delete[] availableJoystickBtn;
     };
     auto reset_shared_resources = [&]() {
@@ -787,6 +761,9 @@ int tUISelectJoystickDialog(SDLJoystickData& joystick) {
 
         };
     auto draw_screen = [&]() {
+        g_screen.RemoveButtonById(88);
+        tUI_DRAW_BG_AND_BUTTONS();
+        g_screen.AddButton(&remapSelectScreenButton);
         // get pattern behind map input button
         if (~(g_status & tUI_THEME_af) || !loadedBgFill) {
             for (int i = 0; i < LINES_TO_FILL; i++) {
@@ -795,44 +772,47 @@ int tUISelectJoystickDialog(SDLJoystickData& joystick) {
             }
             loadedBgFill = true;
         }
-        tUI_DRAW_BG_AND_BUTTONS();
-        errorOut.Draw();
         output1.Draw();
         if (numJoysticks) {
             setCursorPosition(START_COL + 7, 17);
             std::wcout << " (1";
             if (numJoysticks > 1) std::wcout << "-" << numJoysticks;
             std::wcout << ") Select  ";
+            setErrorMsg(L"\0", 1);
         }
+        else {
+            setErrorMsg(L" No Gamepad Devices Connected! ", 33);
+        }
+        errorOut.Draw();
         PRINT_EGG_X();
         };
 
     // populate selectable buttons and add to screen 
-    for (int i = 0; i < numJoysticks; ++i)
-    {
-        // Determine the length of the char string
-        size_t charLen = strlen(SDL_GetJoystickNameForID(joystick_list[i]));
-        // Allocate memory for the wchar_t string
-        wchar_t* wideStr = new wchar_t[charLen + 6]; // +4 for the index string, +1 for a space and +1 null terminator
-        // Convert the char string to a wchar_t string // store in message3 as temp location 
-        mbstowcs(msgPointer3, SDL_GetJoystickNameForID(joystick_list[i]), charLen + 1);
+    for (int i = 0; i < numJoysticks; ++i) {
+        const char* joyName = SDL_GetJoystickNameForID(joystick_list[i]);
+        size_t cappedLen = findLastWhitespaceBefore(joyName);
 
-        // Copy to wideStr with a formatted index
-        swprintf(wideStr, L"(%d) %s ", i+1, msgPointer3);
+        // conversion buffer
+        std::vector<wchar_t> msgBuffer(cappedLen + 1);
+        mbstowcs(msgBuffer.data(), joyName, cappedLen);
+        msgBuffer[cappedLen] = L'\0'; // ensure null termination
+
+        // allocate wide string with enough room for index + name
+        size_t allocLen = cappedLen + 10;
+        wchar_t* wideStr = new wchar_t[allocLen];
+
+        // copy formatted string
+        swprintf(wideStr, allocLen, L"(%d) %s ", i + 1, msgBuffer.data());
 
         // create a button with joystick index and name
-        availableJoystickBtn[i] = mouseButton(START_COL, START_LINE + i, charLen + 5, wideStr);
-        // set the id for selection index
+        availableJoystickBtn[i] = mouseButton(START_COL, START_LINE + i, cappedLen + 6, wideStr);
         availableJoystickBtn[i].SetId(i);
-        // set callback function to enable selection
         availableJoystickBtn[i].setCallback(&joystickSelectCallback);
-        // add the button to the screen
         g_screen.AddButton(&availableJoystickBtn[i]);
     }
 
     quitButton.SetPosition(10, 17);
-    g_screen.AddButton(&quitButton);
-
+    
     g_status |= RECOL_tUI_f;
 
     // set this to an invalid index
@@ -879,7 +859,7 @@ int tUISelectJoystickDialog(SDLJoystickData& joystick) {
 
         tUI_UPDATE_INTERFACE(re_color, draw_screen);
         JOYSENDER_tUI_ANIMATE_FOOTER();
-
+        
         if (MAPPING_FLAG > 199) {
             int stickIdx = MAPPING_FLAG-200;
             if (ConnectToJoystick(stickIdx, joystick)) {
@@ -971,11 +951,12 @@ int tUISelectDS4Dialog(std::vector<HidDeviceInfo> devList, textUI& screen, int a
         }
     }
 
-    std::vector<mouseButton> gamepadButtons;
+    std::vector<mouseButton*> gamepadButtons;
     auto cleanMemory = [&]() {
-        for (std::vector<mouseButton>::iterator it = gamepadButtons.begin(); it != gamepadButtons.end(); ++it) {
-            screen.RemoveButton(&(*it));
-            delete[] it->getTextPtr();
+        for (std::vector<mouseButton*>::iterator it = gamepadButtons.begin(); it != gamepadButtons.end(); ++it) {
+            delete[] (*it)->getTextPtr();
+            screen.RemoveButton(*it);
+            delete *it;
         }
     };
 
@@ -990,22 +971,6 @@ int tUISelectDS4Dialog(std::vector<HidDeviceInfo> devList, textUI& screen, int a
         ani.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);
         };
     auto draw_screen = [=]() {
-        /*if (g_status & PTRN_EGG_b) {
-            MAKE_PATTERNS();
-            setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
-            no_whitespace_Draw(JoySendMain_Backdrop, 0, 0, 74, 1555);
-
-            setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
-            setCursorPosition(50, 17);
-            std::wcout << L"©░Quinnco.░2024";
-        }
-        else {
-            g_screen.DrawBackdrop();
-        }
-        //g_screen.DrawButtons();
-        //errorOut.Draw();
-        */
-        ////////////////////////////////////////
         tUI_DRAW_BG_AND_BUTTONS();
         errorOut.Draw();
         output1.Draw();
@@ -1037,18 +1002,17 @@ int tUISelectDS4Dialog(std::vector<HidDeviceInfo> devList, textUI& screen, int a
         // Format the string and store it in wideStr
         swprintf(wideStr, bufferSize + 1, BUTTON_NAME_STRING);
 
-        mouseButton btn(START_COL, START_LINE, bufferSize, wideStr);
-        btn.SetId(i);
+        mouseButton *btn = new mouseButton(START_COL, START_LINE + i, bufferSize, wideStr);
+        btn->SetId(i);
         
         // set callback function to enable selection
-        btn.setCallback(&joystickSelectCallback);
+        btn->setCallback(&joystickSelectCallback);
 
         gamepadButtons.push_back(btn);
-        screen.AddButton(&gamepadButtons.back());
+        screen.AddButton(btn);
     }
 
     quitButton.SetPosition(10, 17);
-    screen.AddButton(&quitButton);
 
     // add messages to screen
     wcsncpy_s(msgPointer1, 29, L" Connected DS4 Controllers: ", _TRUNCATE);
@@ -1133,6 +1097,9 @@ int tUISelectDS4Dialog(std::vector<HidDeviceInfo> devList, textUI& screen, int a
         cleanMemory();
         return 0;
     }
+
+    // Set controller type flag
+    JOYSENDER_SET_DS4_CONTROLLER_FLAG(devList[g_joystickSelected]);
 
     cleanMemory();
 
@@ -1303,6 +1270,14 @@ std::string tUIGetHostAddress(SDLJoystickData& activeGamepad) {
     quitButton.SetPosition(10, 17);
     g_screen.AddButton(&quitButton);
 
+    mouseButton backButton(30, 17, 11, L" (B) Back  ");
+    backButton.setCallback([](mouseButton& btn) {
+        if (btn.Status() & MOUSE_UP) {
+            btn.SetStatus(MOUSE_OUT);
+            RESTART_FLAG = 1;
+        }
+        });
+    g_screen.AddButton(&backButton);
 
     auto re_color = [&]() {
         loadedBgFill = false;
@@ -1320,29 +1295,6 @@ std::string tUIGetHostAddress(SDLJoystickData& activeGamepad) {
         ani.SetDefaultColor(fullColorSchemes[g_currentColorScheme].menuBg);        
         };
     auto draw_screen = [&]() {
-        /*
-        if (g_status & PTRN_EGG_b) {
-            MAKE_PATTERNS();
-            setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
-            no_whitespace_Draw(JoySendMain_Backdrop, 0, 0, 74, 1555);
-
-            setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
-            setCursorPosition(50, 17);
-            std::wcout << L"©░Quinnco.░2024";
-
-            //if (!loadedBgFill) { // if pattern is drawn we need a new copy of it because they dont often repeat
-                getCharsAtPosition(fill1x, fill1y, fill1len, refill_1);
-                refill_1[fill1len] = L'\0';
-                getCharsAtPosition(fill2x, fill2y, fill2len, refill_2);
-                refill_2[fill2len] = L'\0';
-                loadedBgFill = true;
-            //}
-
-        }
-        else {
-            g_screen.DrawBackdrop();
-        }
-        */
         tUI_DRAW_BG_AND_BUTTONS();
         if (g_status & PTRN_EGG_b) {
             getCharsAtPosition(fill1x, fill1y, fill1len, refill_1);
@@ -1357,12 +1309,11 @@ std::string tUIGetHostAddress(SDLJoystickData& activeGamepad) {
         PRINT_EGG_X();
         setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
         printCurrentController(activeGamepad);
-        //g_screen.DrawButtons();
-        //errorOut.Draw(); // errors not shown on this screen 
+        errorOut.Draw(); // errors not shown on this screen (pre udp)
         g_screen.DrawInputs();
         setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);
         setCursorPosition(12, 8);
-        std::wcout << L" Enter IP Address Of Host: ";
+        std::wcout << L" Enter IP Address Of Host (" << (UDP_COMMUNICATION ? L"UDP" : L"TCP") << "): ";
 
         setTextColor(screenButtonsCol.col1);
         setCursorPosition(28, 10);
@@ -1385,6 +1336,10 @@ std::string tUIGetHostAddress(SDLJoystickData& activeGamepad) {
     
     while (!APP_KILLED && !makeConnection) {
         checkForQuit();
+        if (checkForBack() || RESTART_FLAG == 1) {
+            RESTART_FLAG = 1;
+            break;
+        }
         screenLoop(g_screen);
 
         tUI_UPDATE_INTERFACE(re_color, draw_screen);
@@ -1393,7 +1348,7 @@ std::string tUIGetHostAddress(SDLJoystickData& activeGamepad) {
         for (int i = 0; i < 4; ++i) {
             if (octet[i].Status() & ACTIVE_INPUT) {
                 validIP = buildAndTestIpAddress();
-                octNum = i;        
+                octNum = i;
             }
         }
         setOctetCursorPos();
@@ -1518,8 +1473,9 @@ std::string tUIGetHostAddress(SDLJoystickData& activeGamepad) {
     hideConsoleCursor();
     g_screen.ClearInputs();
     g_screen.ClearButtonsExcept(HEAP_BTN_IDs);
-    buildAndTestIpAddress();
+    if (RESTART_FLAG) return {};
 
+    buildAndTestIpAddress();
     
     if (pushNewIP(g_converter.from_bytes(host_address).c_str())) {
         saveIPDataToFile();
@@ -2300,6 +2256,8 @@ bytesReceived = client.receive_data(buffer, buffer_size); \
 if (bytesReceived > 0) { \
     inConnection = true; \
     failed_connections = 0; \
+    std::thread rumbleThread = std::thread(JOYSENDER_tUI_FEEDBACK_THREAD, std::ref(client), buffer, buffer_size, std::ref(activeGamepad), std::ref(args), std::ref(inConnection)); \
+    rumbleThread.detach(); \
 } \
 else { \
     swprintf(errorPointer, 46, L" << Connection To: %S Failed >> ", args.host.c_str()); \
@@ -2326,6 +2284,7 @@ void JOYSENDER_tUI_INIT_UI() {
     newColorsButton.setCallback(&newControllerColorsCallback);
     quitButton.SetPosition(10, 17);
 
+    if (HOLIDAY_FLAG) tUI_LOAD_HOLIDAY();
 }
 
 int JOYSENDER_tUI_SELECT_JOYSTICK(SDLJoystickData& activeGamepad, Arguments& args, int& allGood) {
@@ -2367,6 +2326,7 @@ int JOYSENDER_tUI_SELECT_JOYSTICK(SDLJoystickData& activeGamepad, Arguments& arg
             });
         g_screen.AddButton(&borderEgg);
     }
+    g_screen.AddButton(&quitButton);
 
     tUI_THEME_AUTO_ACTIVATION();
     tUI_THEME_RESTART();
@@ -2380,6 +2340,8 @@ int JOYSENDER_tUI_SELECT_JOYSTICK(SDLJoystickData& activeGamepad, Arguments& arg
             btn.SetStatus(MOUSE_OUT);
             RESTART_FLAG = (g_mode == 2) ? 2 : 3;
             g_screen.RemoveButtonById(99);
+            g_screen.RemoveButtonById(43);
+            g_screen.RemoveButtonById(44);
         }
         });
     g_screen.AddButton(&changeModeButton);
@@ -2431,75 +2393,7 @@ int JOYSENDER_tUI_SELECT_JOYSTICK(SDLJoystickData& activeGamepad, Arguments& arg
     return 1;
 }
 
-void JOYSENDER_tUI_OPMODE_INIT(SDLJoystickData& activeGamepad, Arguments& args, int& allGood) {
-    if (args.mode == 2) {
-
-        // Get a report from the device to determine what type of connection it has
-        Sleep(5); // a fresh report should be generated every 4ms from the ds4 device
-        GetDS4Report();
-
-        // first byte is used to determine where stick input starts
-        ds4DataOffset = ds4_InReportBuf[0] == 0x11 ? DS4_VIA_BT : DS4_VIA_USB;
-
-        int attempts = 0;   // DS4 fails to properly initialize when connecting to pc (after power up) via BT so lets hack in multiple attempts
-        while (attempts < 2) {
-            attempts++;
-
-            Sleep(5); // lets slow things down
-            bool extReport = ActivateDS4ExtendedReports();
-
-            // Set up feedback buffer with correct headers for connection mode
-            InitDS4FeedbackBuffer();
-
-            // Set new LightBar color with update to confirm rumble/lightbar support
-            switch (ds4DataOffset) {
-            case(DS4_VIA_BT):
-                SetDS4LightBar(105, 4, 32); // hot pink
-                break;
-            case(DS4_VIA_USB):
-                SetDS4LightBar(180, 188, 5); // citrus yellow-green
-            }
-
-            Sleep(5); // update fails if controller is bombarded with read/writes, so take a rest bud
-            allGood = SendDS4Update();
-
-            // Rumble the Controller
-            if (allGood) {
-                // jiggle it
-                SetDS4RumbleValue(12, 200);
-                SendDS4Update();
-                Sleep(110);
-                SetDS4RumbleValue(165, 12);
-                SendDS4Update();
-                // stop the rumble
-                SetDS4RumbleValue(0, 0);
-                Sleep(130);
-                SendDS4Update();
-                break; // break out of attempt loop
-            }
-            // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-        // Problem is probably related to not getting the correct report and assigning ds4DataOffset = DS4_VIA_USB
-        // taking the lazy route and just set ds4DataOffset = DS4_VIA_BT this works for me 100% of the time and hasn't led to problems yet ...
-            Sleep(10);
-            if (ds4DataOffset == DS4_VIA_USB)
-                ds4DataOffset = DS4_VIA_BT;
-            else
-                ds4DataOffset = DS4_VIA_USB;
-        }
-    }
-    else {
-        BuildJoystickInputData(activeGamepad);
-        // Look for an existing map for selected device
-        uiOpenOrCreateMapping(activeGamepad, g_screen);
-
-        if (g_outputText.find(OLDMAP_WARNING_MSG) != std::string::npos) {
-            OLDMAP_FLAG = true;
-        }
-    }
-
-}
-
-void JOYSENDER_tUI_ANIMATED_CX(SDLJoystickData& activeGamepad,TCPConnection& client, Arguments& args, int& allGood) {
+void JOYSENDER_tUI_ANIMATED_CX(SDLJoystickData& activeGamepad, NetworkConnection& client, Arguments& args, int& allGood) {
     g_screen.ClearButtonsExcept(HEAP_BTN_IDs);
     JOYSENDER_tUI_INIT_FOOTER_ANIMATION();
     DEFAULT_EGG_BUTTS();
@@ -2552,7 +2446,7 @@ void JOYSENDER_tUI_ANIMATED_CX(SDLJoystickData& activeGamepad,TCPConnection& cli
 
     // ### establish the connection in separate thread to animate connecting dialog
     allGood = WSAEWOULDBLOCK;
-    std::thread connectThread(threadedEstablishConnection, std::ref(client), std::ref(allGood));
+    std::thread connectThread(threadedEstablishConnection, std::ref(client), std::ref(args), std::ref(allGood));
     // animation and input loop
     int lastFrame = -1;
     while (!APP_KILLED && allGood == WSAEWOULDBLOCK) {
@@ -2607,44 +2501,6 @@ void JOYSENDER_tUI_ANIMATED_CX(SDLJoystickData& activeGamepad,TCPConnection& cli
 }
 
 void JOYSENDER_tUI_RESET_AFTER_MAP(Arguments& args) {
-    /*
-    // reset output1
-    wcsncpy_s(msgPointer1, 40, g_converter.from_bytes(" << Connected to: " + args.host + "  >> ").c_str(), _TRUNCATE);
-    output1.SetText(msgPointer1);
-    output1.SetPosition(3, 1, 40, 1, ALIGN_LEFT);
-    output1.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg);
-    // output 3 & fps   
-    output3.SetText(L" FPS:");
-    output3.SetColor(fullColorSchemes[g_currentColorScheme].controllerBg);
-
-    if (g_status & BORDER_EGG_a) {
-        output1.SetPosition(6, 1, 43, 1, ALIGN_LEFT);
-        cxMsg.SetPosition(23, 1, 38, 1, ALIGN_LEFT);
-        output3.SetPosition(55, 1, 5, 1, ALIGN_LEFT);
-        fpsMsg.SetPosition(60, 1, 7, 1, ALIGN_LEFT);
-    }
-    else {
-        output1.SetPosition(3, 1, 40, 1, ALIGN_LEFT);
-        cxMsg.SetPosition(20, 1, 38, 1, ALIGN_LEFT);
-        output3.SetPosition(46, 1, 5, 1, ALIGN_LEFT);
-        fpsMsg.SetPosition(51, 1, 7, 1, ALIGN_LEFT);
-    }
-
-    // re add g_screen buttons
-    g_screen.AddButton(&newColorsButton);
-    g_screen.AddButton(&mappingButton);
-    g_screen.AddButton(&restartButton[1]);  // mode 1
-    g_screen.AddButton(&restartButton[2]);  // mode 2
-    g_screen.AddButton(&restartButton[0]);  // main restart
-    g_screen.AddButton(&quitButton);
-
-    // reset quit button
-    quitButton.setCallback(&exitAppCallback);
-    quitButton.SetPosition(consoleWidth / 2 - 5, XBOX_QUIT_LINE);
-
-    */
-
-    ///////////////////////////////////////////////
 
     quitButton.SetPosition(consoleWidth / 2 - 5, XBOX_QUIT_LINE);
     newColorsButton.SetPosition(consoleWidth / 2 - 8, XBOX_QUIT_LINE - 3);
@@ -2658,8 +2514,6 @@ void JOYSENDER_tUI_RESET_AFTER_MAP(Arguments& args) {
     swprintf(cxPointer, 18, L" %S ", args.host.c_str());
     cxMsg.SetPosition(21, 1, 38, 1, ALIGN_LEFT);
     cxMsg.SetText(cxPointer);
-
-    //SetControllerButtonPositions(g_mode);
 
     output1.SetText(msgPointer1);
     output1.SetPosition(3, 1, 40, 1, ALIGN_LEFT);
@@ -2705,4 +2559,52 @@ void JOYSENDER_tUI_BUILD_MAP_SCREEN() {
 
     controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
     tUI_SET_SUIT_POSITIONS(SUIT_POSITIONS_MAP_SCREEN());
+}
+
+void JOYSENDER_tUI_FEEDBACK_THREAD(NetworkConnection& client, char* buffer, size_t buffer_size, SDLJoystickData& activeGamepad, Arguments& args, bool& inConnection){
+    int timeouts = 0;
+    while (!APP_KILLED && inConnection) {
+
+        int allGood = client.receive_data(buffer, buffer_size);
+
+        if (allGood == sizeof(UDPConnection::SIGPacket)) {
+            UDPConnection::SIGPacket* pkt = (UDPConnection::SIGPacket*)buffer;
+            if (pkt->type == UDPConnection::PACKET_HANGUP) {
+
+                swprintf(errorPointer, 26, L" << Host Disconnected >> ");
+                errorOut.SetText(errorPointer);
+                errorOut.Draw();
+                inConnection = false;
+                args.host = "";
+                
+            }
+            // Do not process as feedback data
+            continue;
+        }
+
+        if (allGood < 1) {
+            if (!inConnection) break;
+            if (MAPPING_FLAG && UDP_COMMUNICATION) {
+                client.keep_alive();
+                Sleep(150);                
+            }
+            int er = WSAGetLastError();
+            if (er == 10060 && !MAPPING_FLAG) {
+
+                if (++timeouts > 3) inConnection = false;
+            }
+            else if (er) {  // anyother error ends connection
+
+                inConnection = false;
+            }
+            if (!inConnection) {
+                // Connection was lost or ended
+                if (!APP_KILLED) {
+                    swprintf(errorPointer, 50, L" << Connection To:  %S Lost >> ", args.host.c_str());
+                    errorOut.SetText(errorPointer);
+                }
+            }
+        }
+        else processFeedbackBuffer((byte*)buffer, activeGamepad, args.mode);
+    }
 }

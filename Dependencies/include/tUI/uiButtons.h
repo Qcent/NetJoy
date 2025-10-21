@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2023 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2025 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -44,6 +44,8 @@ textInput restartButtonCover(CONSOLE_WIDTH / 2 + 13, XBOX_QUIT_LINE - 1, 2, 2, A
 // Declare all necessary controller buttons: outline and highlight areas
 
 // Controller button highlight areas
+mouseButton button_DS4_TouchPad_highlight(32, 6, 9, L"                           ", UNHOVERABLE);
+
 mouseButton button_A_highlight(51, 11, 2, L"  ", UNHOVERABLE);
 mouseButton button_B_highlight(54, 9, 2, L"  ", UNHOVERABLE);
 mouseButton button_X_highlight(47, 9, 2, L"  ", UNHOVERABLE);

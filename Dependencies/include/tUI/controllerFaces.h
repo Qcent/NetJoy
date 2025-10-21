@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2023 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2025 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -222,6 +222,7 @@ void ReDrawControllerFace(textUI& screen, ColorScheme& colorsScheme, WORD BG_COL
 	textUI controllerButtons;		// for setting button colors
 	AddControllerButtons(controllerButtons);	// without them being click able on screen
 
+	if (mode == 2) controllerButtons.AddButton(&button_DS4_TouchPad_highlight);
 	controllerButtons.SetButtonsColors({ static_cast<WORD>(colorsScheme.buttonColor | colorsScheme.faceColor),
 								static_cast<WORD>(colorsScheme.highlightColor | colorsScheme.faceColor),
 								colorsScheme.selectColor,

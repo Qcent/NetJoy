@@ -1,12 +1,13 @@
-# JoySender tUI
-JoySender is a console application that enables you to send joystick data over TCP/IP to a host/server. It simplifies the process of remote joystick control, allowing you to enjoy gaming experiences on a different machine within a local network or even over the internet. \
+# JoySender 3 tUI
+JoySender is a console application that enables you to send joystick data over UDP or TCP, to a host/server. It simplifies the process of remote joystick control, allowing you to enjoy gaming experiences on a different machine within a local network or even over the internet. \
 It runs in two modes: 
 
 **Mode 1:** 
 - JoySender tUI uses user created button mapping to emulate an Xbox360 controller on host machine running JoyReceiver or JoyReceiver tUI. 
 
 **Mode 2:** 
-- JoySender tUI reads input reports from a DS4 controller and sends them to a host machine running JoyReceiver or JoyReceiver tUI. This mode will send all data associated with DS4 device i.e. gyro, accelerometer, touchpad, battery, etc
+- JoySender tUI reads input reports from a DS4 controller and sends them to a host machine running JoyReceiver or JoyReceiver tUI. This mode will send all data associated with DS4 device i.e. gyro, accelerometer, touchpad, battery, etc.
+- Beta Support for Switch compatible Pro Controllers, emulated as DS4 with gyro/accel capabilities. 
 
 ![Connected](./../screenshots/sendConnected.gif)
 
@@ -45,6 +46,10 @@ JoySender_tUI [OPTIONS] <ipaddress of host>
 
 - `-m, --mode <MODE>`: Sets the operational mode for JoySender tUI. Use `1` for Xbox 360 emulation mode or `2` for DS4 emulation mode. Choose the desired mode based on your requirements. The default mode is Xbox 360 emulation.
 
+- `-t, --tcp`: Use TCP protocol.
+
+- `-u, --udp`: Use UDP protocol. (default)
+
 - `-a, --auto`: Automatically selects the first joystick recognized by the system. If you have multiple joysticks connected, this option will automatically choose the first one. By default, this option is disabled.
 
 - `-h, --help`: Displays the help message with information on how to use JoySender tUI and its available options.
@@ -70,6 +75,13 @@ For DS4 emulation mode, running at 45 fps, use the following command:
 ```
 'JoySender_tUI' -m 2 -f 45
 ```
+
+For DS4 emulation mode, running at 88 fps, and transmitting over TCP, use the following command:
+
+```
+'JoySender_tUI' -m 2 -f 88 -t
+```
+
 
 ## Mapping Joystick Inputs to an Xbox360 Controller
 ![Control Mapping Process](./../screenshots/mapping.gif)
@@ -104,7 +116,7 @@ Once you establish a connection with the host/server, JoySender provides several
 ## License
 MIT Licence
 
-Copyright (c) 2024 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2025 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

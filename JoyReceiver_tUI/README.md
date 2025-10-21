@@ -1,5 +1,5 @@
-# JoyReceiver tUI
-JoyReceiver tUI is a console application that receives and emulates joystick data over TCP/IP. In conjunction with JoySender or JoySender tUI, it allows you to seamlessly control a joystick connected from a remote machine on a host machine.
+# JoyReceiver 3 tUI
+JoyReceiver tUI is a console application that receives and emulates joystick data over UDP or TCP. In conjunction with JoySender or JoySender tUI, it allows you to seamlessly control a joystick connected from a remote machine on a host machine.
 
 
 ## Table of Contents
@@ -11,7 +11,7 @@ JoyReceiver tUI is a console application that receives and emulates joystick dat
 
 ## Requirements
 
-Before using JoyReceiver tUI, make sure you have installed the MSVC Redistributables and the ViGEm Bus Driver:
+Before using JoyReceiver tUI, make sure you have installed the MSVC Redistributable and the ViGEm Bus Driver:
 - JoyReceiver tUI requires the [MSVC Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170#visual-studio-2015-2017-2019-and-2022) be installed for the target machine architecture (x86/x64).
 - JoyReceiver tUI requires the [ViGEmBus Driver](https://github.com/ViGEm/ViGEmBus) to enable joystick emulation. Ensure you have this installed on your system before using JoyReceiver tUI.
   
@@ -20,7 +20,7 @@ Before using JoyReceiver tUI, make sure you have installed the MSVC Redistributa
 
 To use JoyReceiver tUI:
 - Simply run the JoyReceiver tUI executable.
-- JoyReceiver will start listening for incoming joystick data on the default port (5000). As well as provide you with a LAN and WAN ip address for your machine to make it easy to set up the connection. \
+- JoyReceiver will start listening for incoming joystick data on the default port (5000) UDP. As well as provide you with a LAN and WAN ip address for your machine to make it easy to set up the connection. \
   ![Start Up](./../screenshots/recvStart.gif)
 - Once a connection is received, gamepad emulation will begin using the ViGEm driver. \
   ![Connection Received](./../screenshots/recvConnected.gif)
@@ -30,8 +30,11 @@ JoyReceiver tUI provides command-line parameters for advanced settings and custo
 
     -p, --port <PORT>: Sets the port number to run JoyReceiver tUI on for communication with the client/sender.
     -h, --help: Displays the help message with information on how to use JoyReceiver tUI and its available options.
+    -t, --tcp: Use TCP protocol.
+    -u, --udp: Use UDP protocol. (default)
 
-By default, JoyReceiver tUI uses port 5000 for communication. If you wish to use a different port, specify it using the -p/--port option.
+By default, JoyReceiver tUI uses port 5000 UDP for communication. If you wish to use a different port, specify it using the -p/--port option.
+To use TCP use the -t/--tcp option
 
 ```
 JoyReceiver_tUI [OPTIONS]
@@ -46,17 +49,22 @@ To run JoyReceiver tUI with default settings, simply execute the following comma
 'JoyReceiver_tUI'
 ```
 
-To specify the port to listen on (must be set via command line), use the `-p/--port`option:
+To specify the port to listen on (must be set via command line), use the `-p/--port` option:
 
 ```
 'JoyReceiver_tUI' -p 8080
 ```
 
+To specify port 3000 and TCP comunication, use the `-p/--port` and `-t/--tcp` options:
+
+```
+JoyReceiver++ -p 3000 -t
+```
 
 ## License
 MIT Licence
 
-Copyright (c) 2024 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2025 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
