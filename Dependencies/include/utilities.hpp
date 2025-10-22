@@ -44,7 +44,9 @@ void DetermineConsoleMode(DWORD& inMode, DWORD& outMode) {
 
     if (vtInput || vtOutput) {
         // VT mode supported - likely Windows Terminal or a ConPTY 
-        CONSOLE_MODE = CONSOLE_VT_MODE;
+        //CONSOLE_MODE = CONSOLE_VT_MODE;
+        SetConsoleMode(hIn, inMode & ~ENABLE_VIRTUAL_TERMINAL_INPUT); // VT mode does not currently work but we
+        CONSOLE_MODE = CONSOLE_HOST_MODE; // can disable VT input and operate as normal
     }
     else {
         // classic console behavior 
@@ -88,6 +90,16 @@ bool LaunchInConsoleHost(){
     return false;
 }
 bool prompt_to_relaunch_with_consoleHost() {
+#if DEVTEST
+    DWORD inMode = 0;
+    HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
+    GetConsoleMode(hIn, &inMode);
+    SetConsoleMode(hIn, inMode & ~ENABLE_VIRTUAL_TERMINAL_INPUT);
+    CONSOLE_MODE = CONSOLE_HOST_MODE;
+
+    return true; // VS console has VT support and will trigger this prompt
+#endif
+
     int result = MessageBoxW(
         nullptr,                                       // owner (none)
         L"Windows Terminal not currently supported. \r\n\

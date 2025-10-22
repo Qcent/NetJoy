@@ -42,17 +42,6 @@ THE SOFTWARE.
   (placing here because all programs load this file early)*/
 
 bool UDP_COMMUNICATION = false; // global helper flag
-/* 
-* USE FOR LOCKING IN PROTOCOL AT COMPILE TIME
-#define UPD_COMMUNICATION 0
-#if UDP_COMMUNICATION
-using NetworkConnection = UDPConnection;
-#else
-using NetworkConnection = TCPConnection;
-#endif
-*/
-
-#ifndef UDP_COMMUNICATION
 
 class NetworkConnection {
     struct Concept {
@@ -237,7 +226,6 @@ public:
         return nullptr;
     }
 
-    //__declspec(noinline)
     bool confirm_connection() {
         if (!UDP_COMMUNICATION) return true;
 
@@ -279,5 +267,3 @@ public:
         }
     }
 };
-
-#endif
