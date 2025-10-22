@@ -9,7 +9,7 @@
 #pragma comment(lib, "VIGEmClient.lib")
 
 constexpr auto APP_NAME = "NetJoy";
-constexpr auto APP_VERSION_NUM = L"3.0.3.0";
+#define APP_VERSION_NUM     L"3.0.4.0"
 volatile sig_atomic_t APP_KILLED = 0;
 std::mutex mtx;
 char feedbackData[5] = { 0 }; // For sending rumble data back to joySender
