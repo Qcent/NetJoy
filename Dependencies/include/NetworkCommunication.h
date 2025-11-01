@@ -36,7 +36,8 @@ THE SOFTWARE.
 #define DS4_REPORT_NETWORK_DATA_SIZE 61
 #define XBOX_REPORT_NETWORK_DATA_SIZE 12
 
-#define DEVTEST 0 /* Turns WAN IP discovery off
+// auto defined in debug builds
+/*#define DEVTEST 0 /* Turns WAN IP discovery off
                      Turns listening address to 127.0.0.1
                      Enables gyro (imu) data output in connection
   (placing here because all programs load this file early)*/

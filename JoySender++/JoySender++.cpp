@@ -349,7 +349,7 @@ int main(int argc, char **argv)
     DetermineConsoleMode(inMode, outMode);
     if (CONSOLE_MODE == CONSOLE_VT_MODE) {
         /* VT NOT FULLY WORKING */
-        return prompt_to_relaunch_with_consoleHost();
+        if(!prompt_to_relaunch_with_consoleHost()) return false;
     }
 
     HANDLE console = GetStdHandle(STD_INPUT_HANDLE);

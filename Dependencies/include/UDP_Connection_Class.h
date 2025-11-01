@@ -338,7 +338,7 @@ int UDPConnection::start_as_server(int PORT) {
     // Filling server information 
     servaddr.sin_family = AF_INET; // IPv4 
 #if DEVTEST
-    servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");  // local only
+    InetPtonA(AF_INET, "127.0.0.1", &servaddr.sin_addr);  // local only
 #else
     servaddr.sin_addr.s_addr = INADDR_ANY;  // listen address
 #endif
