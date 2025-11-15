@@ -26,11 +26,113 @@ THE SOFTWARE.
 #include <string>
 #include <tchar.h>
 #include <vector>
+#include <random>
 
 #define CONSOLE_HOST_MODE   0x01
 #define CONSOLE_VT_MODE     0x02
 byte CONSOLE_MODE = 0;
 bool g_hasFocus = true;
+
+/**/
+#include <windows.h>
+#include <iostream>
+#include <string>
+#include <chrono>
+#include <ctime>
+
+void SetConsoleColors(bool inverted)
+{
+    HANDLE h = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (inverted)
+        SetConsoleTextAttribute(h, BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
+    else
+        SetConsoleTextAttribute(h, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+}
+
+int mainer()
+{
+    HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+
+    SetConsoleMode(hIn,
+        ENABLE_EXTENDED_FLAGS |
+        ENABLE_WINDOW_INPUT |
+        ENABLE_MOUSE_INPUT |
+        ENABLE_PROCESSED_INPUT);
+
+    bool inverted = false;
+    SetConsoleColors(inverted);
+
+    std::cout << "Click to toggle colors. Press 'q' to quit.\n";
+
+    tm last_tm;
+    bool redraw = false;
+
+    while (true)
+    {
+        // ----------- Get current time -----------
+        auto now = std::chrono::system_clock::now();
+        std::time_t now_t = std::chrono::system_clock::to_time_t(now);
+
+        tm local_tm;
+        localtime_s(&local_tm, &now_t);
+
+        if (redraw || last_tm.tm_sec != local_tm.tm_sec) {
+            redraw = false;
+            last_tm = local_tm;
+            char buffer[64];
+            strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", &local_tm);
+
+            // Move cursor to line 2
+            COORD pos = { 0, 2 };
+            SetConsoleCursorPosition(hOut, pos);
+
+            std::cout << "Current Date/Time: " << buffer << "    " << std::flush;
+        }
+
+        // ----------- Check input events -----------
+        DWORD numEvents = 0;
+        GetNumberOfConsoleInputEvents(hIn, &numEvents);
+
+        if (numEvents > 0)
+        {
+            INPUT_RECORD events[16];
+            DWORD eventsRead = 0;
+            ReadConsoleInput(hIn, events, 16, &eventsRead);
+
+            for (DWORD i = 0; i < eventsRead; ++i)
+            {
+                INPUT_RECORD& ev = events[i];
+
+                // Keyboard
+                if (ev.EventType == KEY_EVENT && ev.Event.KeyEvent.bKeyDown)
+                {
+                    char c = ev.Event.KeyEvent.uChar.AsciiChar;
+                    if (c == 'q' || c == 'Q')
+                        return 0;
+                }
+
+                // Mouse click
+                if (ev.EventType == MOUSE_EVENT)
+                {
+                    auto& me = ev.Event.MouseEvent;
+                    if (me.dwButtonState & FROM_LEFT_1ST_BUTTON_PRESSED)
+                    {
+                        inverted = !inverted;
+                        SetConsoleColors(inverted);
+                        redraw = true;
+                    }
+                }
+            }
+        }
+
+        Sleep(1000);
+    }
+
+    return 0;
+}
+
+/**/
 
 // detects classic console vs Windoes Terminal/ConPTY
 void DetermineConsoleMode(DWORD& inMode, DWORD& outMode) {
@@ -116,6 +218,17 @@ Would you like to re-launch with Console Host?",       // message
     else if (result == IDCANCEL) {
         return false;  // returning false forces app shutdown
     }
+}
+
+// Generate a random integer from r1 - r2 inclusive
+int generateRandomInt(int r1, int r2) {
+    // Create a random number generator engine ...once(static)
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    // Create a distribution to generate integers between r1 and r2
+    std::uniform_int_distribution<> dist(r1, r2);
+    // Generate and return a random number
+    return dist(gen);
 }
 
 // Function safely return environment variables

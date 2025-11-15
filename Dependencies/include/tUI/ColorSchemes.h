@@ -23,7 +23,7 @@ THE SOFTWARE.
 */
 
 #pragma once
-#include <random>
+#include "utilities.hpp"
 
 // Foreground (Text) Colors
 enum ConsoleColor {
@@ -61,7 +61,7 @@ struct ColorScheme {
 	WORD selectColor;
 };
 
-// Generate a random integer from r1 - r2 inclusive
+/*// Generate a random integer from r1 - r2 inclusive
 int generateRandomInt(int r1, int r2) {
 	// Create a random number generator engine ...once(static)
 	static std::random_device rd;
@@ -71,6 +71,7 @@ int generateRandomInt(int r1, int r2) {
 	// Generate and return a random number
 	return dist(gen);
 }
+*/
 
 // Function Compares fg to bg, returns true if there is bad contrast
 bool CheckContrastMismatch(WORD fg, WORD bg) {
