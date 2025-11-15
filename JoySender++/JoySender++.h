@@ -168,10 +168,12 @@ bool updateDS4Lightbar(const byte* buffer) {
 
 // Reckons what to do with feedback from JoyReceiver 
 void processFeedbackBuffer(const byte* buffer, SDLJoystickData& activeGamepad, int mode) {
+    static int autoUpdate = 0;
     int update = 0;
 
-    if (updateRumble('L', buffer[0]) || updateRumble('R', buffer[1])) {
+    if (updateRumble('L', buffer[0]) || updateRumble('R', buffer[1]) || ++autoUpdate > 9) {
         ++update;
+        autoUpdate = 0;
     }
     if (mode == 2) {
         switch (HID_CONTROLLER_TYPE) {
@@ -187,8 +189,8 @@ void processFeedbackBuffer(const byte* buffer, SDLJoystickData& activeGamepad, i
 
         case(NxProController_TYPE):
             if (update) {
-                NxRumble::instance().setFrame({ 100.0f, (static_cast<float>(buffer[0]) / 255.0f), 
-                                                     75.0f, (static_cast<float>(buffer[1]) / 255.0f), 55 });
+                NxRumble::instance().setFrame({ 100.0f, (static_cast<float>(buffer[0]) / 255.0f),
+                                                     75.0f, (static_cast<float>(buffer[1]) / 255.0f), 1200 });
             }
             break;
         }

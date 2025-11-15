@@ -123,7 +123,7 @@ public:
                 inst.reset();
             }
             if (!manager) {
-                throw std::runtime_error("RumblePatternPlayer: HidManager required for initialization");
+                throw std::runtime_error("NxRumble: HidManager required for initialization");
             }
             inst.reset(new NxRumble(manager, bt));
         }
