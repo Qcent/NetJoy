@@ -141,70 +141,26 @@ bool tUI_INIT_CONSOLE(){
         inMode |= ENABLE_VIRTUAL_TERMINAL_INPUT;
         SetConsoleMode(hIn, inMode);
 
-        wprintf(L"\x1b[?1006h"); // Enable SGR mouse reporting
-        wprintf(L"\x1b[?1003h"); // Any-motion mouse tracking
-        wprintf(L"\x1b[?1004h"); // enable focus tracking
-
+        EnableVTMouseAndFocus();
+        wprintf(L"\x1b[2J\x1b[H"); // clear screen
         fflush(stdout);
 
-
-        /* VT NOT FULLY WORKING */
-        return prompt_to_relaunch_with_consoleHost();
-        /* -------------------- */
+        VT_THREAD_START();
     }
 
     return true;
 }
 
-struct MouseEvent {
-    byte type;
-    int x;
-    int y;
-    int button; // 0=left, 1=middle, 2=right
-};
-
-bool ReadVTMouseEvent(MouseEvent& evt)
-{
-    char buf[64];
-    int bytesRead = _read(0, buf, sizeof(buf) - 1); // file descriptor 0 = stdin
-
-    if (bytesRead <= 0)
-        return false;
-
-    buf[bytesRead] = '\0';
-    std::string s(buf, bytesRead);
-
-    // Focus
-    if (s.find("\x1b[I") != std::string::npos) { g_hasFocus = true;  return false; }
-    if (s.find("\x1b[O") != std::string::npos) { g_hasFocus = false; return false; }
-
-    // --- SGR mouse: ESC [ < b ; x ; y M/m ---
-    std::smatch m;
-    std::regex re("\x1b\\[<([0-9]+);([0-9]+);([0-9]+)([Mm])");
-
-    if (std::regex_search(s, m, re)) {
-        int b = std::stoi(m[1]);
-        evt.x = std::stoi(m[2])-1;
-        evt.y = std::stoi(m[3])-1;
-        bool release = (m[4] == "m");
-        bool motion = (b & 32);
-
-        if (motion)       evt.type = MOUSE_MOVED;
-        else if (release) evt.type = MOUSE_UP;
-        else              evt.type = MOUSE_DOWN;
-
-        evt.button = (b & 3);
-        return true;
-    }
-
-    return false;
-}
-
-int screenLoopVirtualTerminal(textUI& screen)
-{
+int screenLoopVirtualTerminal(textUI& screen) {
     int retVal = 0;
-    MouseEvent evt;
-    if (ReadVTMouseEvent(evt)) {
+   
+    // requires ReadVTMouseEventsThread() to be running
+    VTmouseEventMutex.lock();
+    VTMouseEvent evt = g_VTmouse;
+    g_VTmouse.type = 0;
+    VTmouseEventMutex.unlock();
+
+    if (evt.type) {
         COORD mousePos = { (SHORT)evt.x, (SHORT)evt.y };
 
         if (evt.type == MOUSE_MOVED) {

@@ -9,7 +9,7 @@
 #pragma comment(lib, "VIGEmClient.lib")
 
 constexpr auto APP_NAME = "NetJoy";
-#define APP_VERSION_NUM     L"3.0.4.0"
+#define APP_VERSION_NUM     L"3.0.5.0"
 volatile sig_atomic_t APP_KILLED = 0;
 std::mutex mtx;
 char feedbackData[5] = { 0 }; // For sending rumble data back to joySender
@@ -24,7 +24,7 @@ void ds4RumbleThread(PVIGEM_CLIENT vigemClient, PVIGEM_TARGET gamepad) {
     std::unique_lock<std::mutex> lock(mtx, std::defer_lock);
     while (!APP_KILLED && !ds4ThreadStop) {
 
-        auto vigemErr = vigem_target_ds4_await_output_report_timeout(vigemClient, gamepad, 3000, &buffer);
+        auto vigemErr = vigem_target_ds4_await_output_report_timeout(vigemClient, gamepad, 500, &buffer);
         if (!VIGEM_SUCCESS(vigemErr) && vigemErr != VIGEM_ERROR_TIMED_OUT) {
             std::cerr << "DS4 Rumble callback failed with error code: 0x" << std::hex << vigemErr << std::endl;
             lock.lock();
@@ -317,11 +317,11 @@ void output_extra_ds4_data(DS4_REPORT_EX& report) {
     std::wcout << L"Y: " << report.Report.wAccelY << L" \tYg: " << report.Report.wGyroY << L"\tmax: " << maxY << L"  min: " << minY << L"  maxG: " << maxYg << L"  minG: " << minYg << L"       \r\n"; // yaw
     std::wcout << L"Z: " << report.Report.wAccelZ << L" \tZg: " << report.Report.wGyroZ << L"\tmax: " << maxZ << L"  min: " << minZ << L"  maxG: " << maxZg << L"  minG: " << minZg << L"       \r\n"; // roll
 #else
-    repositionConsoleCursor(2, 0);
+    repositionConsoleCursor(0, 0);
     std::cout << "X: " << report.Report.wAccelX << "     \tXg: " << report.Report.wGyroX << "   pitch    \n";
     std::cout << "Y: " << report.Report.wAccelY << "     \tYg: " << report.Report.wGyroY << "   yaw      \n";
     std::cout << "Z: " << report.Report.wAccelZ << "     \tZg: " << report.Report.wGyroZ << "   roll     \n";
-    repositionConsoleCursor(-5, 0);
+    repositionConsoleCursor(-3, 0);
 #endif
 }
 #endif

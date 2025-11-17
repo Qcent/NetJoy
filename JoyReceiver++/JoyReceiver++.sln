@@ -9,12 +9,18 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "JoyReceiver_tUI", "..\JoyRe
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		(debug)|x64 = (debug)|x64
+		(debug)|x86 = (debug)|x86
 		Debug|x64 = Debug|x64
 		Debug|x86 = Debug|x86
 		Release|x64 = Release|x64
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9284149C-2E8C-4159-9C86-B4173DD20ABB}.(debug)|x64.ActiveCfg = (debug)|x64
+		{9284149C-2E8C-4159-9C86-B4173DD20ABB}.(debug)|x64.Build.0 = (debug)|x64
+		{9284149C-2E8C-4159-9C86-B4173DD20ABB}.(debug)|x86.ActiveCfg = (debug)|Win32
+		{9284149C-2E8C-4159-9C86-B4173DD20ABB}.(debug)|x86.Build.0 = (debug)|Win32
 		{9284149C-2E8C-4159-9C86-B4173DD20ABB}.Debug|x64.ActiveCfg = Debug|x64
 		{9284149C-2E8C-4159-9C86-B4173DD20ABB}.Debug|x64.Build.0 = Debug|x64
 		{9284149C-2E8C-4159-9C86-B4173DD20ABB}.Debug|x86.ActiveCfg = Debug|Win32
@@ -23,6 +29,10 @@ Global
 		{9284149C-2E8C-4159-9C86-B4173DD20ABB}.Release|x64.Build.0 = Release|x64
 		{9284149C-2E8C-4159-9C86-B4173DD20ABB}.Release|x86.ActiveCfg = Release|Win32
 		{9284149C-2E8C-4159-9C86-B4173DD20ABB}.Release|x86.Build.0 = Release|Win32
+		{ED96FC87-FACF-471D-AB23-7BAB71AFE77B}.(debug)|x64.ActiveCfg = (debug)|x64
+		{ED96FC87-FACF-471D-AB23-7BAB71AFE77B}.(debug)|x64.Build.0 = (debug)|x64
+		{ED96FC87-FACF-471D-AB23-7BAB71AFE77B}.(debug)|x86.ActiveCfg = (debug)|Win32
+		{ED96FC87-FACF-471D-AB23-7BAB71AFE77B}.(debug)|x86.Build.0 = (debug)|Win32
 		{ED96FC87-FACF-471D-AB23-7BAB71AFE77B}.Debug|x64.ActiveCfg = Debug|x64
 		{ED96FC87-FACF-471D-AB23-7BAB71AFE77B}.Debug|x64.Build.0 = Debug|x64
 		{ED96FC87-FACF-471D-AB23-7BAB71AFE77B}.Debug|x86.ActiveCfg = Debug|Win32

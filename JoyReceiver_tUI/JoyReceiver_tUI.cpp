@@ -227,6 +227,7 @@ int main(int argc, char* argv[]) {
     if (UDP_COMMUNICATION) server.hang_up();
     JOYRECEIVER_SHUTDOWN_VIGEM_BUS();
     CLEAN_EGGS();
+    RestoreConsoleMode();
     swallowInput();
     setCursorPosition(0, consoleHeight);
     showConsoleCursor();

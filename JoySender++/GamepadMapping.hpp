@@ -1324,7 +1324,7 @@ int ConsoleSelectJoystickDialog(SDLJoystickData& joystick) {
     // Print the available joysticks
     std::cout << "Connected Joysticks:" << std::endl;
 
-    if (numJoysticks < 1) {
+    if (numJoysticks < 1 && !APP_KILLED) {
         SDL_free(joystick_list);
         std::cout << "\t (None) \n  Connect a joystick to continue...";
 
@@ -1346,6 +1346,8 @@ int ConsoleSelectJoystickDialog(SDLJoystickData& joystick) {
         std::cout << "Connected Joysticks:" << std::endl;
     }
 
+    if (APP_KILLED) return 0;
+
     for (int i = 0; i < numJoysticks; ++i)
     {
         std::cout << 1 + i << ": " << SDL_GetJoystickNameForID(joystick_list[i]) << std::endl;
@@ -1357,9 +1359,35 @@ int ConsoleSelectJoystickDialog(SDLJoystickData& joystick) {
     std::cout << "Select a joystick (1";
     if (numJoysticks > 1) std::cout << "-" << numJoysticks;
     std::cout << "): ";
-    std::cin >> selectedJoystickIndex;
+
+    std::string line;
+    std::getline(std::cin, line);
+    try {
+        selectedJoystickIndex = std::stoi(line);
+    }
+    catch (...) {
+        
+        if (line == "Q" || line == "q"){
+            APP_KILLED = true; 
+            return 0;
+        }
+        else if (line == "R2" || line == "r2" || line == "m2" || line == "m 2")
+        {
+            clearConsoleScreen();
+            RESTART_FLAG = 3;
+            return 0;
+        }
+        Sleep(20);
+        if (APP_KILLED) return 0;
+
+        clearConsoleScreen();
+        std::cout << "Invalid joystick index." << std::endl;
+
+        // allows for rescan of devices
+        return ConsoleSelectJoystickDialog(joystick);
+    }
+
     --selectedJoystickIndex;
-    while ((getchar()) != '\n');
 
     // Check if the selected index is valid
     if (selectedJoystickIndex < 0 || selectedJoystickIndex >= numJoysticks)
