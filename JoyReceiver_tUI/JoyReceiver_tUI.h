@@ -387,7 +387,7 @@ int JOYRECEIVER_tUI_WAIT_FOR_CLIENT_MAPPING(NetworkConnection& server, char* buf
     bool inEditor = false;
 
     // Setup
-    swprintf(errorPointer, len, L" << Client Is Mapping Their Controller >> ", connectionIP);
+    swprintf(errorPointer, len, L" << Client Is Mapping Their Controller >> ");
     errorOut.SetWidth(len);
     errorOut.SetText(errorPointer);
     errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);

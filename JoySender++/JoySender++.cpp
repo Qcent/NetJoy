@@ -98,15 +98,17 @@ int joySender(Arguments& args) {
            showConsoleCursor();
            allGood = ConsoleSelectJoystickDialog(activeGamepad);
            if (!allGood) {
-               std::cout << " Unable to connect to that device !! " << std::endl;
+               if (APP_KILLED) std::cout << " << Exiting >> " << std::endl;
+               else if (RESTART_FLAG) return JOYSENDER_RESTART_VALUE();
+               else  std::cout << " Unable to connect to that device! " << std::endl;
                return -1;
            }
-            hideConsoleCursor();
+           hideConsoleCursor();
         }
         else {
             allGood = ConnectToJoystick(0, activeGamepad);
             if (!allGood) {
-                std::cout << " Unable to connect to a device !! " << std::endl;
+                std::cout << " Unable to connect to a device! " << std::endl;
                 return -1;
             }
         }
@@ -114,9 +116,14 @@ int joySender(Arguments& args) {
           break;
     case 2: {   // DS4 MODE
         showConsoleCursor();
-        allGood = JOYSENDER_CONSOLE_SELECT_DS4_DIALOG();
+        allGood = JOYSENDER_CONSOLE_SELECT_DS4_DIALOG(args.select);
         if (!allGood) {
-            std::cout << " Unable to connect to a DS4 device !! " << std::endl;
+            if (APP_KILLED) std::cout << " << Exiting >> " << std::endl;
+            else if (RESTART_FLAG) {
+                clearConsoleScreen();
+                return JOYSENDER_RESTART_VALUE();
+            }
+            else std::cout << " Unable to connect to a DS4 device! " << std::endl;
             return -1;
         }
         hideConsoleCursor();
@@ -140,6 +147,7 @@ int joySender(Arguments& args) {
             args.host = getHostAddress();
         }
         if (APP_KILLED) return 0;
+        if (RESTART_FLAG) return JOYSENDER_RESTART_VALUE();
         NetworkConnection client(args.udp, args.host, args.port);
 
         allGood = client.establish_connection(args.host, args.port);
@@ -347,11 +355,7 @@ int main(int argc, char **argv)
 
     DWORD inMode = 0, outMode = 0;
     DetermineConsoleMode(inMode, outMode);
-    if (CONSOLE_MODE == CONSOLE_VT_MODE) {
-        /* VT NOT FULLY WORKING */
-        if(!prompt_to_relaunch_with_consoleHost()) return false;
-    }
-
+ 
     HANDLE console = GetStdHandle(STD_INPUT_HANDLE);
     // Disable Quick Edit Mode
     SetConsoleMode(console,inMode & ~ENABLE_QUICK_EDIT_MODE);
@@ -374,6 +378,7 @@ int main(int argc, char **argv)
     }
 
     // Cleanup and quit
+    RestoreConsoleMode();
     swallowInput();
     SDL_Quit();
     showConsoleCursor();

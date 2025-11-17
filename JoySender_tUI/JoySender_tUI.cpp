@@ -364,6 +364,7 @@ int main(int argc, char** argv)
 
     // Cleanup and quit
     CLEAN_EGGS();
+    RestoreConsoleMode();
     swallowInput();
     SDL_Quit();
     setCursorPosition(0, consoleHeight);

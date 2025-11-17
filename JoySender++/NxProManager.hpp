@@ -221,82 +221,63 @@ private:
     }
 
     // Encoding helpers 
-    uint16_t encodeFrequency(float freq) {
-        if (freq < 40.875f) freq = 40.875f;
-        if (freq > 1252.572266f) freq = 1252.572266f;
-        int hf = (int)roundf(log2f(freq / 10.0f) * 32.0f);
-        int low = hf & 0xF;
-        int high = (hf >> 4) & 0xFF;
-        return (high << 8) | low;
+    uint8_t encodeHexFrequency(float freq) {
+        if (freq < 0.0f) freq =0.0f;
+        if (freq > 1252.0f) freq = 1252.0f;
+        uint8_t  encoded_hex_frequency = (uint8_t)round(log2f((double)freq / 10.0f) * 32.0f);
+        return encoded_hex_frequency;
     }
 
-    uint16_t encodeAmplitude(float amp, uint16_t freqEnc) {
-        if (amp < 0.0f) amp = 0.0f;
-        if (amp > 1.0f) amp = 1.0f;
-        int hf = freqEnc & 0xF;
-        int high = (freqEnc >> 8) & 0xFF;
-        int encodedAmp = (int)(amp * 0xFFFF);
-        encodedAmp = (encodedAmp >> (hf + 1)) & 0xFFFF;
-        return encodedAmp | (high << 8);
+    uint8_t encodeHexAmplitude(float amp) {
+        uint8_t encoded_hex_amp = 0;
+        /*
+        if (amp > 0.23f)
+            encoded_hex_amp = (uint8_t)round(log2f(amp * 8.7f) * 32.f);
+        else if (amp > 0.12f)
+            encoded_hex_amp = (uint8_t)round(log2f(amp * 17.f) * 16.f);
+        else {
+            // TBD
+        }
+        */
+
+        if (amp < 0.117) encoded_hex_amp = (uint8_t)(((log2(amp * 1000) * 32) - 0x60) / (5 - (2 *amp*amp)) - 1);
+        if (amp >= 0.117 && amp < 0.23) encoded_hex_amp = (uint8_t)((log2(amp * 1000) * 32) - 0x60) - 0x5c;
+        if (amp >= 0.23) encoded_hex_amp = (uint8_t)(((log2(amp * 1000) * 32) - 0x60) * 2) - 0xf6;
+
+        return encoded_hex_amp;
     }
 
-    void buildRumbleFrame(uint8_t* buf, float freqHi, float ampHi, float freqLo, float ampLo) {
-        uint16_t freqEncHi = encodeFrequency(freqHi);
-        uint16_t ampEncHi = encodeAmplitude(ampHi, freqEncHi);
-        uint16_t freqEncLo = encodeFrequency(freqLo);
-        uint16_t ampEncLo = encodeAmplitude(ampLo, freqEncLo);
+   /**/ void buildRumbleFrame(uint8_t* buf, float freqHi, float ampHi, float freqLo, float ampLo) {
+       uint16_t hf = (encodeHexFrequency(freqHi) - 0x60) * 4;
+       uint8_t lf = encodeHexFrequency(freqLo) - 0x40;
+       uint16_t hf_amp = encodeHexAmplitude(ampHi) * 2;    // encoded_hex_amp<<1;
+       uint8_t lf_amp = encodeHexAmplitude(ampLo) / 2 + 64;// (encoded_hex_amp>>1)+0x40;
 
-        buf[0] = freqEncHi & 0xFF;
-        buf[1] = (freqEncHi >> 8) & 0xFF;
-        buf[2] = ampEncHi & 0xFF;
-        buf[3] = (ampEncHi >> 8) & 0xFF;
+        buf[0] = hf & 0xFF;
+        buf[1] = (hf >> 8) & 0xFF;
+        buf[2] = hf_amp & 0xFF;
+        buf[3] = (hf_amp >> 8) & 0xFF;
 
-        buf[4] = freqEncLo & 0xFF;
-        buf[5] = (freqEncLo >> 8) & 0xFF;
-        buf[6] = ampEncLo & 0xFF;
-        buf[7] = (ampEncLo >> 8) & 0xFF;
+        buf[4] = lf & 0xFF;
+        buf[5] = (lf >> 8) & 0xFF;
+        buf[6] = lf_amp & 0xFF;
+        buf[7] = (lf_amp >> 8) & 0xFF;
     }
 
     void buildRumbleFrameSafe(uint8_t* buf, float freqHi, float ampHi, float freqLo, float ampLo) {
-        uint16_t freqEncHi = encodeFrequency(freqHi);
-        uint16_t ampEncHi = encodeAmplitude(ampHi, freqEncHi);
-        uint16_t freqEncLo = encodeFrequency(freqLo);
-        uint16_t ampEncLo = encodeAmplitude(ampLo, freqEncLo);
+        uint16_t hf = (encodeHexFrequency(freqHi) - 0x60) * 4;
+        uint8_t lf = encodeHexFrequency(freqLo) - 0x40;
 
-        // --- Pack left Joy-Con/(motor) (High + Low band) ---
-        buf[0] = freqEncHi & 0xFF;         // HF lower nibble
-        buf[1] = (freqEncHi >> 8) & 0xFF;  // HF upper byte
-        buf[2] = ampEncHi & 0xFF;          // LF frequency or amplitude LSB
-        buf[3] = (ampEncHi >> 8) & 0xFF;   // LF amplitude MSB
+        uint16_t hf_amp = encodeHexAmplitude(ampHi) * 2;    // encoded_hex_amp<<1;
+        uint8_t lf_amp = encodeHexAmplitude(ampLo) / 2 + 64;// (encoded_hex_amp>>1)+0x40;
 
-        // --- Pack right Joy-Con/(motor) (High + Low band) ---
-        buf[4] = freqEncLo & 0xFF;
-        buf[5] = (freqEncLo >> 8) & 0xFF;
-        buf[6] = ampEncLo & 0xFF;
-        buf[7] = (ampEncLo >> 8) & 0xFF;
+        //Byte swapping
+        buf[0] = hf & 0xFF;
+        buf[1] = hf_amp + ((hf >> 8) & 0xFF); //Add amp + 1st byte of frequency to amplitude byte
 
-        // --- Clamp to dekuNukem's safe ranges ---
-        // High band lower nibble (HF LSB)
-        if (buf[0] < 0x04) buf[0] = 0x04;
-        if (buf[4] < 0x04) buf[4] = 0x04;
-        if (buf[0] > 0xFC) buf[0] = 0xFC;
-        if (buf[4] > 0xFC) buf[4] = 0xFC;
-
-        // High band upper byte (HF MSB)
-        if (buf[1] > 0xFC) buf[1] = 0xFC;
-        if (buf[5] > 0xFC) buf[5] = 0xFC;
-
-        // Low band frequency
-        if (buf[2] < 0x01) buf[2] = 0x01;
-        if (buf[6] < 0x01) buf[6] = 0x01;
-        if (buf[2] > 0x7F) buf[2] = 0x7F;
-        if (buf[6] > 0x7F) buf[6] = 0x7F;
-
-        // Low band amplitude
-        if (buf[3] < 0x40) buf[3] = 0x40;
-        if (buf[7] < 0x40) buf[7] = 0x40;
-        if (buf[3] > 0x72) buf[3] = 0x72;
-        if (buf[7] > 0x72) buf[7] = 0x72;
+        //Byte swapping
+        buf[2] = lf + ((lf_amp >> 8) & 0xFF); //Add freq + 1st byte of LF amplitude to the frequency byte
+        buf[3] = lf_amp & 0xFF;
     }
 };
 

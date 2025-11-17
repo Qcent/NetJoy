@@ -23,123 +23,68 @@ THE SOFTWARE.
 
 #pragma once
 #include <Windows.h>
+#include <signal.h>
+#include <functional>
 #include <string>
 #include <tchar.h>
 #include <vector>
 #include <random>
+#include <mutex>
+#include <io.h>
 
 #define CONSOLE_HOST_MODE   0x01
 #define CONSOLE_VT_MODE     0x02
 byte CONSOLE_MODE = 0;
-bool g_hasFocus = true;
+volatile sig_atomic_t g_hasFocus = true;
+DWORD ogInMode = 0;
+DWORD ogOutMode = 0;
 
-/**/
-#include <windows.h>
-#include <iostream>
-#include <string>
-#include <chrono>
-#include <ctime>
+#include <regex>
 
-void SetConsoleColors(bool inverted)
-{
-    HANDLE h = GetStdHandle(STD_OUTPUT_HANDLE);
-    if (inverted)
-        SetConsoleTextAttribute(h, BACKGROUND_RED | BACKGROUND_GREEN | BACKGROUND_BLUE);
-    else
-        SetConsoleTextAttribute(h, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+struct VTMouseEvent {
+    byte type;
+    int x;
+    int y;
+    int button; // 0=left, 1=middle, 2=right
+};
+
+std::mutex VTmouseEventMutex;
+VTMouseEvent g_VTmouse;
+
+void EnableVTMouseAndFocus(){
+#ifdef NetJoyTUI
+    wprintf(L"\x1b[?1006h");
+    wprintf(L"\x1b[?1003h");
+    wprintf(L"\x1b[?1004h");
+#else
+    printf("\x1b[?1006h");
+    printf("\x1b[?1003h");
+    printf("\x1b[?1004h");
+
+#endif
+}
+void DisableVTMouseAndFocus(){
+#ifdef NetJoyTUI
+    wprintf(L"\x1b[?1006l");
+    wprintf(L"\x1b[?1003l");
+    wprintf(L"\x1b[?1004l");
+#else
+    printf("\x1b[?1006l");
+    printf("\x1b[?1003l");
+    printf("\x1b[?1004l");
+
+#endif
 }
 
-int mainer()
-{
-    HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
-    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
-
-    SetConsoleMode(hIn,
-        ENABLE_EXTENDED_FLAGS |
-        ENABLE_WINDOW_INPUT |
-        ENABLE_MOUSE_INPUT |
-        ENABLE_PROCESSED_INPUT);
-
-    bool inverted = false;
-    SetConsoleColors(inverted);
-
-    std::cout << "Click to toggle colors. Press 'q' to quit.\n";
-
-    tm last_tm;
-    bool redraw = false;
-
-    while (true)
-    {
-        // ----------- Get current time -----------
-        auto now = std::chrono::system_clock::now();
-        std::time_t now_t = std::chrono::system_clock::to_time_t(now);
-
-        tm local_tm;
-        localtime_s(&local_tm, &now_t);
-
-        if (redraw || last_tm.tm_sec != local_tm.tm_sec) {
-            redraw = false;
-            last_tm = local_tm;
-            char buffer[64];
-            strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", &local_tm);
-
-            // Move cursor to line 2
-            COORD pos = { 0, 2 };
-            SetConsoleCursorPosition(hOut, pos);
-
-            std::cout << "Current Date/Time: " << buffer << "    " << std::flush;
-        }
-
-        // ----------- Check input events -----------
-        DWORD numEvents = 0;
-        GetNumberOfConsoleInputEvents(hIn, &numEvents);
-
-        if (numEvents > 0)
-        {
-            INPUT_RECORD events[16];
-            DWORD eventsRead = 0;
-            ReadConsoleInput(hIn, events, 16, &eventsRead);
-
-            for (DWORD i = 0; i < eventsRead; ++i)
-            {
-                INPUT_RECORD& ev = events[i];
-
-                // Keyboard
-                if (ev.EventType == KEY_EVENT && ev.Event.KeyEvent.bKeyDown)
-                {
-                    char c = ev.Event.KeyEvent.uChar.AsciiChar;
-                    if (c == 'q' || c == 'Q')
-                        return 0;
-                }
-
-                // Mouse click
-                if (ev.EventType == MOUSE_EVENT)
-                {
-                    auto& me = ev.Event.MouseEvent;
-                    if (me.dwButtonState & FROM_LEFT_1ST_BUTTON_PRESSED)
-                    {
-                        inverted = !inverted;
-                        SetConsoleColors(inverted);
-                        redraw = true;
-                    }
-                }
-            }
-        }
-
-        Sleep(1000);
-    }
-
-    return 0;
-}
-
-/**/
-
-// detects classic console vs Windoes Terminal/ConPTY
+// detects classic ConsoleHost vs Windows Terminal / PowerShell
 void DetermineConsoleMode(DWORD& inMode, DWORD& outMode) {
     HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
     HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
     GetConsoleMode(hIn, &inMode);
     GetConsoleMode(hOut, &outMode);
+
+    ogInMode = inMode;
+    ogOutMode = outMode;
 
     bool vtInput = (inMode & ENABLE_VIRTUAL_TERMINAL_INPUT);
     bool vtOutput = (outMode & ENABLE_VIRTUAL_TERMINAL_PROCESSING);
@@ -154,70 +99,63 @@ void DetermineConsoleMode(DWORD& inMode, DWORD& outMode) {
         CONSOLE_MODE = CONSOLE_HOST_MODE;
     }
 }
-bool LaunchInConsoleHost(){
-    // Get full path to current EXE
-    wchar_t exePath[MAX_PATH];
-    GetModuleFileNameW(nullptr, exePath, MAX_PATH);
-
-    // Get command-line arguments (skip program name)
-    LPWSTR cmdLine = GetCommandLineW();
-    LPWSTR args = wcschr(cmdLine, L' ');
-    if (!args) args = const_cast<LPWSTR>(L"");
-
-    // Build command: conhost.exe <path> <args>
-    std::wstring command = L"conhost.exe \"";
-    command += exePath;
-    command += L"\"";
-    command += args;
-
-    // Launch
-    STARTUPINFOW si = { sizeof(si) };
-    PROCESS_INFORMATION pi;
-    BOOL ok = CreateProcessW(
-        nullptr,
-        command.data(),
-        nullptr, nullptr,
-        FALSE,
-        CREATE_NEW_CONSOLE,
-        nullptr, nullptr,
-        &si, &pi
-    );
-
-    if (ok) {
-        CloseHandle(pi.hThread);
-        CloseHandle(pi.hProcess);
-        return true;
-    }
-    return false;
-}
-bool prompt_to_relaunch_with_consoleHost() {
-#if DEVTEST
-// VS console has VT support and will trigger this prompt
-// VT mode does not currently work but we can disable
-// VT input and operate as normal in the VS console
-    DWORD inMode = 0;
+void RestoreConsoleMode() {
     HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
-    GetConsoleMode(hIn, &inMode);
-    SetConsoleMode(hIn, inMode & ~ENABLE_VIRTUAL_TERMINAL_INPUT);
-    CONSOLE_MODE = CONSOLE_HOST_MODE;
-    return true; 
-#endif
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
 
-    int result = MessageBoxW(
-        nullptr,                                       // owner (none)
-L"Windows Terminal not currently supported. \r\n\
-Would you like to re-launch with Console Host?",       // message
-        L"NetJoy3 tUI",                                // title
-        MB_OKCANCEL | MB_ICONQUESTION                  // buttons & icon
-);
+    if (CONSOLE_MODE == CONSOLE_VT_MODE) {
+        DisableVTMouseAndFocus();
+        fflush(stdout);
+    }
 
-    if (result == IDOK) {
-        LaunchInConsoleHost();
-        return false;  // returning false forces app shutdown
+    SetConsoleMode(hIn, ogInMode);
+    SetConsoleMode(hOut, ogOutMode);
+}
+
+void ReadVTMouseEventsThread()
+{
+    char buf[64];
+    std::string s;
+    s.reserve(sizeof(buf));
+    std::smatch m;
+    std::regex re("\x1b\\[<([0-9]+);([0-9]+);([0-9]+)([Mm])");
+
+    while (!APP_KILLED) {
+        int bytesRead = _read(0, buf, sizeof(buf) - 1); // file descriptor 0 = stdin
+
+        if (bytesRead <= 0)
+            continue;
+
+        buf[bytesRead] = '\0';
+        s.assign(buf, bytesRead);
+
+        // Focus
+        if (s.find("\x1b[I") != std::string::npos) { g_hasFocus = true;  continue; }
+        if (s.find("\x1b[O") != std::string::npos) { g_hasFocus = false; continue; }
+
+        // --- SGR mouse: ESC [ < b ; x ; y M/m ---
+        if (std::regex_search(s, m, re)) {
+            VTmouseEventMutex.lock();
+            int b = std::stoi(m[1]);
+            g_VTmouse.x = std::stoi(m[2]) - 1;
+            g_VTmouse.y = std::stoi(m[3]) - 1;
+            bool release = (m[4] == "m");
+            bool motion = (b & 32);
+
+            if (motion)       g_VTmouse.type = MOUSE_MOVED;
+            else if (release) g_VTmouse.type = 0x04; //MOUSE_UP;
+            else              g_VTmouse.type = 0x02; //MOUSE_DOWN;
+
+            g_VTmouse.button = (b & 3);
+            VTmouseEventMutex.unlock();
+        }
+
     }
-    else if (result == IDCANCEL) {
-        return false;  // returning false forces app shutdown
-    }
+}
+
+void VT_THREAD_START() {
+    std::thread VTinputThread = std::thread(ReadVTMouseEventsThread);
+    VTinputThread.detach();
 }
 
 // Generate a random integer from r1 - r2 inclusive
@@ -344,7 +282,7 @@ void wait_for_no_keyboard_input() {
 // Function determines if app is the active window
 bool IsAppActiveWindow()
 {
-    if (CONSOLE_MODE == CONSOLE_VT_MODE) return true; // VT loop uses bool g_hasFocus 
+    if (CONSOLE_MODE == CONSOLE_VT_MODE) return g_hasFocus;
 
     HWND consoleWindow = GetConsoleWindow();
     HWND foregroundWindow = GetForegroundWindow();
@@ -383,6 +321,55 @@ void checkForQuit() {
 bool checkForBack() {
     return (IsAppActiveWindow() && checkKey('B', IS_PRESSED) && getKeyState(VK_SHIFT)); // B for Back
 }
+
+// returns 0-9 if corresponding keyboard inputs are pressed / -1 if otherwise
+int checkForNumbers() {
+    for (int digit = 0; digit < 10; digit++) {
+                           // TOP_ROW || NUMPAD
+        if (getKeyState(0x30 + digit) || getKeyState(0x60 + digit))
+            return digit;
+    }
+    return -1;
+}
+
+// still in development
+char checkForKeyInput() {
+    static WCHAR buff[4] = { 0 };
+    static BYTE kbdState[256];
+    if (!GetKeyboardState(kbdState))
+        return '\0';
+
+    char buf[64];
+
+    if (GetAsyncKeyState(VK_SHIFT) & 0x8000) kbdState[VK_SHIFT] |= 0x80;
+    if (GetAsyncKeyState(VK_LSHIFT) & 0x8000) kbdState[VK_LSHIFT] |= 0x80;
+    if (GetAsyncKeyState(VK_RSHIFT) & 0x8000) kbdState[VK_RSHIFT] |= 0x80;
+    if (GetAsyncKeyState(VK_CAPITAL) & 0x0001) {
+        kbdState[VK_CAPITAL] |= 0x81; // doesnt work
+    }
+
+    for (int vk = 0; vk < 256; ++vk) {
+        UINT scanCode = MapVirtualKey(vk, MAPVK_VK_TO_VSC);
+        int rc = ToUnicode(vk, scanCode, kbdState, buff, 4, 0);
+        if (rc == 1 && checkKey(vk, IS_PRESSED)) {
+            wchar_t &wc = buff[0];
+            
+            // ASCII printables
+            if (wc > 31 && wc < 128) {
+                return static_cast<char>(wc);
+            }
+
+            // Enter and Backspace
+            if (wc == L'\r' || wc == L'\b') {
+                return static_cast<char>(wc);
+            }
+        }
+    }
+    return '\0';
+
+}
+
+
 
 std::vector<std::string> split(const std::string& str, char delimiter) {
     std::vector<std::string> tokens;

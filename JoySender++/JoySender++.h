@@ -25,7 +25,7 @@ THE SOFTWARE.
 #pragma once
 #define NOMINMAX
 
-#define APP_VERSION_NUM     L"3.0.4.0"
+#define APP_VERSION_NUM     L"3.0.5.0"
 
 #include <iostream>
 #include <conio.h>
@@ -78,6 +78,24 @@ std::string getHostAddress() {
 
         if (host_address.empty()) {
             host_address = "127.0.0.1";
+        }
+
+        if (host_address == "Q" || host_address == "q") {
+            APP_KILLED = true;
+            std::cout << " << Exiting >> " << std::endl;
+            return "";
+        }
+        else if (host_address == "R1" || host_address == "r1" || host_address == "m1" || host_address == "m 1")
+        {
+            clearConsoleScreen();
+            RESTART_FLAG = 2;
+            return "";
+        }
+        else if (host_address == "R2" || host_address == "r2" || host_address == "m2" || host_address == "m 2")
+        {
+            clearConsoleScreen();
+            RESTART_FLAG = 3;
+            return "";
         }
 
         if (!validIPAddress(host_address)) {
@@ -188,9 +206,9 @@ void processFeedbackBuffer(const byte* buffer, SDLJoystickData& activeGamepad, i
             break;
 
         case(NxProController_TYPE):
-            if (update) {
-                NxRumble::instance().setFrame({ 100.0f, (static_cast<float>(buffer[0]) / 255.0f),
-                                                     75.0f, (static_cast<float>(buffer[1]) / 255.0f), 1200 });
+            if (update && (buffer[0] || buffer[1])) {
+                NxRumble::instance().setFrame({ 0.0f, (static_cast<float>(buffer[0]) / 255.0f),
+                                                     0.0f, (static_cast<float>(buffer[1]) / 255.0f), 1200 });
             }
             break;
         }
@@ -346,7 +364,7 @@ void JOYSENDER_SET_DS4_CONTROLLER_FLAG(HidDeviceInfo& dev) {
     else { HID_CONTROLLER_TYPE = DS4Controller_TYPE;; }
 }
 
-int JOYSENDER_CONSOLE_SELECT_DS4_DIALOG() {
+int JOYSENDER_CONSOLE_SELECT_DS4_DIALOG(bool autoSelect=false) {
     std::vector<HidDeviceInfo> devList = getDS4ControllersList();
     HidDeviceInfo* selectedDev = nullptr;
 
@@ -355,34 +373,32 @@ int JOYSENDER_CONSOLE_SELECT_DS4_DIALOG() {
         _getch();
         return JOYSENDER_CONSOLE_SELECT_DS4_DIALOG();
     }
-    if (devList.size() > 0) {
+    if (autoSelect && devList.size() > 0) {
+        selectedDev = &devList[0];
+    }
+    else if (devList.size() > 0) {
         // User selects from connected DS4 devices
         int idx = ConsoleSelectDS4Dialog(devList);
-        if (idx == -1) {
+        if (APP_KILLED || RESTART_FLAG) { return false; }
+        if (idx < 0) {
             clearConsoleScreen();
             std::cout << "Invalid index." << std::endl;
             return JOYSENDER_CONSOLE_SELECT_DS4_DIALOG();
         }
         selectedDev = &devList[idx];
     }
-   // else {// no more auto select (stops death loops on failed connections)
-   //     selectedDev = &devList[0];
-   // }
 
     if (selectedDev != nullptr) {
         if (DS4manager.OpenHidDevice(selectedDev)) {
             // Set controller type flag
             JOYSENDER_SET_DS4_CONTROLLER_FLAG(*selectedDev);
-
-            std::wcout << "Connected to : " << selectedDev->manufacturer << " " << selectedDev->product << std::endl;
+            //std::wcout << "Connected to : " << selectedDev->manufacturer << " " << selectedDev->product << std::endl;
             return true;
         }
     }
 
     return false;
 }
-
-
 
 #define JOYSENDER_PROCESS_SIGNAL_PACKET() \
 { \
@@ -396,6 +412,12 @@ int JOYSENDER_CONSOLE_SELECT_DS4_DIALOG() {
     continue; \
 }
 
+// Resets and returns the RESTART_FLAG value
+int JOYSENDER_RESTART_VALUE() {
+    int val = RESTART_FLAG;
+    RESTART_FLAG = 0;
+    return val;
+}
 
 void JOYSENDER_FEEDBACK_THREAD(NetworkConnection& client, char* buffer, size_t buffer_size, SDLJoystickData& activeGamepad, Arguments& args, bool& inConnection) {
     int timeouts = 0;

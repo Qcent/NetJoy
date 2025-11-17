@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2024 Dave Quinn <qcent@yahoo.com>
+Copyright (c) 2025 Dave Quinn <qcent@yahoo.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -323,10 +323,24 @@ int ConsoleSelectDS4Dialog(std::vector<HidDeviceInfo>& devList) {
        }
 
        // Prompt the user to select a joystick
-       std::cout << "Select a joystick (enter the index): ";
-       std::cin >> selectedJoystickIndex;
+       std::cout << "Select a joystick (1";
+       if (numJoysticks > 1) std::cout << "-" << numJoysticks;
+       std::cout << "): ";
+
+       std::string line;
+       std::getline(std::cin, line);
+       try {
+           selectedJoystickIndex = std::stoi(line);
+       }
+       catch (...) {
+           //std::cout << "Nan" << std::endl << std::endl;
+           if (line == "Q" || line == "q") APP_KILLED = true;
+           else if (line == "R1" || line == "r1" || line == "m1" || line == "m 1") RESTART_FLAG = 2;
+           else Sleep(20);
+           return -2;
+       }
+
        --selectedJoystickIndex;
-       while ((getchar()) != '\n');    // Clear keyboard buffer of enter press
 
        // Check if the selected index is valid
        if (selectedJoystickIndex < 0 || selectedJoystickIndex >= numJoysticks)
@@ -362,8 +376,8 @@ bool ConnectToDS4Controller() {
     if (devList.size() > 1) {
         // User selects from connected DS4 devices
         int idx = ConsoleSelectDS4Dialog(devList);
-        if (idx == -1) {
-            clearConsoleScreen();
+        if (APP_KILLED) { return false; }
+        if (idx < 0) {
             std::cout << "Invalid index." << std::endl;
             return ConnectToDS4Controller();
         }
