@@ -7,11 +7,12 @@ For non Windows OS users there is a compatible (currently not compatible with ve
 ### Version 3.0
 NetJoy has reached version 3.0.
 #### Featuring:
-- faster and more robust network logic
+- Windows 11 compatibility  (Windows Terminal, PowerShell and ConsoleHost)
+- Faster and more robust network logic
 - UDP communication (now default)
-- Support for Switch Pro Controllers as DS4 controller
+- Support for Switch Pro Controllers as DS4 controller (needs hella improvement)
 - many bugfixes
-- Holidays.
+- Holidays!
 
 ## Table of Contents
 - [Key Features](#key-features)
