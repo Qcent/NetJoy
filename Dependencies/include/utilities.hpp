@@ -369,7 +369,8 @@ char checkForKeyInput() {
 
 }
 
-
+// returns negative when false, positive when true
+inline int boolToSign(bool b) { return b ? -1 : 1; }
 
 std::vector<std::string> split(const std::string& str, char delimiter) {
     std::vector<std::string> tokens;

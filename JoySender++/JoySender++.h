@@ -25,7 +25,7 @@ THE SOFTWARE.
 #pragma once
 #define NOMINMAX
 
-#define APP_VERSION_NUM     L"3.0.5.0"
+#define APP_VERSION_NUM     L"3.0.6.0"
 
 #include <iostream>
 #include <conio.h>
@@ -241,6 +241,8 @@ void JOYSENDER_OPMODE_INIT(SDLJoystickData& activeGamepad, Arguments& args, int&
 
             bool extReport = NxReport.value()[0] != 63; // report id when BT and no IMU: 63 (flawed, but successful)
             NxPro.parseConnection(NxReport); // cannot parse correctly until extended reports are enabled ie. IMU data
+
+           NxPro.selfCalibrate();
 
          
 #if 0

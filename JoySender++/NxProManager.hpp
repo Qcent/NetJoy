@@ -439,7 +439,7 @@ private:
         int accelX = 0, accelY = 0, accelZ = 0, xNULL = 0;
         int gyroX = 0, gyroY = 0, gyroZ = 0;
 
-        for (int i = 0; i < sampleCount; ++i) {  //## removing averaging the 3 samples, for now
+        for (int i = 0; i < sampleCount; ++i) {  
             const uint8_t* sample = data + 13 + i * sampleSize;
             
             int16_t ax = read_int16_be(sample + 0);
@@ -495,6 +495,7 @@ private:
         ds4_report.Report.wGyroZ = mult_frac(static_cast<int16_t>(JC_IMU_PREC_RANGE_SCALE * -(gyroX - cal.raw.gyroOffsetX)), cal.raw.gyroScaleX, cal.gyro_divisor[2]);
 
 #else
+        /*
         // PITCH        //## passing the raw values is working, removing extra math (calibration calulations) for now
         ds4_report.Report.wAccelX = -accelY;// static_cast<int16_t>(-(accelY * cal.raw.accelScaleY) / cal.accel_divisor[1]); // left/right tilt
         // YAW
@@ -508,6 +509,22 @@ private:
         ds4_report.Report.wGyroY = gyroZ;//mult_frac(static_cast<int16_t>(JC_IMU_PREC_RANGE_SCALE * (gyroX - cal.raw.gyroOffsetX)), cal.raw.gyroScaleX, cal.gyro_divisor[0]);
         // ROLL
         ds4_report.Report.wGyroZ = -gyroX;//mult_frac(static_cast<int16_t>(JC_IMU_PREC_RANGE_SCALE * (gyroZ - cal.raw.gyroOffsetZ)), cal.raw.gyroScaleZ, cal.gyro_divisor[2]);
+        */
+
+        byte axisFlips = _getFlips();
+        const int sX = boolToSign(axisFlips & 0x01);
+        const int sY = boolToSign(axisFlips & 0x02);
+        const int sZ = boolToSign(axisFlips & 0x04);
+
+        // ACCEL
+        ds4_report.Report.wAccelX = sY * accelY; // Pitch
+        ds4_report.Report.wAccelY = sZ * accelZ; // Yaw
+        ds4_report.Report.wAccelZ = sX * accelX; // Roll
+
+        // GYRO
+        ds4_report.Report.wGyroX = sY * gyroY - cal.raw.gyroOffsetY; // Pitch
+        ds4_report.Report.wGyroY = sZ * gyroZ - cal.raw.gyroOffsetZ; // Yaw
+        ds4_report.Report.wGyroZ = sX * gyroX - cal.raw.gyroOffsetX; // Roll
 #endif
 
 
@@ -522,11 +539,62 @@ private:
 #endif
     }
 
+    static byte _getFlips() {
+        static byte axisFlips = 0x01;
+        if (checkKey(VK_MENU, IS_PRESSED)) {
+            if (checkKey('R', IS_PRESSED)) { // x-axis roll
+                axisFlips ^= 0x01;
+            }
+            if (checkKey('P', IS_PRESSED)) { // y-axis pitch
+                axisFlips ^= 0x02;
+            }
+            if (checkKey('Y', IS_PRESSED)) { // z-axis yaw
+                axisFlips ^= 0x04;
+            }
+        }
+        return axisFlips;
+    }
     // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ //
 public:
     NxProController(HidDeviceManager* manager)
         : hidManager(manager), controller_type(manager->devInfo.productId) {
         bluetooth = wcscmp(hidManager->devInfo.serial.c_str(), L"000000000001");
+    }
+
+    void selfCalibrate(int samples = 300) {
+        constexpr int samplesPerReport = 3;
+        constexpr int sampleSize = 12; // 6x int16 per sample
+
+        std::array<uchar, exchangeLen> Nx_report{};
+        int gyroX = 0, gyroY = 0, gyroZ = 0;
+
+        for (int i = 0; i < samples; i+= samplesPerReport) {
+            hidManager->ReadFileInputReport(getInput, Nx_report.data(), (DWORD)exchangeLen);
+
+            for (int i = 0; i < samplesPerReport; ++i) {
+                const uint8_t* sample = Nx_report.data() + 13 + i * sampleSize;
+
+                //int16_t ax = read_int16_be(sample + 0);
+                //int16_t ay = read_int16_be(sample + 2);
+                //int16_t az = read_int16_be(sample + 4);
+                int16_t gx = read_int16_be(sample + 6);
+                int16_t gy = read_int16_be(sample + 8);
+                int16_t gz = read_int16_be(sample + 10);
+
+                //accelX += ax;
+                //accelY += ay;
+                //accelZ += az;
+                gyroX += gx;
+                gyroY += gy;
+                gyroZ += gz;
+            }
+
+            Sleep(4);
+        }
+        
+        ImuCal.raw.gyroOffsetX = gyroX / samples;
+        ImuCal.raw.gyroOffsetY = gyroY / samples;
+        ImuCal.raw.gyroOffsetZ = gyroZ / samples;
     }
 
     // Sets info.loadedCalibration using 3 bit encoding of which calibration data is present:
