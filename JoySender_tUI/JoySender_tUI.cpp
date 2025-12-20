@@ -112,14 +112,15 @@ int joySendertUI(Arguments& args) {
         JOYSENDER_tUI_ANIMATED_CX(activeGamepad, client, args, allGood);
 
             // failed to make connection
-        if (!APP_KILLED && allGood < 0) {
+        if (!APP_KILLED && allGood < 1) {
             int len = args.host.size() + 33;;
             if (allGood == CANCELLED_FLAG) {
                 swprintf(errorPointer, len, L" << Connection To %S Canceled >> ", args.host.c_str());
                 args.host = "";
             }
             else {
-                swprintf(errorPointer, len, L" << Connection To %S Failed: %d >> ", args.host.c_str(), failed_connections + 1);
+                swprintf(errorPointer, len, L" << Connection To %S Failed: >> ", args.host.c_str());
+                if (UDP_COMMUNICATION) Sleep(30);
             }
             errorOut.SetWidth(len);
             errorOut.SetText(errorPointer);

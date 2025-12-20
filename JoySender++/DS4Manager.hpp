@@ -328,12 +328,13 @@ int ConsoleSelectDS4Dialog(std::vector<HidDeviceInfo>& devList) {
        std::cout << "): ";
 
        std::string line;
-       std::getline(std::cin, line);
+       if (CONSOLE_MODE == CONSOLE_VT_MODE) line = VT_getline();
+       else std::getline(std::cin, line);
+
        try {
            selectedJoystickIndex = std::stoi(line);
        }
        catch (...) {
-           //std::cout << "Nan" << std::endl << std::endl;
            if (line == "Q" || line == "q") APP_KILLED = true;
            else if (line == "R1" || line == "r1" || line == "m1" || line == "m 1") RESTART_FLAG = 2;
            else Sleep(20);
@@ -370,7 +371,8 @@ bool ConnectToDS4Controller() {
 
     if (devList.size() == 0) {
         std::cout << "\t No Connected DS4 Controllers \n Connect a controller and press a key..." << std::endl;
-        _getch();
+        if (CONSOLE_MODE == CONSOLE_VT_MODE) VT_getch();
+        else _getch();
         return ConnectToDS4Controller();
     }
     if (devList.size() > 1) {

@@ -1361,7 +1361,9 @@ int ConsoleSelectJoystickDialog(SDLJoystickData& joystick) {
     std::cout << "): ";
 
     std::string line;
-    std::getline(std::cin, line);
+    if (CONSOLE_MODE == CONSOLE_VT_MODE) line = VT_getline();
+    else std::getline(std::cin, line);
+    
     try {
         selectedJoystickIndex = std::stoi(line);
     }

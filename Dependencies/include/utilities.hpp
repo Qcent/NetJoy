@@ -31,6 +31,8 @@ THE SOFTWARE.
 #include <random>
 #include <mutex>
 #include <io.h>
+#include <codecvt>
+#include <regex>
 
 #define CONSOLE_HOST_MODE   0x01
 #define CONSOLE_VT_MODE     0x02
@@ -38,43 +40,6 @@ byte CONSOLE_MODE = 0;
 volatile sig_atomic_t g_hasFocus = true;
 DWORD ogInMode = 0;
 DWORD ogOutMode = 0;
-
-#include <regex>
-
-struct VTMouseEvent {
-    byte type;
-    int x;
-    int y;
-    int button; // 0=left, 1=middle, 2=right
-};
-
-std::mutex VTmouseEventMutex;
-VTMouseEvent g_VTmouse;
-
-void EnableVTMouseAndFocus(){
-#ifdef NetJoyTUI
-    wprintf(L"\x1b[?1006h");
-    wprintf(L"\x1b[?1003h");
-    wprintf(L"\x1b[?1004h");
-#else
-    printf("\x1b[?1006h");
-    printf("\x1b[?1003h");
-    printf("\x1b[?1004h");
-
-#endif
-}
-void DisableVTMouseAndFocus(){
-#ifdef NetJoyTUI
-    wprintf(L"\x1b[?1006l");
-    wprintf(L"\x1b[?1003l");
-    wprintf(L"\x1b[?1004l");
-#else
-    printf("\x1b[?1006l");
-    printf("\x1b[?1003l");
-    printf("\x1b[?1004l");
-
-#endif
-}
 
 // detects classic ConsoleHost vs Windows Terminal / PowerShell
 void DetermineConsoleMode(DWORD& inMode, DWORD& outMode) {
@@ -98,64 +63,6 @@ void DetermineConsoleMode(DWORD& inMode, DWORD& outMode) {
         // classic console behavior 
         CONSOLE_MODE = CONSOLE_HOST_MODE;
     }
-}
-void RestoreConsoleMode() {
-    HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
-    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
-
-    if (CONSOLE_MODE == CONSOLE_VT_MODE) {
-        DisableVTMouseAndFocus();
-        fflush(stdout);
-    }
-
-    SetConsoleMode(hIn, ogInMode);
-    SetConsoleMode(hOut, ogOutMode);
-}
-
-void ReadVTMouseEventsThread()
-{
-    char buf[64];
-    std::string s;
-    s.reserve(sizeof(buf));
-    std::smatch m;
-    std::regex re("\x1b\\[<([0-9]+);([0-9]+);([0-9]+)([Mm])");
-
-    while (!APP_KILLED) {
-        int bytesRead = _read(0, buf, sizeof(buf) - 1); // file descriptor 0 = stdin
-
-        if (bytesRead <= 0)
-            continue;
-
-        buf[bytesRead] = '\0';
-        s.assign(buf, bytesRead);
-
-        // Focus
-        if (s.find("\x1b[I") != std::string::npos) { g_hasFocus = true;  continue; }
-        if (s.find("\x1b[O") != std::string::npos) { g_hasFocus = false; continue; }
-
-        // --- SGR mouse: ESC [ < b ; x ; y M/m ---
-        if (std::regex_search(s, m, re)) {
-            VTmouseEventMutex.lock();
-            int b = std::stoi(m[1]);
-            g_VTmouse.x = std::stoi(m[2]) - 1;
-            g_VTmouse.y = std::stoi(m[3]) - 1;
-            bool release = (m[4] == "m");
-            bool motion = (b & 32);
-
-            if (motion)       g_VTmouse.type = MOUSE_MOVED;
-            else if (release) g_VTmouse.type = 0x04; //MOUSE_UP;
-            else              g_VTmouse.type = 0x02; //MOUSE_DOWN;
-
-            g_VTmouse.button = (b & 3);
-            VTmouseEventMutex.unlock();
-        }
-
-    }
-}
-
-void VT_THREAD_START() {
-    std::thread VTinputThread = std::thread(ReadVTMouseEventsThread);
-    VTinputThread.detach();
 }
 
 // Generate a random integer from r1 - r2 inclusive
@@ -223,6 +130,10 @@ void repositionConsoleCursor(int lines, int offset) {
 void clearConsoleLine() {
     std::cout << "\033[K";
 }
+
+#pragma warning(disable : 4996)
+// Converts strings to wide strings and back again
+std::wstring_convert<std::codecvt_utf8<wchar_t>> g_converter;
 
 // Function to detect if keyboard key is pressed
 bool getKeyState(int KEYCODE) {
@@ -336,37 +247,66 @@ int checkForNumbers() {
 char checkForKeyInput() {
     static WCHAR buff[4] = { 0 };
     static BYTE kbdState[256];
-    if (!GetKeyboardState(kbdState))
+    static BYTE cap_lock = 0x0;
+    bool shift = false;
+    //if (!GetKeyboardState(kbdState)) // not needed? just need to set the SHIFT state
+    //    return '\0';
+
+    kbdState[VK_LSHIFT] = kbdState[VK_RSHIFT] = kbdState[VK_SHIFT] = 0;
+
+    // ignore alt and ctrl keypresses
+    if ((GetAsyncKeyState(VK_CONTROL) & 0x8000) || (GetAsyncKeyState(VK_MENU) & 0x8000))
         return '\0';
 
     char buf[64];
 
     if (GetAsyncKeyState(VK_SHIFT) & 0x8000) kbdState[VK_SHIFT] |= 0x80;
-    if (GetAsyncKeyState(VK_LSHIFT) & 0x8000) kbdState[VK_LSHIFT] |= 0x80;
-    if (GetAsyncKeyState(VK_RSHIFT) & 0x8000) kbdState[VK_RSHIFT] |= 0x80;
-    if (GetAsyncKeyState(VK_CAPITAL) & 0x0001) {
-        kbdState[VK_CAPITAL] |= 0x81; // doesnt work
+    if (GetAsyncKeyState(VK_LSHIFT) & 0x8000) { kbdState[VK_LSHIFT] |= 0x80; shift = true; }
+    if (GetAsyncKeyState(VK_RSHIFT) & 0x8000) { kbdState[VK_RSHIFT] |= 0x80; shift = true; }
+    if (GetAsyncKeyState(VK_CAPITAL) & 0x0001) { cap_lock ^= 0x01; }
+    if (cap_lock){
+        if (shift) {
+            kbdState[VK_LSHIFT] = 
+            kbdState[VK_RSHIFT] = 
+            kbdState[VK_SHIFT] = 0;
+        }
+        else {
+            kbdState[VK_LSHIFT] |= 0x80;
+            kbdState[VK_SHIFT] |= 0x80;
+        }
     }
 
     for (int vk = 0; vk < 256; ++vk) {
-        UINT scanCode = MapVirtualKey(vk, MAPVK_VK_TO_VSC);
-        int rc = ToUnicode(vk, scanCode, kbdState, buff, 4, 0);
-        if (rc == 1 && checkKey(vk, IS_PRESSED)) {
-            wchar_t &wc = buff[0];
-            
-            // ASCII printables
-            if (wc > 31 && wc < 128) {
-                return static_cast<char>(wc);
-            }
+        if (checkKey(vk, IS_PRESSED)) {
+            switch (vk) {
+            case VK_UP:     return '\x01';
+            case VK_DOWN:   return '\x02';
+            case VK_LEFT:   return '\x03';
+            case VK_RIGHT:  return '\x04'; 
+            case VK_DELETE: return '\x05';
+            case VK_HOME:   return '\x06';
+            case VK_END:    return '\x07';
 
-            // Enter and Backspace
-            if (wc == L'\r' || wc == L'\b') {
-                return static_cast<char>(wc);
+            default:
+                UINT scanCode = MapVirtualKey(vk, MAPVK_VK_TO_VSC);
+                int rc = ToUnicode(vk, scanCode, kbdState, buff, 4, 0);
+                if (rc == 1) {
+                    wchar_t& wc = buff[0];
+
+                    // ASCII printables
+                    if (wc > 31 && wc < 128) {
+                        return static_cast<char>(wc);
+                    }
+
+                    // Enter and Backspace
+                    if (wc == L'\r' || wc == L'\b') {
+                        return static_cast<char>(wc);
+                    }
+                }
             }
         }
     }
     return '\0';
-
 }
 
 // returns negative when false, positive when true
@@ -487,4 +427,225 @@ void displayBytes(const byte* buffer, int bufferSize, int width = 72) {
 #else
     printf("\r\n");
 #endif    
+}
+
+bool isValidIPAddress (const std::string& ipAddress) {
+    if (ipAddress == "0.0.0.0" || ipAddress == "255.255.255.255")
+        return false;
+
+    static const std::regex ipv4(
+        R"(^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$)");
+
+    return std::regex_match(ipAddress, ipv4);
+};
+
+
+//
+// Virtual Terminal Functions
+//
+char VT_getch() {
+    while (!APP_KILLED) {
+        if (IsAppActiveWindow()) {
+            char out = checkForKeyInput();
+            if (out != '\0')
+                return out;
+        }
+        Sleep(30);
+    }
+    return '\0';
+}
+
+std::string VT_getline(bool (*upArrrowFunc)(std::string&) = nullptr, bool (*downArrrowFunc)(std::string&) = nullptr) {
+    std::string out;
+    size_t pos = 0;
+
+    auto replaceInput = [&]() {
+        if (pos) std::cout << "\x1b[" << pos << "D"; // cursor to start of input
+        std::cout << "\x1b[0K";                      // clear line right of cursor
+        std::cout << out;
+        pos = out.size();
+        };
+
+    while (!APP_KILLED) {
+        if (IsAppActiveWindow()) {
+            char ch = checkForKeyInput();
+            switch (ch) {
+            case '\r':     std::cout << std::endl; return out;
+            case '\0':     break;
+
+            case '\x01':   // up arrow
+                if (upArrrowFunc != nullptr && upArrrowFunc(out)) {
+                    replaceInput();
+                }
+                break;
+
+            case '\x02':   // down arrow
+                if (downArrrowFunc != nullptr && downArrrowFunc(out)) {
+                    replaceInput();
+                }
+                break;
+
+            case '\x03':  // left arrow
+                if (pos) {
+                    std::cout << "\x1b[D";
+                    pos--;
+                }
+                break;
+
+            case '\x04':  // right arrow
+                if (pos < out.size()) {
+                    std::cout << "\x1b[C";
+                    pos++;
+                }
+                break;
+
+            case '\x05':  // delete key
+                if (pos && pos < out.size()) {
+                    out.erase(pos, 1);
+                    std::cout << "\x1b[P"; // delete character and redraw remainder
+                }
+                break;
+
+            case '\x06':  // home key
+                if (pos) {
+                    std::cout << "\x1b[" << pos << "D";
+                    pos = 0;
+                }
+                break;
+
+            case '\x07':  // end key
+                if (!out.empty()) {
+                    std::cout << "\x1b[" << out.size()-pos << "C";
+                    pos = out.size();
+                }
+                break;
+
+            case '\b':   // backspace
+                if (pos) {
+                    out.erase(pos - 1, 1);
+                    pos--;
+
+                    std::cout << "\x1b[D"; // cursor back
+                    std::cout << "\x1b[P"; // delete character and redraw remainder
+                }
+                break;
+
+
+                // Printable characters
+            default:
+                if (ch >= 32 && ch < 127) {
+                    out.insert(out.begin() + pos, ch);
+                    std::cout << ch;
+
+                    pos++;
+
+                    // output rest of line
+                    std::cout << out.substr(pos);
+
+                    if (pos < out.size()) {
+                        // move cursor back
+                        std::cout << "\x1b[" << (out.size() - pos) << "D";
+                    }                    
+
+                }            
+            }
+        }
+
+        Sleep(30);
+    }
+    return "";
+}
+
+struct VTMouseEvent {
+    byte type;
+    int x;
+    int y;
+    int button; // 0=left, 1=middle, 2=right
+};
+
+std::mutex VTmouseEventMutex;
+VTMouseEvent g_VTmouse;
+
+void EnableVTMouseAndFocus() {
+#ifdef NetJoyTUI
+    wprintf(L"\x1b[?1006h");
+    wprintf(L"\x1b[?1003h");
+    wprintf(L"\x1b[?1004h");
+#else
+    printf("\x1b[?1006h");
+    printf("\x1b[?1003h");
+    printf("\x1b[?1004h");
+
+#endif
+}
+void DisableVTMouseAndFocus() {
+#ifdef NetJoyTUI
+    wprintf(L"\x1b[?1006l");
+    wprintf(L"\x1b[?1003l");
+    wprintf(L"\x1b[?1004l");
+#else
+    printf("\x1b[?1006l");
+    printf("\x1b[?1003l");
+    printf("\x1b[?1004l");
+
+#endif
+}
+
+void ReadVTMouseEventsThread()
+{
+    char buf[64];
+    std::string s;
+    s.reserve(sizeof(buf));
+    std::smatch m;
+    std::regex re("\x1b\\[<([0-9]+);([0-9]+);([0-9]+)([Mm])");
+
+    while (!APP_KILLED) {
+        int bytesRead = _read(0, buf, sizeof(buf) - 1); // file descriptor 0 = stdin
+
+        if (bytesRead <= 0)
+            continue;
+
+        buf[bytesRead] = '\0';
+        s.assign(buf, bytesRead);
+
+        // Focus
+        if (s.find("\x1b[I") != std::string::npos) { g_hasFocus = true;  continue; }
+        if (s.find("\x1b[O") != std::string::npos) { g_hasFocus = false; continue; }
+
+        // --- SGR mouse: ESC [ < b ; x ; y M/m ---
+        if (std::regex_search(s, m, re)) {
+            VTmouseEventMutex.lock();
+            int b = std::stoi(m[1]);
+            g_VTmouse.x = std::stoi(m[2]) - 1;
+            g_VTmouse.y = std::stoi(m[3]) - 1;
+            bool release = (m[4] == "m");
+            bool motion = (b & 32);
+
+            if (motion)       g_VTmouse.type = MOUSE_MOVED;
+            else if (release) g_VTmouse.type = 0x04; //MOUSE_UP;
+            else              g_VTmouse.type = 0x02; //MOUSE_DOWN;
+
+            g_VTmouse.button = (b & 3);
+            VTmouseEventMutex.unlock();
+        }
+
+    }
+}
+
+void VT_THREAD_START() {
+    std::thread VTinputThread = std::thread(ReadVTMouseEventsThread);
+    VTinputThread.detach();
+}
+
+void RestoreConsoleMode() {
+    HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+
+    if (CONSOLE_MODE == CONSOLE_VT_MODE) {
+        DisableVTMouseAndFocus();
+        fflush(stdout);
+    }
+
+    SetConsoleMode(hIn, ogInMode);
+    SetConsoleMode(hOut, ogOutMode);
 }

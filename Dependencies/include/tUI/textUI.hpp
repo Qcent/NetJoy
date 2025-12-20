@@ -544,9 +544,7 @@ public:
 
         _input[_currentPosition] = chR;
         _input[_currentPosition + 1] = L'\0';
-        ++_currentPosition;
-        if (_currentPosition > _length)
-            ++_length;
+        _length = ++_currentPosition;
     }
 
     void cursorRight(unsigned int move = 1) {
@@ -590,6 +588,20 @@ public:
     int getCursorPosition() {
         return _currentPosition;
     }
+
+    COORD getCursorScreenPosition() {
+        switch (_alignment) {
+        case 0:
+            return _screenPosLeftAutoBreak();
+            
+        case 1:
+            return _screenPosCenterAutoBreak();
+            
+        case 2:
+            return _screenPosRightAutoBreak();
+            
+        }
+    }    
 
     int getLength() {
         return _length;
@@ -638,6 +650,102 @@ private:
     unsigned int _currentPosition;
     wchar_t* _input;
     BYTE _status;
+
+    COORD _screenPosLeftAutoBreak() {
+        COORD c;
+        SHORT line = 0;
+        int remaining = _currentPosition;
+        int offset = 0;
+
+        while (true) {
+            int nextBreak = findNextLineBreak(_text, offset, _width);
+
+            if (remaining <= nextBreak)
+                break;
+
+            remaining -= nextBreak;
+            offset += nextBreak;
+            line++;
+        }
+
+        c.X = static_cast<SHORT>(_pos.X + remaining);
+        c.Y = static_cast<SHORT>(_pos.Y + line);
+        return c;
+    }
+
+
+    COORD _screenPosCenterAutoBreak() {
+        COORD c{};
+        c.X = _pos.X;
+        c.Y = _pos.Y;
+        int remaining = _currentPosition;
+        int offset = 0;
+        int line = 0;
+
+        while (true) {
+            int nextBreak = findNextLineBreak(_text, offset, _width);
+            if (remaining <= nextBreak) {
+                int lineLength = nextBreak;
+                int startX = _pos.X - (lineLength / 2);
+
+                c.X = static_cast<SHORT>(startX + remaining);
+                c.Y = static_cast<SHORT>(_pos.Y + line);
+                return c;
+            }
+            // advance to next wrapped segment
+            remaining -= nextBreak;
+            offset += nextBreak;
+            line++;
+        }
+    }
+
+
+    COORD _screenPosRightAutoBreak() {
+        int line = 0;
+        int startPoint;
+        int nextBreak;
+        int remaining = _currentPosition;
+        int i = 0;
+
+        auto setStartPoint = [&]() {
+            if (remaining > _width) {
+                nextBreak = findNextLineBreak(_text, i, _width);
+                startPoint = _pos.X - (nextBreak - 1 - i);
+            }
+            else {
+                nextBreak = _length;
+                startPoint = _pos.X - remaining + 1;
+            }
+            };
+
+        setStartPoint();
+        COORD pos = { static_cast<SHORT>(startPoint), _pos.Y };
+
+        for (i = 1; i - 1 < _length; i++) {
+            remaining--;
+
+            // Still in current line region
+            if (i - 1 < nextBreak) {
+                pos.X++;
+            }
+            else if (i < _length) {
+                // Move to next line
+                line++;
+
+                if (line > _lines && _lines) {
+                    // Stop early if line count limited
+                    break;
+                }
+
+                setStartPoint();
+                pos.X = static_cast<SHORT>(startPoint);
+                pos.Y = static_cast<SHORT>(_pos.Y + line);
+            }
+        }
+
+        return pos;
+    }
+
 };
 
 // On screen click-able button and star of the textUI class

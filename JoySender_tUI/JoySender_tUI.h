@@ -25,7 +25,6 @@ THE SOFTWARE.
 #pragma once
 
 #include <cwchar>
-#include <codecvt>
 #include <fcntl.h>
 #include <io.h>
 #include <wchar.h>
@@ -71,10 +70,6 @@ void tUI_REDRAW_MAIN_LOOP();
 void JOYSENDER_tUI_BUILD_MAP_SCREEN();
 
 #define MAP_BUTTON_CLICKED 10000  // a value to add to an input index to indicate it was clicked on
-
-#pragma warning(disable : 4996)
-// Converts strings to wide strings and back again
-std::wstring_convert<std::codecvt_utf8<wchar_t>> g_converter;
 
 int g_joystickSelected = -1;
 
@@ -566,6 +561,12 @@ char IpInputLoop() {
         return '.';
     else if (checkKey(VK_UP, IS_PRESSED))
         return '^';
+    else if (checkKey(VK_DOWN, IS_PRESSED))
+        return 'v';
+    else if (checkKey(VK_LEFT, IS_PRESSED))
+        return '<';
+    else if (checkKey(VK_RIGHT, IS_PRESSED))
+        return '>';
 
     return 'X';
 }
@@ -598,82 +599,6 @@ void uiOpenOrCreateMapping(SDLJoystickData& joystick) {
         tUIRemapInputsScreen(joystick);
     }
 }
-
-
-// ********************************
-// Previous Host IP Memories
-#define IPS_TO_REMEMBER     5
-struct previousIPData {
-    wchar_t address[IPS_TO_REMEMBER][16] = {L'\0'};
-    BYTE index = 0;
-};
-
-previousIPData g_previousIPData;
-
-void saveIPDataToFile() {
-    std::string appdataFolder = g_getenv("APPDATA");
-    appdataFolder += "\\" + std::string(APP_NAME);
-    std::filesystem::path saveFolder = std::filesystem::path(appdataFolder);
-    std::filesystem::path filename = saveFolder / ("previous.ips");
-    std::ofstream file(filename, std::ios::out | std::ios::binary);
-
-    if (file.is_open()) {
-        file.write(reinterpret_cast<const char*>(&g_previousIPData), sizeof(previousIPData));
-        file.close();
-    }
-    else {
-        //std::cerr << "Error: Unable to open pevious.ips file for writing." << std::endl;
-    }
-}
-
-void loadIPDataFromFile() {
-    std::string appdataFolder = g_getenv("APPDATA");
-    appdataFolder += "\\" + std::string(APP_NAME);
-
-    std::filesystem::path saveFolder = std::filesystem::path(appdataFolder);
-    std::filesystem::path filename = saveFolder / ("previous.ips");
-
-    previousIPData data;
-    std::ifstream file(filename, std::ios::in | std::ios::binary);
-    if (file.is_open()) {
-        file.read(reinterpret_cast<char*>(&data), sizeof(previousIPData));
-        file.close();
-    }
-    else {
-        //std::cerr << "Error: Unable to open pevious.ips file for reading." << std::endl;
-        for (int i = 0; i < IPS_TO_REMEMBER; ++i) {
-            data.address[i][0] = '\0';  // load empty address 'strings'
-        }
-    }
-
-    data.index = 0;
-    
-    g_previousIPData = data;
-}
-
-int isDuplicateIP(const wchar_t newData[16]) {
-    for (int i = 0; i < IPS_TO_REMEMBER; i++) {
-        if (std::wcscmp(g_previousIPData.address[i], newData) == 0) {
-            return i; // If duplicate is found, return index
-        }
-    }
-    return -1; // If no duplicates found, return neg
-}
-
-bool pushNewIP(const wchar_t newData[16]) {
-    int idx = isDuplicateIP(newData);
-    if (idx == 0) return true;
-    if (idx > 0) {
-        memset(g_previousIPData.address[idx], '\0', 16);
-    }
-    for (int i = (idx>0 ? idx : (IPS_TO_REMEMBER - 2)); i >= 0; i--) {
-        std::memcpy(g_previousIPData.address[i + 1], g_previousIPData.address[i], sizeof(g_previousIPData.address[i]));
-    }
-    std::memcpy(g_previousIPData.address[0], newData, sizeof(g_previousIPData.address[0]));
-
-    return true;
-}
-
 
 
 // ********************************
@@ -1129,18 +1054,11 @@ std::string tUIGetHostAddress(SDLJoystickData& activeGamepad) {
             HEARTS_N_SPADES_BUTTONS();
     }
 
-    g_previousIPData.index = 0;
+    g_previousIPData.index = -1;
 
     //set Colors values
     WORD& bg_color = fullColorSchemes[g_currentColorScheme].menuBg;
     tUIColorPkg screenButtonsCol = controllerButtonsToScreenButtons(fullColorSchemes[g_currentColorScheme].controllerColors);
-
-    COORD octPos[4] = {
-        {29, 10},
-        {33, 10},
-        {37, 10},
-        {41, 10}
-    };
 
     textInput octet[4] = {  //int x, int y, int w, int maxLength
         textInput(29, 10, 3, 3, ALIGN_CENTER, screenButtonsCol.col1),
@@ -1151,17 +1069,7 @@ std::string tUIGetHostAddress(SDLJoystickData& activeGamepad) {
 
     // Lambda for setting octet cursor position
     auto setOctetCursorPos = [&]() {
-        setCursorPosition(octPos[octNum].X + (octet[octNum].getCursorPosition() > 0) * 1, octPos[octNum].Y);
-    };
-    // Lambda function for IP address validation
-    auto validIPAddress = [](const std::string& ipAddress) {
-        if (ipAddress == "0.0.0.0" || ipAddress == "255.255.255.255") {
-            return false;
-        }
-        std::regex pattern(R"(^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}$)"); // better pattern but matches all 0s and broadcast addresses
-        
-        std::smatch match;
-        return std::regex_match(ipAddress, match, pattern);
+        setCursorPosition(octet[octNum].getCursorScreenPosition());
     };
     // Lambda for building host address
     auto buildAndTestIpAddress = [&]() {
@@ -1172,7 +1080,7 @@ std::string tUIGetHostAddress(SDLJoystickData& activeGamepad) {
         }
         host_address = g_converter.to_bytes(ipAddress);
 
-        if (validIPAddress(host_address)) {
+        if (isValidIPAddress(host_address)) {
             if (loadedBgFill) {
                 setCursorPosition(fill1x, fill1y);
                 setTextColor(fullColorSchemes[g_currentColorScheme].menuBg);
@@ -1182,13 +1090,13 @@ std::string tUIGetHostAddress(SDLJoystickData& activeGamepad) {
                 errorOut.Clear(bg_color);
             }
 
-            errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
-            setErrorMsg(L" Valid IP ! ", 38);
-            errorOut.Draw();
+            //errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col4);
+            //setErrorMsg(L" Valid IP ! ", 38);
+            //errorOut.Draw();
             output1.Draw();
-            errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2);
+            //errorOut.SetColor(fullColorSchemes[g_currentColorScheme].menuColors.col2);
             setOctetCursorPos();
-            errorShown = true;
+            //errorShown = true;
             return 1;
         }
         else if (errorShown)
@@ -1212,8 +1120,9 @@ std::string tUIGetHostAddress(SDLJoystickData& activeGamepad) {
         return 0;
     };
 
+    auto blank = L"0.0.0.0";
     // Lambda for loading previous ip address
-    auto loadPreviousIP = [&]() {
+    auto loadPreviousIP = [&](bool down=false) {
         // load ip into octets
         int dotCount = 0;
 
@@ -1221,7 +1130,24 @@ std::string tUIGetHostAddress(SDLJoystickData& activeGamepad) {
         octet[dotCount].clearBuffer();
         //octet[dotCount].cursorToBegin();
 
-        wchar_t* charArray = g_previousIPData.address[g_previousIPData.index];
+        const wchar_t* charArray = blank;
+
+        if (down) {
+            if (g_previousIPData.index > 0) {
+                charArray = g_previousIPData.address[--g_previousIPData.index];
+            }
+            else {
+                g_previousIPData.index = -1;
+            }
+        }
+        else {
+            if(++g_previousIPData.index > IPS_TO_REMEMBER - 1) {
+                    g_previousIPData.index = 0;
+                }
+            charArray = g_previousIPData.address[g_previousIPData.index];
+        }
+
+        
         for (size_t i = 0; i < 16; i++) {
             if (charArray[i] == '\0') {
                 if(!i){
@@ -1251,11 +1177,6 @@ std::string tUIGetHostAddress(SDLJoystickData& activeGamepad) {
             }
         }
         octet[dotCount].Draw();
-
-        // increment index
-        if (++g_previousIPData.index > IPS_TO_REMEMBER-1) {
-            g_previousIPData.index = 0;
-        }
       
         return dotCount;
     };
@@ -1309,7 +1230,7 @@ std::string tUIGetHostAddress(SDLJoystickData& activeGamepad) {
         PRINT_EGG_X();
         setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col3);
         printCurrentController(activeGamepad);
-        errorOut.Draw(); // errors not shown on this screen (pre udp)
+        errorOut.Draw();
         g_screen.DrawInputs();
         setTextColor(fullColorSchemes[g_currentColorScheme].menuColors.col1);
         setCursorPosition(12, 8);
@@ -1354,7 +1275,7 @@ std::string tUIGetHostAddress(SDLJoystickData& activeGamepad) {
         setOctetCursorPos();
 
         char num = IpInputLoop();
-        // B: backspace, D: delete, N: next octet, .: dot, X: nothing, ^: recall recent ip
+        // B: backspace, D: delete, N: next octet, .: dot, X: nothing, ^/v: recall recent ip, </>: move cursor
         if (num == '^') {
             octNum = loadPreviousIP();
             validIP = buildAndTestIpAddress();
@@ -1365,6 +1286,42 @@ std::string tUIGetHostAddress(SDLJoystickData& activeGamepad) {
             else {
                 octet[octNum].back();
             }
+            setOctetCursorPos();
+        }
+        else if (num == 'v') {
+            octNum = loadPreviousIP(true);
+            validIP = buildAndTestIpAddress();
+
+            if (host_address == g_converter.to_bytes(blank)) {
+                octNum = 0;
+                octet[octNum].cursorToBegin();
+                setOctetCursorPos();
+            }
+
+            if (octNum) {
+                octet[octNum].cursorToEnd();
+            }
+            else {
+                octet[octNum].back();
+            }
+            setOctetCursorPos();
+        }
+        else if (num == '<') {
+            if (!octet[octNum].getCursorPosition() && octNum) {
+                octet[--octNum].cursorToEnd();
+                if (octet[octNum].getLength() == 3)
+                    octet[octNum].cursorLeft();
+            }
+            else {
+                octet[octNum].cursorLeft();
+            }
+            setOctetCursorPos();
+        }
+        else if (num == '>') {
+            if (octet[octNum].getCursorPosition() >= octet[octNum].getLength() && octNum < 3) {
+                octet[++octNum].cursorToBegin();
+            }
+            else octet[octNum].cursorRight();
             setOctetCursorPos();
         }
         else if (num == '.') {
@@ -1415,19 +1372,21 @@ std::string tUIGetHostAddress(SDLJoystickData& activeGamepad) {
             validIP = buildAndTestIpAddress();
         }
         else if (octNum < 4 && num != 'N' && num != 'X') {
-            octet[octNum].overwrite(num);
+            octet[octNum].Clear();
+            octet[octNum].overwrite(num);            
             octet[octNum].Draw();
 
             validIP = buildAndTestIpAddress();
         }
-        if (num == 'N' || octet[octNum].getCursorPosition() > 2) {
+        if (num == 'N' || (octet[octNum].getCursorPosition() > 2 && num != '<')) {
             if (!octet[octNum].getLength()) {
                 octet[octNum].insert(L'0');
                 octet[octNum].Draw();
             }
+            octet[octNum].cursorToEnd();
                     
             firstDot = 0;
-            octNum = std::min(octNum+1,4);
+            octNum = std::min(octNum+1,3);
             octet[octNum].cursorToBegin();
             setOctetCursorPos();
         }

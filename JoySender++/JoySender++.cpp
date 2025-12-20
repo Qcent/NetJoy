@@ -364,6 +364,7 @@ int main(int argc, char **argv)
     if (err) return -1;
 
     enableANSI();
+    init_VT(inMode, outMode);
     hideConsoleCursor();
 
     int RUN = 1;

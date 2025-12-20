@@ -25,7 +25,7 @@ THE SOFTWARE.
 #pragma once
 #define NOMINMAX
 
-#define APP_VERSION_NUM     L"3.0.6.0"
+#define APP_VERSION_NUM     L"3.0.7.0"
 
 #include <iostream>
 #include <conio.h>
@@ -55,6 +55,126 @@ void displayOutputText();
 extern void uiOpenOrCreateMapping(SDLJoystickData&);
 #endif
 
+
+// ********************************
+// Previous Host IP Memories
+#define IPS_TO_REMEMBER     5
+struct previousIPData {
+    wchar_t address[IPS_TO_REMEMBER][16] = { L'\0' };
+    int index = -1;
+};
+
+previousIPData g_previousIPData;
+
+void saveIPDataToFile() {
+    std::string appdataFolder = g_getenv("APPDATA");
+    appdataFolder += "\\" + std::string(APP_NAME);
+    std::filesystem::path saveFolder = std::filesystem::path(appdataFolder);
+    std::filesystem::path filename = saveFolder / ("previous.ips");
+    std::ofstream file(filename, std::ios::out | std::ios::binary);
+
+    if (file.is_open()) {
+        file.write(reinterpret_cast<const char*>(&g_previousIPData), sizeof(previousIPData));
+        file.close();
+    }
+    else {
+        //std::cerr << "Error: Unable to open pevious.ips file for writing." << std::endl;
+    }
+}
+
+void loadIPDataFromFile() {
+    std::string appdataFolder = g_getenv("APPDATA");
+    appdataFolder += "\\" + std::string(APP_NAME);
+
+    std::filesystem::path saveFolder = std::filesystem::path(appdataFolder);
+    std::filesystem::path filename = saveFolder / ("previous.ips");
+
+    previousIPData data;
+    std::ifstream file(filename, std::ios::in | std::ios::binary);
+    if (file.is_open()) {
+        file.read(reinterpret_cast<char*>(&data), sizeof(previousIPData));
+        file.close();
+    }
+    else {
+        //std::cerr << "Error: Unable to open pevious.ips file for reading." << std::endl;
+        for (int i = 0; i < IPS_TO_REMEMBER; ++i) {
+            data.address[i][0] = '\0';  // load empty address 'strings'
+        }
+    }
+
+    data.index = -1;
+
+    g_previousIPData = data;
+}
+
+int isDuplicateIP(const wchar_t newData[16]) {
+    for (int i = 0; i < IPS_TO_REMEMBER; i++) {
+        if (std::wcscmp(g_previousIPData.address[i], newData) == 0) {
+            return i; // If duplicate is found, return index
+        }
+    }
+    return -1; // If no duplicates found, return neg
+}
+
+bool pushNewIP(const wchar_t newData[16]) {
+    int idx = isDuplicateIP(newData);
+    if (idx == 0) return false;
+    if (idx > 0) {
+        for (int i = idx; i > 0; --i) {
+            std::memcpy(g_previousIPData.address[i], g_previousIPData.address[i - 1], sizeof(g_previousIPData.address[i]));
+        }
+    }
+    else { // Not duplicate
+        for (int i = IPS_TO_REMEMBER - 1; i > 0; --i) {
+            std::memcpy(g_previousIPData.address[i],g_previousIPData.address[i - 1],sizeof(g_previousIPData.address[i]));
+        }
+    }
+    std::memcpy(g_previousIPData.address[0], newData, sizeof(g_previousIPData.address[0]));
+
+    return true;
+}
+
+
+bool VT_ip_memory_up(std::string& line) {
+    if (++g_previousIPData.index > IPS_TO_REMEMBER-1) g_previousIPData.index = 0;
+    line = g_converter.to_bytes(g_previousIPData.address[g_previousIPData.index]);
+    return true;
+}
+
+bool VT_ip_memory_down(std::string& line) {
+    if (g_previousIPData.index-- < 0) {
+        line = ""; 
+        g_previousIPData.index = -1;
+    }
+    else line = g_converter.to_bytes(g_previousIPData.address[g_previousIPData.index]);
+    return true;
+}
+
+void init_VT(DWORD inMode, DWORD outMode) {
+    if (CONSOLE_MODE == CONSOLE_VT_MODE) {
+        HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
+        HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+
+        outMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+        SetConsoleMode(hOut, outMode);
+
+        // turn off line buffering and echo
+        inMode &= ~(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT);
+        inMode |= ENABLE_VIRTUAL_TERMINAL_INPUT;
+        SetConsoleMode(hIn, inMode);
+
+        EnableVTMouseAndFocus();
+        printf("\x1b[2J\x1b[H"); // clear screen
+        fflush(stdout);
+
+        loadIPDataFromFile();
+
+        std::thread VTinputThread = std::thread(ReadVTMouseEventsThread);
+        VTinputThread.detach();
+    }
+}
+
+
 // Function to display g_outputText to console
 void displayOutputText() {
     clearConsoleScreen();
@@ -62,19 +182,13 @@ void displayOutputText() {
 }
 // Function that will prompt for and verify an ip address 
 std::string getHostAddress() {
-    // Lambda function for IP address validation
-    auto validIPAddress = [](const std::string& ipAddress) {
-        std::regex pattern(R"((\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b))");
-        std::smatch match;
-        return std::regex_match(ipAddress, match, pattern);
-        };
     swallowInput();
     std::string host_address;
     showConsoleCursor();
     while (!APP_KILLED && host_address.empty()) {
-        std::cout << "Please enter the host IP address (" << (UDP_COMMUNICATION ? "UDP" : "TCP") << ") :"; // (blank = localhost) : ";
-        //std::cin.ignore(80, '\n'); // Flush the input stream
-        std::getline(std::cin, host_address);
+        std::cout << "Please enter the host IP address (" << (UDP_COMMUNICATION ? "UDP" : "TCP") << "): ";
+        if (CONSOLE_MODE == CONSOLE_VT_MODE) host_address = VT_getline(VT_ip_memory_up, VT_ip_memory_down);
+        else std::getline(std::cin, host_address);
 
         if (host_address.empty()) {
             host_address = "127.0.0.1";
@@ -98,11 +212,16 @@ std::string getHostAddress() {
             return "";
         }
 
-        if (!validIPAddress(host_address)) {
+        if (!isValidIPAddress(host_address)) {
             std::cout << "Invalid IP address. Please try again." << std::endl;
             host_address = "";
+            g_previousIPData.index = -1;
+        }
+        else if (pushNewIP(g_converter.from_bytes(host_address).c_str())) {
+            saveIPDataToFile();
         }
     }
+    g_previousIPData.index = -1;
     hideConsoleCursor();
     return host_address;
 }
@@ -372,7 +491,8 @@ int JOYSENDER_CONSOLE_SELECT_DS4_DIALOG(bool autoSelect=false) {
 
     if (devList.size() == 0) {
         std::cout << "\t No Connected DS4 Controllers \n Connect a controller and press a key..." << std::endl;
-        _getch();
+        if (CONSOLE_MODE == CONSOLE_VT_MODE) VT_getch();
+        else _getch();
         return JOYSENDER_CONSOLE_SELECT_DS4_DIALOG();
     }
     if (autoSelect && devList.size() > 0) {
