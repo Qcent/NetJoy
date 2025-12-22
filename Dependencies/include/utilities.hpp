@@ -34,6 +34,10 @@ THE SOFTWARE.
 #include <codecvt>
 #include <regex>
 
+struct Vec3 {
+    double x, y, z;
+};
+
 #define CONSOLE_HOST_MODE   0x01
 #define CONSOLE_VT_MODE     0x02
 byte CONSOLE_MODE = 0;
