@@ -292,6 +292,22 @@ public:
     using exchangeArray = std::optional<std::array<uchar, exchangeLen>>;
     NxControllerInfo info = {};
 
+    inline static int16_t read_int16_be(const uint8_t* p) noexcept {
+        // reinterpret as unsigned so shifts behave well
+        return *reinterpret_cast<const uint16_t*>(p);
+    }
+    inline static int16_t read_int16_le(const uint8_t* p) noexcept {
+        // reinterpret as unsigned so shifts behave well
+        uint16_t val = *reinterpret_cast<const uint16_t*>(p);
+#if defined(_M_IX86) || defined(_M_X64)
+        // On x86/x64, unaligned access is fine
+        return static_cast<int16_t>(_byteswap_ushort(val));
+#else
+        // Fallback for architectures where unaligned access is not allowed
+        return static_cast<int16_t>(p[0] | (p[1] << 8));
+#endif
+    }
+
 private:
     HidDeviceManager* hidManager;   // external manager 
     std::array<uchar, exchangeLen> _ret{}; // reuse this array for all reads from controller
@@ -415,29 +431,20 @@ private:
         ds4_report.Report.bThumbRY = static_cast<uint8_t>((rawRightY * 255) / 65535);
     }
 
-    inline static int16_t read_int16_be(const uint8_t* p) noexcept {
-        // reinterpret as unsigned so shifts behave well
-        return *reinterpret_cast<const uint16_t*>(p);
-    }
-    inline static int16_t read_int16_le(const uint8_t* p) noexcept {
-        // reinterpret as unsigned so shifts behave well
-        uint16_t val = *reinterpret_cast<const uint16_t*>(p);
-#if defined(_M_IX86) || defined(_M_X64)
-        // On x86/x64, unaligned access is fine
-        return static_cast<int16_t>(_byteswap_ushort(val));
-#else
-        // Fallback for architectures where unaligned access is not allowed
-        return static_cast<int16_t>(p[0] | (p[1] << 8));
-#endif
-    }
-
     static void setDS4ImuValues(const uint8_t* data, DS4_REPORT_EX& ds4_report, imuCalibValues& cal) {
         constexpr int sampleCount = 3;
         constexpr int sampleSize = 12; // 6x int16 per sample
+        static Vec3 gbias, abias = { 0 };
+#ifdef DEVTEST
+        static bool cntrlrSate = false;
+        static int forceOutput = 0;
+#endif
 
-#if 1 //  Average the three samples in the report
-        int accelX = 0, accelY = 0, accelZ = 0, xNULL = 0;
-        int gyroX = 0, gyroY = 0, gyroZ = 0;
+       
+
+         //  Average the three samples in the report
+        Vec3 gyro = { 0 };
+        Vec3 accel = { 0 };
 
         for (int i = 0; i < sampleCount; ++i) {  
             const uint8_t* sample = data + 13 + i * sampleSize;
@@ -449,67 +456,63 @@ private:
             int16_t gy = read_int16_be(sample + 8);
             int16_t gz = read_int16_be(sample + 10);
             
-            accelX += ax;
-            accelY += ay;
-            accelZ += az;
-            gyroX += gx;
-            gyroY += gy;
-            gyroZ += gz;
+            accel.x += ax;
+            accel.y += ay;
+            accel.z += az;
+            gyro.x += gx;
+            gyro.y += gy;
+            gyro.z += gz;
          }
         
         // Average
-        accelX /= sampleCount;
-        accelY /= sampleCount;
-        accelZ /= sampleCount;
-        gyroX /= sampleCount;
-        gyroY /= sampleCount;
-        gyroZ /= sampleCount;
+        accel.x /= sampleCount;
+        accel.y /= sampleCount;
+        accel.z /= sampleCount;
+        gyro.x /= sampleCount;
+        gyro.y /= sampleCount;
+        gyro.z /= sampleCount;
+        
 
-#else // No averaging the 3 samples
-        const uint8_t* sample = data + 13
+        // stabilize
+        Vec3 g,a;
+        g.x = gyro.x - gbias.x;
+        g.y = gyro.y - gbias.y;
+        g.z = gyro.z - gbias.z;
 
-        int16_t accelX = read_int16_be(sample + 0);
-        int16_t accelY = read_int16_be(sample + 2);
-        int16_t accelZ = read_int16_be(sample + 4);
-        int16_t gyroX = read_int16_be(sample + 6);
-        int16_t gyroY = read_int16_be(sample + 8);
-        int16_t gyroZ = read_int16_be(sample + 10);
+        a.x = accel.x - abias.x;
+        a.y = accel.y - abias.y;
+        a.z = accel.z - abias.z;
 
+        
+        double mag = std::sqrt(gyro.x * gyro.x + gyro.y * gyro.y + gyro.z * gyro.z);
+        if (mag < 36.0) { // stillness threshold
+            update_bias2(gbias, gyro);
+            update_bias2(abias, accel);
+            gbias.z = gyro.z; // reset yaw
+            abias.z = accel.z; // reset yaw
+            //g.z *= 0.88; // decay residual yaw
+            //a.z *= 0.88; // decay residual yaw
+
+#ifdef DEVTEST
+            if (cntrlrSate) {
+                std::cout << " Resting             ";
+                repositionConsoleCursor(0, 0);
+                cntrlrSate = false;
+            }
 #endif
 
-       
-        // Convert
-#if 0
-        // PITCH        //## extra math (calibration calulations) not working
-        ds4_report.Report.wAccelX = static_cast<int16_t>(-(accelY * cal.raw.accelScaleY) / cal.accel_divisor[1]); // left/right tilt
-        // YAW
-        ds4_report.Report.wAccelY = static_cast<int16_t>((accelZ * cal.raw.accelScaleZ) / cal.accel_divisor[2]);  // back/forward tilt
-        // ROLL
-        ds4_report.Report.wAccelZ = static_cast<int16_t>(-(accelX * cal.raw.accelScaleX) / cal.accel_divisor[0]);  // left/right rotation
+        }
 
-        // PITCH
-        ds4_report.Report.wGyroX = mult_frac(static_cast<int16_t>(JC_IMU_PREC_RANGE_SCALE * -(gyroY - cal.raw.gyroOffsetY)), cal.raw.gyroScaleY, cal.gyro_divisor[1]);
-        // YAW
-        ds4_report.Report.wGyroY = mult_frac(static_cast<int16_t>(JC_IMU_PREC_RANGE_SCALE * (gyroZ - cal.raw.gyroOffsetZ)), cal.raw.gyroScaleZ, cal.gyro_divisor[0]);
-        // ROLL
-        ds4_report.Report.wGyroZ = mult_frac(static_cast<int16_t>(JC_IMU_PREC_RANGE_SCALE * -(gyroX - cal.raw.gyroOffsetX)), cal.raw.gyroScaleX, cal.gyro_divisor[2]);
+#ifdef DEVTEST
+        else if(!cntrlrSate || ++forceOutput > 30){
+            std::cout << " Moving: " << mag;
+            repositionConsoleCursor(0, 0);
+            cntrlrSate = true;
+            forceOutput = 0;
+        }
+#endif
 
-#else
-        /*
-        // PITCH        //## passing the raw values is working, removing extra math (calibration calulations) for now
-        ds4_report.Report.wAccelX = -accelY;// static_cast<int16_t>(-(accelY * cal.raw.accelScaleY) / cal.accel_divisor[1]); // left/right tilt
-        // YAW
-        ds4_report.Report.wAccelY = accelZ;//static_cast<int16_t>((accelX * cal.raw.accelScaleX) / cal.accel_divisor[0]);  // back/forward tilt
-        // ROLL
-        ds4_report.Report.wAccelZ = -accelX;//static_cast<int16_t>((accelZ * cal.raw.accelScaleZ) / cal.accel_divisor[2]);  // left/right rotation
 
-        // PITCH
-        ds4_report.Report.wGyroX = -gyroY;// mult_frac(static_cast<int16_t>(JC_IMU_PREC_RANGE_SCALE * -(gyroY - cal.raw.gyroOffsetY)), cal.raw.gyroScaleY, cal.gyro_divisor[1]);
-        // YAW
-        ds4_report.Report.wGyroY = gyroZ;//mult_frac(static_cast<int16_t>(JC_IMU_PREC_RANGE_SCALE * (gyroX - cal.raw.gyroOffsetX)), cal.raw.gyroScaleX, cal.gyro_divisor[0]);
-        // ROLL
-        ds4_report.Report.wGyroZ = -gyroX;//mult_frac(static_cast<int16_t>(JC_IMU_PREC_RANGE_SCALE * (gyroZ - cal.raw.gyroOffsetZ)), cal.raw.gyroScaleZ, cal.gyro_divisor[2]);
-        */
 
         byte axisFlips = _getFlips();
         const int sX = boolToSign(axisFlips & 0x01);
@@ -517,15 +520,14 @@ private:
         const int sZ = boolToSign(axisFlips & 0x04);
 
         // ACCEL
-        ds4_report.Report.wAccelX = sY * accelY; // Pitch
-        ds4_report.Report.wAccelY = sZ * accelZ; // Yaw
-        ds4_report.Report.wAccelZ = sX * accelX; // Roll
+        ds4_report.Report.wAccelX = sY * a.y; // Pitch
+        ds4_report.Report.wAccelY = sZ * a.z; // Yaw
+        ds4_report.Report.wAccelZ = sX * a.x; // Roll
 
         // GYRO
-        ds4_report.Report.wGyroX = sY * gyroY - cal.raw.gyroOffsetY; // Pitch
-        ds4_report.Report.wGyroY = sZ * gyroZ - cal.raw.gyroOffsetZ; // Yaw
-        ds4_report.Report.wGyroZ = sX * gyroX - cal.raw.gyroOffsetX; // Roll
-#endif
+        ds4_report.Report.wGyroX = sY * g.y; // Pitch
+        ds4_report.Report.wGyroY = sZ * g.z; // Yaw
+        ds4_report.Report.wGyroZ = sX * g.x; // Roll
 
 
 #if DEVTEST && defined(NetJoyTUI) // for visual on 6 axis data
@@ -539,18 +541,58 @@ private:
 #endif
     }
 
+    static void update_bias(
+        Vec3& bias,
+        const Vec3& gyro,
+        double alpha = 0.0005
+    )
+    {
+        bias.x = (1.0 - alpha) * bias.x + alpha * gyro.x;
+        bias.y = (1.0 - alpha) * bias.y + alpha * gyro.y;
+        bias.z = (1.0 - alpha) * bias.z + alpha * gyro.z;
+    }
+
+    static void update_bias2(
+        Vec3& bias,
+        const Vec3& gyro,
+        double alpha = 0.0005,
+        double yaw_alpha = 0.0
+    )
+    {
+        bias.x = (1.0 - alpha) * bias.x + alpha * gyro.x;
+        bias.y = (1.0 - alpha) * bias.y + alpha * gyro.y;
+        //bias.z = (1.0 - yaw_alpha) * bias.z + yaw_alpha * gyro.z;
+    }
+
+
     static byte _getFlips() {
-        static byte axisFlips = 0x01;
+        static byte axisFlips = 0x03;
         if (checkKey(VK_MENU, IS_PRESSED)) {
-            if (checkKey('R', IS_PRESSED)) { // x-axis roll
+            if (checkKey('O', IS_PRESSED)) { // x-axis roll
                 axisFlips ^= 0x01;
+#if DEVTEST
+                std::cout << "Flipped Roll \n";
+#endif
             }
             if (checkKey('P', IS_PRESSED)) { // y-axis pitch
                 axisFlips ^= 0x02;
+#if DEVTEST
+                std::cout << "Flipped Pitch \n";
+#endif
+
             }
             if (checkKey('Y', IS_PRESSED)) { // z-axis yaw
                 axisFlips ^= 0x04;
+#if DEVTEST
+                std::cout << "Flipped Yaw \n";
+#endif
+
             }
+#if DEVTEST
+            if (checkKey('I', IS_PRESSED)) {
+                std::cout << "axisFlips : " << (int)axisFlips << '\n';
+            }
+#endif
         }
         return axisFlips;
     }
@@ -980,21 +1022,21 @@ private:
 #else
         const uint8_t* sample = raw.data();
 
-        imu.gyroOffsetX = read_int16_le(sample + 0);
-        imu.gyroOffsetY = read_int16_le(sample + 2);
-        imu.gyroOffsetZ = read_int16_le(sample + 4);
+        imu.gyroOffsetX = read_int16_be(sample + 0);
+        imu.gyroOffsetY = read_int16_be(sample + 2);
+        imu.gyroOffsetZ = read_int16_be(sample + 4);
 
-        imu.accelOffsetX = read_int16_le(sample + 6);
-        imu.accelOffsetY = read_int16_le(sample + 8);
-        imu.accelOffsetZ = read_int16_le(sample + 10);
+        imu.accelOffsetX = read_int16_be(sample + 6);
+        imu.accelOffsetY = read_int16_be(sample + 8);
+        imu.accelOffsetZ = read_int16_be(sample + 10);
 
-        imu.gyroScaleX = read_int16_le(sample + 12);
-        imu.gyroScaleY = read_int16_le(sample + 14);
-        imu.gyroScaleZ = read_int16_le(sample + 16);
+        imu.gyroScaleX = read_int16_be(sample + 12);
+        imu.gyroScaleY = read_int16_be(sample + 14);
+        imu.gyroScaleZ = read_int16_be(sample + 16);
 
-        imu.accelScaleX = read_int16_le(sample + 18);
-        imu.accelScaleY = read_int16_le(sample + 20);
-        imu.accelScaleZ = read_int16_le(sample + 22);
+        imu.accelScaleX = read_int16_be(sample + 18);
+        imu.accelScaleY = read_int16_be(sample + 20);
+        imu.accelScaleZ = read_int16_be(sample + 22);
 #endif
 
         return true;

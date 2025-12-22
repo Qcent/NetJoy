@@ -25,7 +25,7 @@ THE SOFTWARE.
 #pragma once
 #define NOMINMAX
 
-#define APP_VERSION_NUM     L"3.0.7.0"
+#define APP_VERSION_NUM     L"3.0.7.1"
 
 #include <iostream>
 #include <conio.h>
@@ -325,9 +325,15 @@ void processFeedbackBuffer(const byte* buffer, SDLJoystickData& activeGamepad, i
             break;
 
         case(NxProController_TYPE):
-            if (update && (buffer[0] || buffer[1])) {
-                NxRumble::instance().setFrame({ 0.0f, (static_cast<float>(buffer[0]) / 255.0f),
-                                                     0.0f, (static_cast<float>(buffer[1]) / 255.0f), 1200 });
+            if (update){
+                if (buffer[0] || buffer[1]) {
+                    NxRumble::instance().setFrame({ 0.0f, (static_cast<float>(buffer[0]) / 255.0f),
+                                                         0.0f, (static_cast<float>(buffer[1]) / 255.0f), 900 });
+                }
+                else {
+                    NxRumble::instance().setFrame({ 0.0f, (static_cast<float>(buffer[0]) / 255.0f),
+                                                         0.0f, (static_cast<float>(buffer[1]) / 255.0f), 0 });
+                }
             }
             break;
         }
@@ -353,16 +359,12 @@ void JOYSENDER_OPMODE_INIT(SDLJoystickData& activeGamepad, Arguments& args, int&
             NxPro.sendSubcommand(0x1, ledCommand, led);
 
             NxPro.loadCalibration();
-
-            //ImuCal = NxPro.info.calibCoeff;
-
+          
             auto NxReport = NxPro.GetReport();
-
             bool extReport = NxReport.value()[0] != 63; // report id when BT and no IMU: 63 (flawed, but successful)
             NxPro.parseConnection(NxReport); // cannot parse correctly until extended reports are enabled ie. IMU data
 
-           NxPro.selfCalibrate();
-
+            //NxPro.selfCalibrate(); 
          
 #if 0
             for (int i = 0; i < 6; i++) {
