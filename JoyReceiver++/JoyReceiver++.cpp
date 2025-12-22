@@ -81,7 +81,7 @@ int main(int argc, char* argv[]) {
 
     // Set Up Console
     hideConsoleCursor();
-    std::system("cls");
+    clearConsoleScreen();
     ///********************************
     // Make Connection -> Receive Input Loop
     while (!APP_KILLED) {
@@ -186,7 +186,7 @@ int main(int argc, char* argv[]) {
         /* End of Receive Joystick Data Loop */
         
         if (!APP_KILLED) {
-            std::system("cls");
+            clearConsoleScreen();
             std::cout << "<< Connection (" << connectionIP << ") Lost >>" << std::endl;
         }
 
