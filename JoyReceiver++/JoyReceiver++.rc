@@ -61,8 +61,8 @@ IDI_ICON1               ICON                    "icon6.ico"
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 3,0,7,1
- PRODUCTVERSION 3,0,7,1
+ FILEVERSION 3,0,7,2
+ PRODUCTVERSION 3,0,7,2
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -79,12 +79,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Quinnco. Enterprises"
             VALUE "FileDescription", "JoyReceiver++"
-            VALUE "FileVersion", "3.0.7.1"
+            VALUE "FileVersion", "3.0.7.2"
             VALUE "InternalName", "JoyReceiver++"
             VALUE "LegalCopyright", "Copyright (C) 2025 Quinnco. Enterprises"
             VALUE "OriginalFilename", "joyReceiver++.exe"
             VALUE "ProductName", "JoyReceiver++"
-            VALUE "ProductVersion", "3.0.7.1"
+            VALUE "ProductVersion", "3.0.7.2"
         END
     END
     BLOCK "VarFileInfo"

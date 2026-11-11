@@ -25,7 +25,7 @@ THE SOFTWARE.
 #pragma once
 #define NOMINMAX
 
-#define APP_VERSION_NUM     L"3.0.7.1"
+#define APP_VERSION_NUM     L"3.0.7.2"
 
 #include <iostream>
 #include <conio.h>
