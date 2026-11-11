@@ -685,6 +685,15 @@ void get_sdljoystick_mapping_input(const SDLJoystickData& joystick, SDLButtonMap
                 // Values went from + to -
                 input.set(SDLButtonMapping::ButtonType::STICK, i, ANALOG_RANGE_POS_TO_NEG);
             }
+              // digital switch inplace of analog range
+            else if (inital_reading < 0 && low_reading == INT16_MAX && high_reading == INT16_MAX) { 
+                // Values went from -32768 to +32767
+                input.set(SDLButtonMapping::ButtonType::STICK, i, ANALOG_RANGE_NEG_TO_POS);
+            }
+            else if (inital_reading > 0 && low_reading == INT16_MIN && high_reading == INT16_MIN) {
+                // Values went from +32767 to -32768
+                input.set(SDLButtonMapping::ButtonType::STICK, i, ANALOG_RANGE_POS_TO_NEG);
+            }
 
             return;
         }

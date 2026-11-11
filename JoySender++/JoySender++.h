@@ -358,13 +358,13 @@ void JOYSENDER_OPMODE_INIT(SDLJoystickData& activeGamepad, Arguments& args, int&
             NxPro.sendSubcommand(0x1, imuDataCommand, enable);
             NxPro.sendSubcommand(0x1, ledCommand, led);
 
-            NxPro.loadCalibration();
+            NxPro.loadCalibration();  // not used
           
             auto NxReport = NxPro.GetReport();
             bool extReport = NxReport.value()[0] != 63; // report id when BT and no IMU: 63 (flawed, but successful)
             NxPro.parseConnection(NxReport); // cannot parse correctly until extended reports are enabled ie. IMU data
 
-            //NxPro.selfCalibrate(); 
+            //NxPro.selfCalibrate(); // not needed
          
 #if 0
             for (int i = 0; i < 6; i++) {
